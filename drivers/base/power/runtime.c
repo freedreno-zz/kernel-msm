@@ -392,6 +392,8 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 	if (retval) {
 		__update_runtime_status(dev, RPM_ACTIVE);
 		dev->power.deferred_resume = 0;
+		wake_up_all(&dev->power.wait_queue);
+
 		if (retval == -EAGAIN || retval == -EBUSY) {
 			dev->power.runtime_error = 0;
 
@@ -416,8 +418,8 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 			parent = dev->parent;
 			atomic_add_unless(&parent->power.child_count, -1, 0);
 		}
+		wake_up_all(&dev->power.wait_queue);
 	}
-	wake_up_all(&dev->power.wait_queue);
 
 	if (dev->power.deferred_resume) {
 		rpm_resume(dev, 0);
