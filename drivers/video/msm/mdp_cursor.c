@@ -46,6 +46,8 @@ static __u32 width, height, bg_color;
 static int calpha_en, transp_en, alpha;
 static int sync_disabled = -1;
 
+static __u32 tmpcbuf[MDP_CURSOR_WIDTH*MDP_CURSOR_HEIGHT];
+
 void mdp_cursor_ctrl_workqueue_handler(struct work_struct *work)
 {
 	unsigned long flag;
@@ -134,26 +136,83 @@ static void mdp_hw_cursor_enable_vsync(void)
 	}
 }
 
+#define CONFIG_FB_MSM_FLIP_UD
+
 int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct fb_image *img = &cursor->image;
 	unsigned long flag;
 	int sync_needed = 0, ret = 0;
+#if defined(CONFIG_FB_MSM_FLIP_LR) || defined(CONFIG_FB_MSM_FLIP_UD)
+	unsigned i, j, ti, tj;
+	__u32 *cbuf;
+	__u32 setdx, setdy;
+#endif
 
 	if ((img->width > MDP_CURSOR_WIDTH) ||
 	    (img->height > MDP_CURSOR_HEIGHT) ||
 	    (img->depth != 32))
 		return -EINVAL;
 
-	if (cursor->set & FB_CUR_SETPOS)
-		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | img->dx);
+#if defined(CONFIG_FB_MSM_FLIP_LR) || defined(CONFIG_FB_MSM_FLIP_UD)
+
+	if (cursor->set & FB_CUR_SETPOS) {
+
+		// translate coords
+
+#if defined(CONFIG_FB_MSM_FLIP_UD)
+		setdy = info->var.yres - 1 - img->dy - img->height;
+#else
+		setdy = img->dy;
+#endif
+
+#if defined(CONFIG_FB_MSM_FLIP_LR)
+		setdx = info->var.xres - 1 - img->dx - img->width;
+#else
+		setdx = img->dx;
+#endif
+
+		MDP_OUTP(MDP_BASE + 0x9004c, (setdy << 16) | (setdx & 0xffff));
+	}
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
-		ret = copy_from_user(mfd->cursor_buf, img->data,
+		cbuf = (__u32*)(mfd->cursor_buf);
+		ret = copy_from_user(tmpcbuf, img->data,
 					img->width*img->height*4);
 		if (ret)
 			return ret;
+
+		// translate cursor image
+		for (i = 0; i < img->height; i++) {
+			for (j = 0; j < img->width; j++) {
+
+#if defined(CONFIG_FB_MSM_FLIP_UD)
+				ti = img->height - i - 1;
+#else
+				ti = i;
+#endif
+
+#if defined(CONFIG_FB_MSM_FLIP_LR)
+				tj = img->width - j - 1;
+#else
+				tj = j;
+#endif
+
+				cbuf[tj + ti * img->width] = tmpcbuf[j + i * img->width];
+			}
+		}
+#else
+	if (cursor->set & FB_CUR_SETPOS) {
+		MDP_OUTP(MDP_BASE + 0x9004c, (img->dy << 16) | (img->dx & 0xffff));
+	}
+
+	if (cursor->set & FB_CUR_SETIMAGE) {
+		ret = copy_from_user(tmpcbuf, img->data,
+					img->width*img->height*4);
+		if (ret)
+			return ret;
+#endif
 
 		spin_lock_irqsave(&mdp_spin_lock, flag);
 		if (img->bg_color == 0xffffffff)
