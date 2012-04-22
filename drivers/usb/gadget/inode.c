@@ -1795,7 +1795,7 @@ static void gadgetfs_nop(struct usb_gadget *arg) { }
 static int gadgetfs_probe (struct usb_gadget *gadget)
 {
 	CHIP = gadget->name;
-	return -EISNAM;
+	return 0;
 }
 
 static struct usb_gadget_driver probe_driver = {

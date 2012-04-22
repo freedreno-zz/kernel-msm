@@ -1090,9 +1090,11 @@ static void handle_setup(struct usb_info *ui)
 
 	/* delegate if we get here */
 	if (ui->driver) {
-		ret = ui->driver->setup(&ui->gadget, &ctl);
-		if (ret >= 0)
-			return;
+		if (!WARN_ON_ONCE(!ui->driver->setup)) {
+			ret = ui->driver->setup(&ui->gadget, &ctl);
+			if (ret >= 0)
+				return;
+		}
 	}
 
 stall:
@@ -1268,7 +1270,9 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 			ui->flags = USB_FLAG_CONFIGURED;
 			spin_unlock_irqrestore(&ui->lock, flags);
 
-			ui->driver->resume(&ui->gadget);
+			if (!WARN_ON_ONCE(!ui->driver->resume))
+				ui->driver->resume(&ui->gadget);
+
 			schedule_work(&ui->work);
 		} else {
 			msm_hsusb_set_state(USB_STATE_DEFAULT);
@@ -1339,7 +1343,10 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 		ui->flags = USB_FLAG_SUSPEND;
 		spin_unlock_irqrestore(&ui->lock, flags);
 
-		ui->driver->suspend(&ui->gadget);
+
+		if (!WARN_ON_ONCE(!ui->driver->suspend))
+			ui->driver->suspend(&ui->gadget);
+
 		schedule_work(&ui->work);
 #ifdef CONFIG_USB_OTG
 		/* notify otg for
@@ -2574,6 +2581,7 @@ static int msm72k_probe(struct platform_device *pdev)
 	otg = to_msm_otg(ui->xceiv);
 	ui->addr = otg->regs;
 
+	ui->gadget.name = "msm72k";
 	ui->gadget.ops = &msm72k_ops;
 	ui->gadget.is_dualspeed = 1;
 	device_initialize(&ui->gadget.dev);
