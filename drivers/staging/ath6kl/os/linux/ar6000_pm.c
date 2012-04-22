@@ -548,7 +548,7 @@ ar6000_update_wlan_pwr_state(struct ar6_softc *ar, AR6000_WLAN_STATE state, bool
                                         (!ar->arBTSharing || btOff));
             if ((suspendCutPwr) ||
                 (suspendCutIfBtOff) ||
-                (ar->arWlanState==WLAN_POWER_STATE_CUT_PWR))
+                ((int)ar->arWlanState==WLAN_POWER_STATE_CUT_PWR))
             {
                 powerState = WLAN_POWER_STATE_CUT_PWR;
             }
