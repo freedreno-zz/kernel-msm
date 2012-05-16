@@ -1157,6 +1157,12 @@ struct drm_vblank_crtc {
 					   once per disable */
 };
 
+struct drm_pending_atomic_event {
+	struct drm_pending_event base;
+	int pipe;
+	struct drm_event_atomic event;
+};
+
 /**
  * DRM device structure. This structure represent a complete card that
  * may contain multiple heads.
