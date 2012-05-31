@@ -249,7 +249,9 @@ struct mdp_hist_mgmt {
 	boolean mdp_is_hist_valid, mdp_is_hist_init;
 	uint8_t frame_cnt, bit_mask, num_bins;
 	struct work_struct mdp_histogram_worker;
+	uint32_t deadbeef[512];
 	struct mdp_histogram_data *hist;
+	uint32_t deadbeef2[512];
 	uint32_t *c0, *c1, *c2;
 	uint32_t *extra_info;
 };
