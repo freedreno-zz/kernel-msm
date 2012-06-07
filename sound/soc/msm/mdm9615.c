@@ -40,8 +40,8 @@
 #define MDM9615_SLIM_0_RX_MAX_CHANNELS		2
 #define MDM9615_SLIM_0_TX_MAX_CHANNELS		4
 
-#define BTSCO_RATE_8KHZ 8000
-#define BTSCO_RATE_16KHZ 16000
+#define SAMPLE_RATE_8KHZ 8000
+#define SAMPLE_RATE_16KHZ 16000
 
 #define BOTTOM_SPK_AMP_POS	0x1
 #define BOTTOM_SPK_AMP_NEG	0x2
@@ -262,8 +262,10 @@ static int mdm9615_ext_top_spk_pamp;
 static int mdm9615_slim_0_rx_ch = 1;
 static int mdm9615_slim_0_tx_ch = 1;
 
-static int mdm9615_btsco_rate = BTSCO_RATE_8KHZ;
+static int mdm9615_btsco_rate = SAMPLE_RATE_8KHZ;
 static int mdm9615_btsco_ch = 1;
+
+static int mdm9615_auxpcm_rate = SAMPLE_RATE_8KHZ;
 
 static struct clk *codec_clk;
 static int clk_users;
@@ -680,6 +682,11 @@ static const struct soc_enum mdm9615_btsco_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
 };
 
+static const char *auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
+static const struct soc_enum mdm9615_auxpcm_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
+};
+
 static int mdm9615_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -731,16 +738,46 @@ static int mdm9615_btsco_rate_put(struct snd_kcontrol *kcontrol,
 {
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
-		mdm9615_btsco_rate = BTSCO_RATE_8KHZ;
+		mdm9615_btsco_rate = SAMPLE_RATE_8KHZ;
 		break;
 	case 1:
-		mdm9615_btsco_rate = BTSCO_RATE_16KHZ;
+		mdm9615_btsco_rate = SAMPLE_RATE_16KHZ;
 		break;
 	default:
-		mdm9615_btsco_rate = BTSCO_RATE_8KHZ;
+		mdm9615_btsco_rate = SAMPLE_RATE_8KHZ;
 		break;
 	}
 	pr_debug("%s: mdm9615_btsco_rate = %d\n", __func__, mdm9615_btsco_rate);
+	return 0;
+}
+
+static int mdm9615_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: mdm9615_auxpcm_rate  = %d", __func__,
+		mdm9615_auxpcm_rate);
+	ucontrol->value.integer.value[0] = mdm9615_auxpcm_rate;
+	return 0;
+}
+
+static int mdm9615_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm9615_auxpcm_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm9615_auxpcm_rate = SAMPLE_RATE_16KHZ;
+		break;
+	default:
+		mdm9615_auxpcm_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: mdm9615_auxpcm_rate = %d"
+		"ucontrol->value.integer.value[0] = %d\n", __func__,
+		mdm9615_auxpcm_rate,
+		(int)ucontrol->value.integer.value[0]);
 	return 0;
 }
 
@@ -758,6 +795,11 @@ static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
 		mdm9615_btsco_rate_get, mdm9615_btsco_rate_put),
 };
 
+static const struct snd_kcontrol_new auxpcm_rate_mixer_controls[] = {
+	SOC_ENUM_EXT("AUX PCM SampleRate", mdm9615_auxpcm_enum[0],
+		mdm9615_auxpcm_rate_get, mdm9615_auxpcm_rate_put),
+};
+
 static int mdm9615_btsco_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err = 0;
@@ -766,6 +808,18 @@ static int mdm9615_btsco_init(struct snd_soc_pcm_runtime *rtd)
 	err = snd_soc_add_platform_controls(platform,
 			int_btsco_rate_mixer_controls,
 		ARRAY_SIZE(int_btsco_rate_mixer_controls));
+	if (err < 0)
+		return err;
+	return 0;
+}
+
+static int mdm9615_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int err = 0;
+	struct snd_soc_platform *platform = rtd->platform;
+	err = snd_soc_add_platform_controls(platform,
+			auxpcm_rate_mixer_controls,
+			ARRAY_SIZE(auxpcm_rate_mixer_controls));
 	if (err < 0)
 		return err;
 	return 0;
@@ -1600,8 +1654,8 @@ static int mdm9615_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	/* PCM only supports mono output with 8khz sample rate */
-	rate->min = rate->max = 8000;
+	rate->min = rate->max = mdm9615_auxpcm_rate;
+	/* PCM only supports mono output */
 	channels->min = channels->max = 1;
 
 	return 0;
@@ -1729,7 +1783,6 @@ static int mdm9615_startup(struct snd_pcm_substream *substream)
 void msm9615_config_sif_mux(u8 value)
 {
 	u32 sif_shadow  = 0x00000;
-
 	sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
 		     (value << LPASS_SIF_MUX_CTL_SEC_MUX_SEL_SHFT);
 	iowrite32(sif_shadow, sif_virt_addr);
@@ -1965,6 +2018,7 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
+		.init = &mdm9615_auxpcm_init,
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
 		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
