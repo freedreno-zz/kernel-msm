@@ -130,8 +130,8 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		init_completion(&lcdc_comp);
 
 		mdp4_init_writeback_buf(mfd, MDP4_MIXER0);
-		pipe->blt_addr = 0;
-
+		pipe->ov_blt_addr = 0;
+		pipe->dma_blt_addr = 0;
 	} else {
 		pipe = lcdc_pipe;
 	}
@@ -301,7 +301,7 @@ static void mdp4_lcdc_blt_ov_update(struct mdp4_overlay_pipe *pipe)
 	char *overlay_base;
 
 
-	if (pipe->blt_addr == 0)
+	if (pipe->ov_blt_addr == 0)
 		return;
 
 
@@ -313,7 +313,7 @@ static void mdp4_lcdc_blt_ov_update(struct mdp4_overlay_pipe *pipe)
 	off = 0;
 	if (pipe->ov_cnt & 0x01)
 		off = pipe->src_height * pipe->src_width * bpp;
-	addr = pipe->blt_addr + off;
+	addr = pipe->ov_blt_addr + off;
 
 	/* overlay 0 */
 	overlay_base = MDP_BASE + MDP4_OVERLAYPROC0_BASE;/* 0x10000 */
@@ -326,7 +326,7 @@ static void mdp4_lcdc_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 	uint32 off, addr;
 	int bpp;
 
-	if (pipe->blt_addr == 0)
+	if (pipe->ov_blt_addr == 0)
 		return;
 
 
@@ -338,7 +338,7 @@ static void mdp4_lcdc_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 	off = 0;
 	if (pipe->dmap_cnt & 0x01)
 		off = pipe->src_height * pipe->src_width * bpp;
-	addr = pipe->blt_addr + off;
+	addr = pipe->dma_blt_addr + off;
 
 	/* dmap */
 	MDP_OUTP(MDP_BASE + 0x90008, addr);
@@ -415,7 +415,7 @@ void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
 		return;
 
-	if (lcdc_pipe->blt_addr) {
+	if (lcdc_pipe->ov_blt_addr) {
 		mdp4_overlay_lcdc_dma_busy_wait(mfd);
 
 		mdp4_lcdc_blt_ov_update(lcdc_pipe);
@@ -462,7 +462,7 @@ void mdp4_overlay0_done_lcdc(struct mdp_dma_data *dma)
 {
 	spin_lock(&mdp_spin_lock);
 	dma->busy = FALSE;
-	if (lcdc_pipe->blt_addr == 0) {
+	if (lcdc_pipe->ov_blt_addr == 0) {
 		spin_unlock(&mdp_spin_lock);
 		return;
 	}
@@ -477,7 +477,7 @@ static void mdp4_overlay_lcdc_prefill(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
 
-	if (lcdc_pipe->blt_addr) {
+	if (lcdc_pipe->ov_blt_addr) {
 		mdp4_overlay_lcdc_dma_busy_wait(mfd);
 
 		mdp4_lcdc_blt_ov_update(lcdc_pipe);
@@ -507,24 +507,26 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 
 	mdp4_allocate_writeback_buf(mfd, MDP4_MIXER0);
 
-	if (!mfd->ov0_wb_buf->phys_addr) {
+	if (!mfd->ov0_wb_buf->write_addr) {
 		pr_debug("%s: no blt_base assigned\n", __func__);
 		return;
 	}
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (enable && lcdc_pipe->blt_addr == 0) {
-		lcdc_pipe->blt_addr = mfd->ov0_wb_buf->phys_addr;
+	if (enable && lcdc_pipe->ov_blt_addr == 0) {
+		lcdc_pipe->ov_blt_addr = mfd->ov0_wb_buf->write_addr;
+		lcdc_pipe->dma_blt_addr = mfd->ov0_wb_buf->read_addr;
 		change++;
 		lcdc_pipe->blt_cnt = 0;
 		lcdc_pipe->ov_cnt = 0;
 		lcdc_pipe->dmap_cnt = 0;
 		mdp4_stat.blt_lcdc++;
-	} else if (enable == 0 && lcdc_pipe->blt_addr) {
-		lcdc_pipe->blt_addr = 0;
+	} else if (enable == 0 && lcdc_pipe->ov_blt_addr) {
+		lcdc_pipe->ov_blt_addr = 0;
+		lcdc_pipe->dma_blt_addr = 0;
 		change++;
 	}
-	pr_info("%s: blt_addr=%x\n", __func__, (int)lcdc_pipe->blt_addr);
+	pr_info("%s: ov_blt_addr=%x\n", __func__, (int)lcdc_pipe->ov_blt_addr);
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
 	if (!change)
@@ -535,7 +537,7 @@ static void mdp4_lcdc_do_blt(struct msm_fb_data_type *mfd, int enable)
 	msleep(20);
 	mdp4_overlay_dmap_xy(lcdc_pipe);
 	mdp4_overlayproc_cfg(lcdc_pipe);
-	if (lcdc_pipe->blt_addr) {
+	if (lcdc_pipe->ov_blt_addr) {
 		mdp4_overlay_lcdc_prefill(mfd);
 		mdp4_overlay_lcdc_prefill(mfd);
 	}
