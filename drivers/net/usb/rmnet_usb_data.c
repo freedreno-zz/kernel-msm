@@ -98,7 +98,7 @@ static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
 
 	dev = (struct rmnet_ctrl_dev *)unet->data[1];
 	if (!dev) {
-		dev_err(&unet->udev->dev, "%s: ctrl device not found\n",
+		dev_err(&iface->dev, "%s: ctrl device not found\n",
 				__func__);
 		retval = -ENODEV;
 		goto fail;
@@ -117,7 +117,7 @@ static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
 		}
 		/*  TBD : do we need to set/clear usbnet->udev->reset_resume*/
 		} else
-		dev_dbg(&unet->udev->dev,
+		dev_dbg(&iface->dev,
 			"%s: device is busy can not suspend\n", __func__);
 
 fail:
@@ -140,8 +140,7 @@ static int rmnet_usb_resume(struct usb_interface *iface)
 
 	dev = (struct rmnet_ctrl_dev *)unet->data[1];
 	if (!dev) {
-		dev_err(&unet->udev->dev, "%s: ctrl device not found\n",
-				__func__);
+		dev_err(&iface->dev, "%s: ctrl device not found\n", __func__);
 		retval = -ENODEV;
 		goto fail;
 	}
@@ -163,17 +162,15 @@ static int rmnet_usb_bind(struct usbnet *usbnet, struct usb_interface *iface)
 	struct usb_host_endpoint	*bulk_in = NULL;
 	struct usb_host_endpoint	*bulk_out = NULL;
 	struct usb_host_endpoint	*int_in = NULL;
-	struct usb_device		*udev;
 	int				status = 0;
 	int				i;
 	int				numends;
 
-	udev = interface_to_usbdev(iface);
 	numends = iface->cur_altsetting->desc.bNumEndpoints;
 	for (i = 0; i < numends; i++) {
 		endpoint = iface->cur_altsetting->endpoint + i;
 		if (!endpoint) {
-			dev_err(&udev->dev, "%s: invalid endpoint %u\n",
+			dev_err(&iface->dev, "%s: invalid endpoint %u\n",
 				__func__, i);
 			status = -EINVAL;
 			goto out;
@@ -187,7 +184,7 @@ static int rmnet_usb_bind(struct usbnet *usbnet, struct usb_interface *iface)
 	}
 
 	if (!bulk_in || !bulk_out || !int_in) {
-		dev_err(&udev->dev, "%s: invalid endpoints\n", __func__);
+		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
 		status = -EINVAL;
 		goto out;
 	}
@@ -393,7 +390,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		dev_err(&unet->udev->dev, "[%s] error: "
+		dev_err(&unet->intf->dev, "[%s] error: "
 			"rmnet_ioct called for unsupported cmd[%d]",
 			dev->name, cmd);
 		return -EINVAL;
@@ -506,16 +503,14 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		const struct usb_device_id *prod)
 {
 	struct usbnet		*unet;
-	struct usb_device	*udev;
 	struct driver_info	*info;
 	unsigned int		iface_num;
 	static int		first_rmnet_iface_num = -EINVAL;
 	int			status = 0;
 
-	udev = interface_to_usbdev(iface);
 	iface_num = iface->cur_altsetting->desc.bInterfaceNumber;
 	if (iface->num_altsetting != 1) {
-		dev_err(&udev->dev, "%s invalid num_altsetting %u\n",
+		dev_err(&iface->dev, "%s invalid num_altsetting %u\n",
 			__func__, iface->num_altsetting);
 		status = -EINVAL;
 		goto out;
@@ -527,7 +522,7 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 
 	status = usbnet_probe(iface, prod);
 	if (status < 0) {
-		dev_err(&udev->dev, "usbnet_probe failed %d\n", status);
+		dev_err(&iface->dev, "usbnet_probe failed %d\n", status);
 		goto out;
 	}
 	unet = usb_get_intfdata(iface);
@@ -557,10 +552,10 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 
 	status = rmnet_usb_data_debugfs_init(unet);
 	if (status)
-		dev_dbg(&udev->dev, "mode debugfs file is not available\n");
+		dev_dbg(&iface->dev, "mode debugfs file is not available\n");
 
 	/* allow modem to wake up suspended system */
-	device_set_wakeup_enable(&udev->dev, 1);
+	device_set_wakeup_enable(&unet->udev->dev, 1);
 out:
 	return status;
 }
@@ -568,23 +563,20 @@ out:
 static void rmnet_usb_disconnect(struct usb_interface *intf)
 {
 	struct usbnet		*unet;
-	struct usb_device	*udev;
 	struct rmnet_ctrl_dev	*dev;
-
-	udev = interface_to_usbdev(intf);
-	device_set_wakeup_enable(&udev->dev, 0);
 
 	unet = usb_get_intfdata(intf);
 	if (!unet) {
-		dev_err(&udev->dev, "%s:data device not found\n", __func__);
+		dev_err(&intf->dev, "%s:data device not found\n", __func__);
 		return;
 	}
 
+	device_set_wakeup_enable(&unet->udev->dev, 0);
 	rmnet_usb_data_debugfs_cleanup(unet);
 
 	dev = (struct rmnet_ctrl_dev *)unet->data[1];
 	if (!dev) {
-		dev_err(&udev->dev, "%s:ctrl device not found\n", __func__);
+		dev_err(&intf->dev, "%s:ctrl device not found\n", __func__);
 		return;
 	}
 	unet->data[0] = 0;
