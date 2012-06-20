@@ -22,10 +22,11 @@ struct diag_dci_tbl {
 	int tag;
 };
 
-#define DIAG_CON_APSS (0x0001)	/* Bit mask for APSS */
-#define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
-#define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
-#define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
+struct dci_notification_tbl {
+	struct task_struct *client;
+	uint16_t list; /* bit mask */
+	int signal_type;
+};
 
 enum {
 	DIAG_DCI_NO_ERROR = 1001,	/* No error */
