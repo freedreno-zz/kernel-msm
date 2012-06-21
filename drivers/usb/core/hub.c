@@ -2675,6 +2675,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 int usb_remote_wakeup(struct usb_device *udev)
 {
 	int	status = 0;
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 
 	if (udev->state == USB_STATE_SUSPENDED) {
 		dev_dbg(&udev->dev, "usb %sresume\n", "wakeup-");
@@ -2683,7 +2684,11 @@ int usb_remote_wakeup(struct usb_device *udev)
 			/* Let the drivers do their thing, then... */
 			usb_autosuspend_device(udev);
 		}
+	} else {
+		dev_dbg(&udev->dev, "usb not suspended\n");
+		clear_bit(HCD_FLAG_WAKEUP_PENDING, &hcd->flags);
 	}
+
 	return status;
 }
 
@@ -3016,7 +3021,9 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	 * value.
 	 */
 	for (i = 0; i < GET_DESCRIPTOR_TRIES; (++i, msleep(100))) {
-		if (USE_NEW_SCHEME(retry_counter) && !(hcd->driver->flags & HCD_USB3)) {
+		if (USE_NEW_SCHEME(retry_counter) &&
+			!(hcd->driver->flags & HCD_USB3) &&
+			!(hcd->driver->flags & HCD_OLD_ENUM)) {
 			struct usb_device_descriptor *buf;
 			int r = 0;
 
@@ -3116,7 +3123,9 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			 *  - read ep0 maxpacket even for high and low speed,
 			 */
 			msleep(10);
-			if (USE_NEW_SCHEME(retry_counter) && !(hcd->driver->flags & HCD_USB3))
+			if (USE_NEW_SCHEME(retry_counter) &&
+				!(hcd->driver->flags & HCD_USB3) &&
+				!(hcd->driver->flags & HCD_OLD_ENUM))
 				break;
   		}
 
