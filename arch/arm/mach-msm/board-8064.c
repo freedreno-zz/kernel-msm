@@ -510,6 +510,7 @@ static void __init reserve_ion_memory(void)
 		apq8064_fmem_pdata.reserved_size_low = fixed_low_size +
 								HOLE_SIZE;
 		apq8064_fmem_pdata.reserved_size_high = fixed_high_size;
+		apq8064_fmem_pdata.size += HOLE_SIZE;
 	}
 
 	/* Since the fixed area may be carved out of lowmem,
@@ -671,7 +672,7 @@ static void __init apq8064_reserve(void)
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 		if (reserve_info->fixed_area_size) {
 			apq8064_fmem_pdata.phys =
-				reserve_info->fixed_area_start + MSM_MM_FW_SIZE;
+				reserve_info->fixed_area_start;
 			pr_info("mm fw at %lx (fixed) size %x\n",
 				reserve_info->fixed_area_start, MSM_MM_FW_SIZE);
 			pr_info("fmem start %lx (fixed) size %lx\n",
