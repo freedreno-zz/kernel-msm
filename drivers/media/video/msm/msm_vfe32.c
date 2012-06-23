@@ -49,6 +49,8 @@ atomic_t irq_cnt;
 
 static struct vfe32_ctrl_type *vfe32_ctrl;
 static uint32_t vfe_clk_rate;
+static void vfe32_send_isp_msg(struct vfe32_ctrl_type *vctrl,
+        uint32_t isp_msg_id);
 
 struct vfe32_isr_queue_cmd {
 	struct list_head list;
@@ -746,6 +748,12 @@ static void vfe32_start_liveshot(struct msm_cam_media_controller *pmctl)
 	vfe32_ctrl->vfe_capture_count = vfe32_ctrl->outpath.out0.capture_cnt;
 
 	vfe32_ctrl->liveshot_state = VFE_STATE_START_REQUESTED;
+	msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+}
+
+static void vfe32_stop_liveshot(struct msm_cam_media_controller *pmctl)
+{
+	vfe32_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
 	msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
 }
 
@@ -2469,6 +2477,10 @@ static int vfe32_proc_general(
 			*cmdp & VFE_FRAME_SKIP_PERIOD_MASK) + 1;
 		vfe32_ctrl->frame_skip_pattern = (uint32_t)(*(cmdp + 2));
 		break;
+	case VFE_CMD_STOP_LIVESHOT:
+		CDBG("%s Stopping liveshot ", __func__);
+		vfe32_stop_liveshot(pmctl);
+		break;
 	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
@@ -2663,37 +2675,53 @@ static void vfe32_process_reg_update_irq(void)
 		}
 	}
 
-	if (vfe32_ctrl->liveshot_state == VFE_STATE_START_REQUESTED) {
-		pr_info("%s enabling liveshot output\n", __func__);
-		if (vfe32_ctrl->outpath.output_mode &
+	switch (vfe32_ctrl->liveshot_state) {
+		case VFE_STATE_START_REQUESTED:
+			pr_info("%s enabling liveshot output\n", __func__);
+			if (vfe32_ctrl->outpath.output_mode &
 				VFE32_OUTPUT_MODE_PRIMARY) {
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(1, vfe32_ctrl->vfebase +
-			vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-			vfe32_ctrl->liveshot_state = VFE_STATE_STARTED;
-		}
-	}
-
-	if (vfe32_ctrl->liveshot_state == VFE_STATE_STARTED) {
-		vfe32_ctrl->vfe_capture_count--;
-		if (!vfe32_ctrl->vfe_capture_count)
-			vfe32_ctrl->liveshot_state = VFE_STATE_STOP_REQUESTED;
-		msm_camera_io_w_mb(1, vfe32_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-	} else if (vfe32_ctrl->liveshot_state == VFE_STATE_STOP_REQUESTED) {
-		CDBG("%s: disabling liveshot output\n", __func__);
-		if (vfe32_ctrl->outpath.output_mode &
-			VFE32_OUTPUT_MODE_PRIMARY) {
-			msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				msm_camera_io_w(1, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
-			msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				msm_camera_io_w(1, vfe32_ctrl->vfebase +
 				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
-			vfe32_ctrl->liveshot_state = VFE_STATE_STOPPED;
-			msm_camera_io_w_mb(1, vfe32_ctrl->vfebase +
-				VFE_REG_UPDATE_CMD);
-		}
-	} else if (vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED) {
-		vfe32_ctrl->liveshot_state = VFE_STATE_IDLE;
+
+				vfe32_ctrl->liveshot_state = VFE_STATE_STARTED;
+			}
+			break;
+		case VFE_STATE_STARTED:
+			vfe32_ctrl->vfe_capture_count--;
+			if (!vfe32_ctrl->vfe_capture_count &&
+				(vfe32_ctrl->outpath.output_mode &
+					VFE32_OUTPUT_MODE_PRIMARY)) {
+				msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+				msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+			}
+			break;
+		case VFE_STATE_STOP_REQUESTED:
+			if (vfe32_ctrl->outpath.output_mode &
+					VFE32_OUTPUT_MODE_PRIMARY) {
+				/* Stop requested, stop write masters, and
+				 * trigger REG_UPDATE. Send STOP_LS_ACK in
+				 * next reg update. */
+				msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch0]);
+				msm_camera_io_w(0, vfe32_ctrl->vfebase +
+				vfe32_AXI_WM_CFG[vfe32_ctrl->outpath.out0.ch1]);
+
+				vfe32_ctrl->liveshot_state = VFE_STATE_STOPPED;
+				msm_camera_io_w_mb(1, vfe32_ctrl->vfebase +
+					VFE_REG_UPDATE_CMD);
+			}
+			break;
+		case VFE_STATE_STOPPED:
+			pr_info("%s Sending STOP_LS ACK\n", __func__);
+			vfe32_send_isp_msg(vfe32_ctrl, MSG_ID_STOP_LS_ACK);
+			vfe32_ctrl->liveshot_state = VFE_STATE_IDLE;
+			break;
+		default:
+			break;
 	}
 
 	if ((vfe32_ctrl->operation_mode == VFE_OUTPUTS_THUMB_AND_MAIN) ||
@@ -3010,8 +3038,6 @@ static void vfe32_process_output_path_irq_0(void)
 			MSG_ID_OUTPUT_PRIMARY, ch0_paddr,
 			ch1_paddr, ch2_paddr);
 
-		if (vfe32_ctrl->liveshot_state == VFE_STATE_STOPPED)
-			vfe32_ctrl->liveshot_state = VFE_STATE_IDLE;
 
 	} else {
 		vfe32_ctrl->outpath.out0.frame_drop_cnt++;
