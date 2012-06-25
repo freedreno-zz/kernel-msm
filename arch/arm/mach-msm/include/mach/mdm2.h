@@ -20,6 +20,7 @@ struct mdm_platform_data {
 	int early_power_on;
 	int sfr_query;
 	struct platform_device *peripheral_platform_device;
+	const unsigned int ramdump_timeout_ms;
 };
 
 #endif

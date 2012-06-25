@@ -1702,6 +1702,7 @@ static struct mdm_platform_data mdm_platform_data = {
 	.early_power_on = 1,
 	.sfr_query = 1,
 	.peripheral_platform_device = &apq8064_device_hsic_host,
+	.ramdump_timeout_ms = 120000,
 };
 
 static struct tsens_platform_data apq_tsens_pdata  = {

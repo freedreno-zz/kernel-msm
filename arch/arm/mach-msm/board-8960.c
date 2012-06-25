@@ -1290,6 +1290,7 @@ static struct mdm_platform_data sglte_platform_data = {
 	.mdm_version = "4.0",
 	.ramdump_delay_ms = 1000,
 	.peripheral_platform_device = NULL,
+	.ramdump_timeout_ms = 600000,
 };
 
 #define MSM_SHARED_RAM_PHYS 0x80000000
