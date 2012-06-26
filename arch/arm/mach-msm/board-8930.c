@@ -764,6 +764,8 @@ static struct wcd9xxx_pdata sitar_platform_data = {
 		.cfilt2_mv = 1800,
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
+		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
+		.bias2_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 	},
 	.regulator = {
 	{
@@ -828,6 +830,8 @@ static struct wcd9xxx_pdata sitar1p1_platform_data = {
 		.cfilt2_mv = 1800,
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
+		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
+		.bias2_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 	},
 	.regulator = {
 	{
