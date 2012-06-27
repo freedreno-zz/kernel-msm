@@ -1225,9 +1225,15 @@ static unsigned int calculate_vdd_dig(struct acpu_level *tgt)
 	return max(tgt->l2_level->vdd_dig, pll_vdd_dig);
 }
 
+#define BOOST_UV 25000
+
+static unsigned boost_uv;
+static bool enable_boost;
+module_param_named(boost, enable_boost, bool, S_IRUGO | S_IWUSR);
+
 static unsigned int calculate_vdd_core(struct acpu_level *tgt)
 {
-	return tgt->vdd_core;
+	return tgt->vdd_core + (enable_boost ? boost_uv : 0);
 }
 
 /* Set the CPU's clock rate and adjust the L2 rate, if appropriate. */
@@ -1573,14 +1579,20 @@ static enum pvs __init get_pvs(void)
 		return PVS_SLOW;
 	case 0x1:
 		pr_info("ACPU PVS: Nominal\n");
+		boost_uv = BOOST_UV;
+		enable_boost = true;
 		return PVS_NOM;
 	case 0x3:
 		pr_info("ACPU PVS: Fast\n");
+		boost_uv = BOOST_UV;
+		enable_boost = true;
 		return PVS_FAST;
 	case 0x4:
 		if (cpu_is_apq8064()) {
 			pr_info("ACPU PVS: Faster\n");
-			return  PVS_FASTER;
+			boost_uv = BOOST_UV;
+			enable_boost = true;
+			return PVS_FASTER;
 		}
 	default:
 		pr_warn("ACPU PVS: Unknown. Defaulting to slow\n");
