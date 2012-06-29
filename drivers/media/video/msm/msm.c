@@ -3035,6 +3035,16 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 		rc = v4l2_subdev_call(g_server_dev.gesture_device,
 			core, ioctl, VIDIOC_MSM_GESTURE_CAM_EVT, arg);
 		break;
+	case NOTIFY_VFE_CAMIF_ERROR: {
+		struct v4l2_event v4l2_ev;
+		pr_err("%s Got CAMIF_ERROR", __func__);
+		v4l2_ev.type = V4L2_EVENT_PRIVATE_START
+			+ MSM_CAM_APP_NOTIFY_ERROR_EVENT;
+		ktime_get_ts(&v4l2_ev.timestamp);
+		v4l2_event_queue(
+			g_server_dev.pcam_active->pvdev, &v4l2_ev);
+		break;
+	}
 	default:
 		break;
 	}

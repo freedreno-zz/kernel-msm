@@ -614,6 +614,9 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 				struct vfe_error_msg *VFE_ErrorMessageBuffer
 					= data;
 				ptr = data;
+				if (VFE_ErrorMessageBuffer->camif_error)
+					v4l2_subdev_notify(&vfe2x_ctrl->subdev,
+						NOTIFY_VFE_CAMIF_ERROR, (void *)NULL);
 				CDBG("Error: %x %x\n", ptr[0], ptr[1]);
 				CDBG("CAMIF_Error              = %d\n",
 					VFE_ErrorMessageBuffer->camif_error);
