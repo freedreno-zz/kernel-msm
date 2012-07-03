@@ -3343,6 +3343,8 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 	/* spin_lock_irqsave(&ctrl->state_lock, flags); */
 	struct isp_msg_stats msgStats;
 	msgStats.frameCounter = vfe32_ctrl->vfeFrameId;
+	if (vfe32_ctrl->simultaneous_sof_stat)
+		msgStats.frameCounter--;
 	msgStats.buffer = bufAddress;
 
 	switch (statsNum) {
@@ -3408,6 +3410,9 @@ static void vfe_send_comp_stats_msg(uint32_t status_bits)
 	uint32_t temp;
 
 	msgStats.frame_id = vfe32_ctrl->vfeFrameId;
+	if (vfe32_ctrl->simultaneous_sof_stat)
+		msgStats.frame_id--;
+
 	msgStats.status_bits = status_bits;
 
 	msgStats.aec.buff = vfe32_ctrl->aecStatsControl.bufToRender;
@@ -3732,6 +3737,7 @@ static void axi32_do_tasklet(unsigned long data)
 	unsigned long flags;
 	struct axi_ctrl_t *axi_ctrl = (struct axi_ctrl_t *)data;
 	struct vfe32_isr_queue_cmd *qcmd = NULL;
+	int stat_interrupt;
 
 	CDBG("=== axi32_do_tasklet start ===\n");
 
@@ -3751,11 +3757,32 @@ static void axi32_do_tasklet(unsigned long data)
 		spin_unlock_irqrestore(&axi_ctrl->tasklet_lock,
 			flags);
 
+		if (vfe32_ctrl->stats_comp) {
+			stat_interrupt = (qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_COMPOSIT_MASK);
+		} else {
+			stat_interrupt =
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_AEC) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_AWB) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_AF) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_IHIST) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_RS) |
+				(qcmd->vfeInterruptStatus0 &
+					VFE_IRQ_STATUS0_STATS_CS);
+		}
 		if (qcmd->vfeInterruptStatus0 &
-				VFE_IRQ_STATUS0_CAMIF_SOF_MASK)
+				VFE_IRQ_STATUS0_CAMIF_SOF_MASK) {
+			if (stat_interrupt)
+				vfe32_ctrl->simultaneous_sof_stat = 1;
 			v4l2_subdev_notify(&axi_ctrl->subdev,
 				NOTIFY_VFE_IRQ,
 				(void *)VFE_IRQ_STATUS0_CAMIF_SOF_MASK);
+		}
 
 		/* interrupt to be processed,  *qcmd has the payload.  */
 		if (qcmd->vfeInterruptStatus0 &
@@ -3861,6 +3888,7 @@ static void axi32_do_tasklet(unsigned long data)
 					(void *)VFE_IRQ_STATUS0_SYNC_TIMER2);
 			}
 		}
+		vfe32_ctrl->simultaneous_sof_stat = 0;
 		kfree(qcmd);
 	}
 	CDBG("=== axi32_do_tasklet end ===\n");
