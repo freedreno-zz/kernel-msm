@@ -37,6 +37,7 @@
 #include "msm_vpe.h"
 #include "msm_vfe32.h"
 #include "msm_camera_eeprom.h"
+#include "msm_csi_register.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl: " fmt, ##args)
@@ -45,7 +46,6 @@
 #endif
 
 #define MSM_V4L2_SWFI_LATENCY 3
-
 /* VFE required buffer number for streaming */
 static struct msm_isp_color_fmt msm_isp_formats[] = {
 	{
@@ -160,6 +160,8 @@ static int msm_get_sensor_info(
 	info.mount_angle = sdata->sensor_platform_info->mount_angle;
 	info.actuator_enabled = sdata->actuator_info ? 1 : 0;
 	info.strobe_flash_enabled = sdata->strobe_flash_data ? 1 : 0;
+	info.ispif_supported = mctl->ispif_sdev ? 1 : 0;
+
 	/* copy back to user space */
 	if (copy_to_user((void *)arg,
 				&info,
@@ -398,6 +400,10 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		else
 			rc = p_mctl->isp_sdev->isp_config(p_mctl, cmd, arg);
 		break;
+	case MSM_CAM_IOCTL_ISPIF_IO_CFG:
+		rc = v4l2_subdev_call(p_mctl->ispif_sdev,
+			core, ioctl, VIDIOC_MSM_ISPIF_CFG, argp);
+		break;
 	default:
 		/* ISP config*/
 		D("%s:%d: go to default. Calling msm_isp_config\n",
@@ -433,65 +439,11 @@ static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 	struct msm_camera_device_platform_data *pdata = sinfo->pdata;
 
-	if (pdata->is_csiphy) {
-		/* register csiphy subdev */
-		driver = driver_find(MSM_CSIPHY_DRV_NAME, &platform_bus_type);
-		if (!driver)
-			goto out;
-
-		dev = driver_find_device(driver, NULL, (void *)core_index,
+	rc = msm_csi_register_subdevs(p_mctl, core_index,
 				msm_mctl_subdev_match_core);
-		if (!dev)
-			goto out_put_driver;
 
-		p_mctl->csiphy_sdev = dev_get_drvdata(dev);
-		put_driver(driver);
-	}
-
-	if (pdata->is_csic) {
-		/* register csic subdev */
-		driver = driver_find(MSM_CSIC_DRV_NAME, &platform_bus_type);
-		if (!driver)
+	if (rc < 0)
 			goto out;
-
-		dev = driver_find_device(driver, NULL, (void *)core_index,
-				msm_mctl_subdev_match_core);
-		if (!dev)
-			goto out_put_driver;
-
-		p_mctl->csic_sdev = dev_get_drvdata(dev);
-		put_driver(driver);
-	}
-
-	if (pdata->is_csid) {
-		/* register csid subdev */
-		driver = driver_find(MSM_CSID_DRV_NAME, &platform_bus_type);
-		if (!driver)
-			goto out;
-
-		dev = driver_find_device(driver, NULL, (void *)core_index,
-				msm_mctl_subdev_match_core);
-		if (!dev)
-			goto out_put_driver;
-
-		p_mctl->csid_sdev = dev_get_drvdata(dev);
-		put_driver(driver);
-	}
-
-	if (pdata->is_ispif) {
-		/* register ispif subdev */
-		driver = driver_find(MSM_ISPIF_DRV_NAME, &platform_bus_type);
-		if (!driver)
-			goto out;
-
-		dev = driver_find_device(driver, NULL, 0,
-				msm_mctl_subdev_match_core);
-		if (!dev)
-			goto out_put_driver;
-
-		p_mctl->ispif_sdev = dev_get_drvdata(dev);
-		put_driver(driver);
-	}
 
 	/* register vfe subdev */
 	driver = driver_find(MSM_VFE_DRV_NAME, &platform_bus_type);
@@ -575,6 +527,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	mutex_lock(&p_mctl->lock);
 	/* open sub devices - once only*/
 	if (!p_mctl->opencnt) {
+		struct msm_sensor_csi_info csi_info;
 		uint32_t csid_version;
 		wake_lock(&p_mctl->wake_lock);
 
@@ -601,7 +554,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto act_power_up_failed;
 		}
 
-		if (camdev->is_csiphy) {
+		if (p_mctl->csiphy_sdev) {
 			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 				VIDIOC_MSM_CSIPHY_INIT, NULL);
 			if (rc < 0) {
@@ -611,7 +564,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 		}
 
-		if (camdev->is_csid) {
+		if (p_mctl->csid_sdev) {
 			rc = v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
 				VIDIOC_MSM_CSID_INIT, &csid_version);
 			if (rc < 0) {
@@ -619,9 +572,10 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 					__func__, rc);
 				goto csid_init_failed;
 			}
+			csi_info.is_csic = 0;
 		}
 
-		if (camdev->is_csic) {
+		if (p_mctl->csic_sdev) {
 			rc = v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
 				VIDIOC_MSM_CSIC_INIT, &csid_version);
 			if (rc < 0) {
@@ -629,6 +583,16 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 					__func__, rc);
 				goto csic_init_failed;
 			}
+			csi_info.is_csic = 1;
+		}
+
+		csi_info.csid_version = csid_version;
+		rc = v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
+				VIDIOC_MSM_SENSOR_CSID_INFO, &csi_info);
+		if (rc < 0) {
+			pr_err("%s: sensor csi version failed %d\n",
+			__func__, rc);
+			goto msm_csi_version;
 		}
 
 		/* ISP first*/
@@ -662,22 +626,11 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			}
 		}
 
-		if (camdev->is_ispif) {
-			rc = v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
-				VIDIOC_MSM_ISPIF_INIT, &csid_version);
-			if (rc < 0) {
-				pr_err("%s: ispif initialization failed %d\n",
-					__func__, rc);
-				goto ispif_init_failed;
-			}
-		}
 
-		if (camdev->is_ispif) {
-			pm_qos_add_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-			pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				MSM_V4L2_SWFI_LATENCY);
-		}
+		pm_qos_add_request(&p_mctl->pm_qos_req_list,
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		pm_qos_update_request(&p_mctl->pm_qos_req_list,
+			MSM_V4L2_SWFI_LATENCY);
 		p_mctl->apps_id = apps_id;
 		p_mctl->opencnt++;
 	} else {
@@ -687,11 +640,6 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 
 	return rc;
 
-ispif_init_failed:
-	if (camdev->is_vpe)
-		if (v4l2_subdev_call(p_mctl->vpe_sdev, core, ioctl,
-			VIDIOC_MSM_VPE_RELEASE, NULL) < 0)
-			pr_err("%s: vpe release failed %d\n", __func__, rc);
 vpe_init_failed:
 	if (p_mctl->axi_sdev)
 		if (v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
@@ -700,18 +648,19 @@ vpe_init_failed:
 axi_init_failed:
 	if (p_mctl->isp_sdev && p_mctl->isp_sdev->isp_release)
 		p_mctl->isp_sdev->isp_release(p_mctl, p_mctl->isp_sdev->sd);
+msm_csi_version:
 isp_open_failed:
-	if (camdev->is_csic)
+	if (p_mctl->csic_sdev)
 		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
 			VIDIOC_MSM_CSIC_RELEASE, NULL) < 0)
 			pr_err("%s: csic release failed %d\n", __func__, rc);
 csic_init_failed:
-	if (camdev->is_csid)
+	if (p_mctl->csid_sdev)
 		if (v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
 			VIDIOC_MSM_CSID_RELEASE, NULL) < 0)
 			pr_err("%s: csid release failed %d\n", __func__, rc);
 csid_init_failed:
-	if (camdev->is_csiphy)
+	if (p_mctl->csiphy_sdev)
 		if (v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL) < 0)
 			pr_err("%s: csiphy release failed %d\n", __func__, rc);
@@ -741,12 +690,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
 		VIDIOC_MSM_SENSOR_RELEASE, NULL);
 
-	if (camdev->is_ispif) {
-		v4l2_subdev_call(p_mctl->ispif_sdev, core, ioctl,
-			VIDIOC_MSM_ISPIF_RELEASE, NULL);
-	}
-
-	if (camdev->is_csic) {
+	if (p_mctl->csic_sdev) {
 		v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
 			VIDIOC_MSM_CSIC_RELEASE, NULL);
 	}
@@ -765,21 +709,19 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		p_mctl->isp_sdev->isp_release(p_mctl,
 			p_mctl->isp_sdev->sd);
 
-	if (camdev->is_csid) {
+	if (p_mctl->csid_sdev) {
 		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
 			VIDIOC_MSM_CSID_RELEASE, NULL);
 	}
 
-	if (camdev->is_csiphy) {
+	if (p_mctl->csiphy_sdev) {
 		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	if (camdev->is_ispif) {
-		pm_qos_update_request(&p_mctl->pm_qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
-		pm_qos_remove_request(&p_mctl->pm_qos_req_list);
-	}
+	pm_qos_update_request(&p_mctl->pm_qos_req_list,
+			PM_QOS_DEFAULT_VALUE);
+	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 
 	if (p_mctl->act_sdev) {
 		v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);
