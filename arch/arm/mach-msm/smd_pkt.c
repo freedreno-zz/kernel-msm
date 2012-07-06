@@ -762,14 +762,14 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	}
 	D_STATUS("Begin %s on smd_pkt_dev id:%d\n", __func__, smd_pkt_devp->i);
 
-	wake_lock_init(&smd_pkt_devp->pa_wake_lock, WAKE_LOCK_SUSPEND,
-			smd_pkt_dev_name[smd_pkt_devp->i]);
-	INIT_WORK(&smd_pkt_devp->packet_arrival_work, packet_arrival_worker);
-
 	file->private_data = smd_pkt_devp;
 
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	if (smd_pkt_devp->ch == 0) {
+		wake_lock_init(&smd_pkt_devp->pa_wake_lock, WAKE_LOCK_SUSPEND,
+				smd_pkt_dev_name[smd_pkt_devp->i]);
+		INIT_WORK(&smd_pkt_devp->packet_arrival_work,
+				packet_arrival_worker);
 		init_completion(&smd_pkt_devp->ch_allocated);
 		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
 		smd_pkt_devp->driver.driver.name =
@@ -873,10 +873,11 @@ release_pd:
 	if (r < 0)
 		platform_driver_unregister(&smd_pkt_devp->driver);
 out:
+	if (!smd_pkt_devp->ch)
+		wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
+
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
-	if (r < 0)
-		wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
 
 	return r;
 }
