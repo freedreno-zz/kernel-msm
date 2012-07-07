@@ -1824,6 +1824,7 @@ struct msm_rpm_platform_data apq8064_rpm_data __initdata = {
 		MSM_RPM_MAP(8064, HDMI_SWITCH, HDMI_SWITCH, 1),
 		MSM_RPM_MAP(8064, DDR_DMM_0, DDR_DMM, 2),
 		MSM_RPM_MAP(8064, QDSS_CLK, QDSS_CLK, 1),
+		MSM_RPM_MAP(8064, VDDMIN_GPIO, VDDMIN_GPIO, 1),
 	},
 	.target_status = {
 		MSM_RPM_STATUS_ID_MAP(8064, VERSION_MAJOR),
@@ -1957,6 +1958,7 @@ struct msm_rpm_platform_data apq8064_rpm_data __initdata = {
 		MSM_RPM_STATUS_ID_MAP(8064, PM8821_S2_1),
 		MSM_RPM_STATUS_ID_MAP(8064, PM8821_L1_0),
 		MSM_RPM_STATUS_ID_MAP(8064, PM8821_L1_1),
+		MSM_RPM_STATUS_ID_MAP(8064, VDDMIN_GPIO),
 	},
 	.target_ctrl_id = {
 		MSM_RPM_CTRL_MAP(8064, VERSION_MAJOR),
