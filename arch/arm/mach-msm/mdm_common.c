@@ -505,62 +505,52 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	/* MDM2AP_ERRFATAL */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"MDM2AP_ERRFATAL");
-	if (pres)
-		mdm_drv->mdm2ap_errfatal_gpio = pres->start;
+	mdm_drv->mdm2ap_errfatal_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_ERRFATAL */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_ERRFATAL");
-	if (pres)
-		mdm_drv->ap2mdm_errfatal_gpio = pres->start;
+	mdm_drv->ap2mdm_errfatal_gpio = pres ? pres->start : -1;
 
 	/* MDM2AP_STATUS */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"MDM2AP_STATUS");
-	if (pres)
-		mdm_drv->mdm2ap_status_gpio = pres->start;
+	mdm_drv->mdm2ap_status_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_STATUS */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_STATUS");
-	if (pres)
-		mdm_drv->ap2mdm_status_gpio = pres->start;
+	mdm_drv->ap2mdm_status_gpio = pres ? pres->start : -1;
 
 	/* MDM2AP_WAKEUP */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"MDM2AP_WAKEUP");
-	if (pres)
-		mdm_drv->mdm2ap_wakeup_gpio = pres->start;
+	mdm_drv->mdm2ap_wakeup_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_WAKEUP */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_WAKEUP");
-	if (pres)
-		mdm_drv->ap2mdm_wakeup_gpio = pres->start;
+	mdm_drv->ap2mdm_wakeup_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_SOFT_RESET */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_SOFT_RESET");
-	if (pres)
-		mdm_drv->ap2mdm_soft_reset_gpio = pres->start;
+	mdm_drv->ap2mdm_soft_reset_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_KPDPWR_N */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_KPDPWR_N");
-	if (pres)
-		mdm_drv->ap2mdm_kpdpwr_n_gpio = pres->start;
+	mdm_drv->ap2mdm_kpdpwr_n_gpio = pres ? pres->start : -1;
 
 	/* AP2MDM_PMIC_PWR_EN */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"AP2MDM_PMIC_PWR_EN");
-	if (pres)
-		mdm_drv->ap2mdm_pmic_pwr_en_gpio = pres->start;
+	mdm_drv->ap2mdm_pmic_pwr_en_gpio = pres ? pres->start : -1;
 
 	/* MDM2AP_PBLRDY */
 	pres = platform_get_resource_byname(pdev, IORESOURCE_IO,
 							"MDM2AP_PBLRDY");
-	if (pres)
-		mdm_drv->mdm2ap_pblrdy = pres->start;
+	mdm_drv->mdm2ap_pblrdy = pres ? pres->start : -1;
 
 	mdm_drv->boot_type                  = CHARM_NORMAL_BOOT;
 
@@ -587,27 +577,27 @@ int mdm_common_create(struct platform_device  *pdev,
 
 	gpio_request(mdm_drv->ap2mdm_status_gpio, "AP2MDM_STATUS");
 	gpio_request(mdm_drv->ap2mdm_errfatal_gpio, "AP2MDM_ERRFATAL");
-	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_kpdpwr_n_gpio))
 		gpio_request(mdm_drv->ap2mdm_kpdpwr_n_gpio, "AP2MDM_KPDPWR_N");
 	gpio_request(mdm_drv->mdm2ap_status_gpio, "MDM2AP_STATUS");
 	gpio_request(mdm_drv->mdm2ap_errfatal_gpio, "MDM2AP_ERRFATAL");
-	if (mdm_drv->mdm2ap_pblrdy > 0)
+	if (GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
 		gpio_request(mdm_drv->mdm2ap_pblrdy, "MDM2AP_PBLRDY");
 
-	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_pwr_en_gpio))
 		gpio_request(mdm_drv->ap2mdm_pmic_pwr_en_gpio,
 					 "AP2MDM_PMIC_PWR_EN");
-	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_soft_reset_gpio))
 		gpio_request(mdm_drv->ap2mdm_soft_reset_gpio,
 					 "AP2MDM_SOFT_RESET");
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 		gpio_request(mdm_drv->ap2mdm_wakeup_gpio, "AP2MDM_WAKEUP");
 
 	gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
 	gpio_direction_output(mdm_drv->ap2mdm_errfatal_gpio, 0);
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 		gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 0);
 
 	gpio_direction_input(mdm_drv->mdm2ap_status_gpio);
@@ -681,7 +671,7 @@ errfatal_err:
 	mdm_drv->mdm_status_irq = irq;
 
 status_err:
-	if (mdm_drv->mdm2ap_pblrdy > 0) {
+	if (GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy)) {
 		irq = MSM_GPIO_TO_INT(mdm_drv->mdm2ap_pblrdy);
 		if (irq < 0) {
 			pr_err("%s: could not get MDM2AP_PBLRDY IRQ resource",
@@ -706,7 +696,7 @@ pblrdy_err:
 	 * If AP2MDM_PMIC_PWR_EN gpio is used, pull it high. It remains
 	 * high until the whole phone is shut down.
 	 */
-	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_pwr_en_gpio))
 		gpio_direction_output(mdm_drv->ap2mdm_pmic_pwr_en_gpio, 1);
 	/* Register VDDmin gpios with RPM */
 	mdm_setup_vddmin_gpios();
@@ -723,16 +713,16 @@ pblrdy_err:
 fatal_err:
 	gpio_free(mdm_drv->ap2mdm_status_gpio);
 	gpio_free(mdm_drv->ap2mdm_errfatal_gpio);
-	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_kpdpwr_n_gpio))
 		gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
-	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_pwr_en_gpio))
 		gpio_free(mdm_drv->ap2mdm_pmic_pwr_en_gpio);
 	gpio_free(mdm_drv->mdm2ap_status_gpio);
 	gpio_free(mdm_drv->mdm2ap_errfatal_gpio);
-	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_soft_reset_gpio))
 		gpio_free(mdm_drv->ap2mdm_soft_reset_gpio);
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 		gpio_free(mdm_drv->ap2mdm_wakeup_gpio);
 
 	kfree(mdm_drv);
@@ -748,16 +738,16 @@ int mdm_common_modem_remove(struct platform_device *pdev)
 
 	gpio_free(mdm_drv->ap2mdm_status_gpio);
 	gpio_free(mdm_drv->ap2mdm_errfatal_gpio);
-	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_kpdpwr_n_gpio))
 		gpio_free(mdm_drv->ap2mdm_kpdpwr_n_gpio);
-	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_pwr_en_gpio))
 		gpio_free(mdm_drv->ap2mdm_pmic_pwr_en_gpio);
 	gpio_free(mdm_drv->mdm2ap_status_gpio);
 	gpio_free(mdm_drv->mdm2ap_errfatal_gpio);
-	if (mdm_drv->ap2mdm_soft_reset_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_soft_reset_gpio))
 		gpio_free(mdm_drv->ap2mdm_soft_reset_gpio);
 
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 		gpio_free(mdm_drv->ap2mdm_wakeup_gpio);
 
 	kfree(mdm_drv);
@@ -771,7 +761,7 @@ void mdm_common_modem_shutdown(struct platform_device *pdev)
 	mdm_disable_irqs();
 
 	mdm_drv->ops->power_down_mdm_cb(mdm_drv);
-	if (mdm_drv->ap2mdm_pmic_pwr_en_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_pwr_en_gpio))
 		gpio_direction_output(mdm_drv->ap2mdm_pmic_pwr_en_gpio, 0);
 }
 

@@ -41,7 +41,6 @@
 #include "devices.h"
 #include "clock.h"
 #include "mdm_private.h"
-
 #define MDM_PBLRDY_CNT		20
 
 static int mdm_debug_on;
@@ -125,7 +124,6 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 {
 	int i;
 	int pblrdy;
-
 	if (power_on_count != 1) {
 		pr_err("%s: Calling fn when power_on_count != 1\n",
 			   __func__);
@@ -141,9 +139,8 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	 * powered down.
 	 */
 	mdm_toggle_soft_reset(mdm_drv);
-
 	/* If the device has a kpd pwr gpio then toggle it. */
-	if (mdm_drv->ap2mdm_kpdpwr_n_gpio > 0) {
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_kpdpwr_n_gpio)) {
 		/* Pull AP2MDM_KPDPWR gpio high and wait for PS_HOLD to settle,
 		 * then	pull it back low.
 		 */
@@ -153,7 +150,7 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 		gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
 	}
 
-	if (!mdm_drv->mdm2ap_pblrdy)
+	if (!GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
 		goto start_mdm_peripheral;
 
 	for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
@@ -162,7 +159,6 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 			break;
 		usleep_range(5000, 5000);
 	}
-
 	pr_debug("%s: i:%d\n", __func__, i);
 
 start_mdm_peripheral:
@@ -179,7 +175,7 @@ static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
 	mdm_peripheral_disconnect(mdm_drv);
 	mdm_toggle_soft_reset(mdm_drv);
 
-	if (!mdm_drv->mdm2ap_pblrdy)
+	if (!GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
 		goto start_mdm_peripheral;
 
 	for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
@@ -204,7 +200,7 @@ static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
 	 * de-assert it now so that it can be asserted later.
 	 * May not be used.
 	 */
-	if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 		gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 0);
 
 	/*
@@ -234,7 +230,7 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 	if (value) {
 		mdm_peripheral_disconnect(mdm_drv);
 		mdm_peripheral_connect(mdm_drv);
-		if (mdm_drv->ap2mdm_wakeup_gpio > 0)
+		if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 			gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
 	}
 }
