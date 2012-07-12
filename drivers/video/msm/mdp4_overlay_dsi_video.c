@@ -463,7 +463,7 @@ static void mdp4_dsi_video_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 /* Move the globals into context data structure for 3.4 upgrade */
 static int first_time = 1;
 static ktime_t last_vsync_time_ns;
-struct hrtimer hr_mdp_timer_pc;
+static struct hrtimer hr_mdp_timer_pc;
 
 static unsigned long compute_vsync_interval(void)
 {
@@ -490,7 +490,7 @@ static unsigned long compute_vsync_interval(void)
 	return vsync_interval;
 }
 
-enum hrtimer_restart mdp_pc_hrtimer_callback(struct hrtimer *timer)
+static enum hrtimer_restart mdp_pc_hrtimer_callback(struct hrtimer *timer)
 {
 	if (!wake_lock_active(&mdp_idle_wakelock)) {
 		/* Hold Wakelock if no locks held */
@@ -499,7 +499,7 @@ enum hrtimer_restart mdp_pc_hrtimer_callback(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-void init_pc_timer(void)
+static void init_pc_timer(void)
 {
 	/*
 	 * Initialize hr timer which fires a few ms before Vsync - this
@@ -510,7 +510,7 @@ void init_pc_timer(void)
 	hr_mdp_timer_pc.function = &mdp_pc_hrtimer_callback;
 }
 
-void program_pc_timer(unsigned long diff_interval)
+static void program_pc_timer(unsigned long diff_interval)
 {
 	ktime_t ktime_pc;
 	unsigned long delay_in_ns = 0;
