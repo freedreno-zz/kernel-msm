@@ -300,7 +300,7 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 	} else {
 		if (!dmov_conf[adm].channel_active) {
 			dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-			mod_timer(&dmov_conf[adm].timer, jiffies + HZ);
+			mod_timer(&dmov_conf[adm].timer, jiffies + (HZ/10));
 		}
 		if (list_empty(&dmov_conf[adm].active_commands[ch]))
 			PRINT_ERROR("msm_dmov_enqueue_cmd_ext(%d), stalled, "
@@ -508,7 +508,7 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-		mod_timer(&dmov_conf[adm].timer, jiffies + HZ);
+		mod_timer(&dmov_conf[adm].timer, jiffies + (HZ/10));
 	}
 
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
