@@ -46,7 +46,7 @@
 #define MDM_MODEM_DELTA	100
 #define MDM_BOOT_TIMEOUT	60000L
 #define MDM_RDUMP_TIMEOUT	120000L
-#define MDM2AP_STATUS_TIMEOUT_MS 60000L
+#define MDM2AP_STATUS_TIMEOUT_MS 300000L
 
 static int mdm_debug_on;
 static struct workqueue_struct *mdm_queue;
@@ -202,11 +202,10 @@ long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		else
 			first_boot = 0;
 
-		/* Start a timer to check that the mdm2ap_status gpio
-		 * goes high.
+		/* If bootup succeeded, start a timer to check that the
+		 * mdm2ap_status gpio goes high.
 		 */
-
-		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+		if (!status && gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
 			schedule_delayed_work(&mdm2ap_status_check_work,
 				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
 		break;
