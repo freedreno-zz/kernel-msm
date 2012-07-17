@@ -62,16 +62,7 @@ struct cpu_freq {
 
 static DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
 
-static int msm_force_sync_cpufreq = 1;
-module_param_named(force_sync_cpufreq, msm_force_sync_cpufreq, int,
-						S_IRUGO | S_IWUSR | S_IWGRP);
-static int msm_sync_cpufreq;
-module_param_named(sync_cpufreq, msm_sync_cpufreq, int,
-						S_IRUGO | S_IWUSR | S_IWGRP);
-
-static int set_cpu_freq(struct cpufreq_policy *policy,
-			unsigned int cpu,
-			unsigned int new_freq)
+static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
 	struct cpufreq_freqs freqs;
@@ -91,9 +82,9 @@ static int set_cpu_freq(struct cpufreq_policy *policy,
 
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
-	freqs.cpu = cpu;
+	freqs.cpu = policy->cpu;
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-	ret = acpuclk_set_rate(cpu, new_freq, SETRATE_CPUFREQ);
+	ret = acpuclk_set_rate(policy->cpu, new_freq, SETRATE_CPUFREQ);
 	if (!ret)
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 
@@ -106,14 +97,12 @@ static void set_cpu_work(struct work_struct *work)
 	struct cpufreq_work_struct *cpu_work =
 		container_of(work, struct cpufreq_work_struct, work);
 
-	cpu_work->status = set_cpu_freq(cpu_work->policy, smp_processor_id(),
-							cpu_work->frequency);
+	cpu_work->status = set_cpu_freq(cpu_work->policy, cpu_work->frequency);
 	complete(&cpu_work->complete);
 }
 #endif
 
 static int msm_cpufreq_target(struct cpufreq_policy *policy,
-				unsigned int cpu,
 				unsigned int target_freq,
 				unsigned int relation)
 {
@@ -124,8 +113,8 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	struct cpufreq_work_struct *cpu_work = NULL;
 	cpumask_var_t mask;
 
-	if (!cpu_active(cpu)) {
-		pr_info("cpufreq: cpu %d is not active.\n", cpu);
+	if (!cpu_active(policy->cpu)) {
+		pr_info("cpufreq: cpu %d is not active.\n", policy->cpu);
 		return -ENODEV;
 	}
 
@@ -133,16 +122,16 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 		return -ENOMEM;
 #endif
 
-	mutex_lock(&per_cpu(cpufreq_suspend, cpu).suspend_mutex);
+	mutex_lock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
 
-	if (per_cpu(cpufreq_suspend, cpu).device_suspended) {
+	if (per_cpu(cpufreq_suspend, policy->cpu).device_suspended) {
 		pr_debug("cpufreq: cpu%d scheduling frequency change "
-				"in suspend.\n", cpu);
+				"in suspend.\n", policy->cpu);
 		ret = -EFAULT;
 		goto done;
 	}
 
-	table = cpufreq_frequency_get_table(cpu);
+	table = cpufreq_frequency_get_table(policy->cpu);
 	if (cpufreq_frequency_table_target(policy, table, target_freq, relation,
 			&index)) {
 		pr_err("cpufreq: invalid target_freq: %d\n", target_freq);
@@ -152,65 +141,38 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 
 #ifdef CONFIG_CPU_FREQ_DEBUG
 	pr_debug("CPU[%d] target %d relation %d (%d-%d) selected %d\n",
-		cpu, target_freq, relation,
+		policy->cpu, target_freq, relation,
 		policy->min, policy->max, table[index].frequency);
 #endif
 
 #ifdef CONFIG_SMP
-	cpu_work = &per_cpu(cpufreq_work, cpu);
+	cpu_work = &per_cpu(cpufreq_work, policy->cpu);
 	cpu_work->policy = policy;
 	cpu_work->frequency = table[index].frequency;
 	cpu_work->status = -ENODEV;
 
 	cpumask_clear(mask);
-	cpumask_set_cpu(cpu, mask);
+	cpumask_set_cpu(policy->cpu, mask);
 	if (cpumask_equal(mask, &current->cpus_allowed)) {
-		ret = set_cpu_freq(cpu_work->policy, cpu,
-						cpu_work->frequency);
+		ret = set_cpu_freq(cpu_work->policy, cpu_work->frequency);
 		goto done;
 	} else {
 		cancel_work_sync(&cpu_work->work);
 		INIT_COMPLETION(cpu_work->complete);
-		queue_work_on(cpu, msm_cpufreq_wq, &cpu_work->work);
+		queue_work_on(policy->cpu, msm_cpufreq_wq, &cpu_work->work);
 		wait_for_completion(&cpu_work->complete);
 	}
 
 	ret = cpu_work->status;
 #else
-	ret = set_cpu_freq(policy, cpu, table[index].frequency);
+	ret = set_cpu_freq(policy, table[index].frequency);
 #endif
 
 done:
 #ifdef CONFIG_SMP
 	free_cpumask_var(mask);
 #endif
-	mutex_unlock(&per_cpu(cpufreq_suspend, cpu).suspend_mutex);
-
-	return ret;
-}
-
-static int msm_cpufreq_target_sync(struct cpufreq_policy *policy,
-					unsigned int target_freq,
-					unsigned int relation)
-{
-	unsigned int cpu;
-	int ret = 0;
-
-	if (cpumask_weight(policy->cpus) > 1 && msm_force_sync_cpufreq) {
-
-		get_online_cpus();
-		for_each_online_cpu(cpu) {
-			ret = msm_cpufreq_target(policy, cpu, target_freq,
-								relation);
-			if (ret < 0)
-				break;
-		}
-		put_online_cpus();
-
-	} else {
-		ret = msm_cpufreq_target(policy, policy->cpu, target_freq,
-								relation);
-	}
+	mutex_unlock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
 	return ret;
 }
 
@@ -292,13 +254,20 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	int cur_freq;
 	int index;
 	struct cpufreq_frequency_table *table;
+#ifdef CONFIG_SMP
+	struct cpufreq_work_struct *cpu_work = NULL;
+#endif
 
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (table == NULL)
 		return -ENODEV;
-
-	if (msm_sync_cpufreq)
+	/*
+	 * In 8625 both cpu core's frequency can not
+	 * be changed independently. Each cpu is bound to
+	 * same frequency. Hence set the cpumask to all cpu.
+	 */
+	if (cpu_is_msm8625())
 		cpumask_setall(policy->cpus);
 
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
@@ -333,23 +302,15 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 		cur_freq = table[index].frequency;
 	}
 
-	/*
-	 * If synchronous cpufreq is forced, we need to align the new core's
-	 * frequency explicitly with the core0 frequency.
-	 */
-	if (msm_force_sync_cpufreq && policy->cpu != 0) {
-		unsigned int core0_freq = acpuclk_get_rate(0);
-		/* Synchronize this core */
-		if (cur_freq != core0_freq) {
-			msm_cpufreq_target(policy, policy->cpu, core0_freq,
-							CPUFREQ_RELATION_H);
-			cur_freq = core0_freq;
-		}
-	}
 	policy->cur = cur_freq;
 
 	policy->cpuinfo.transition_latency =
 		acpuclk_get_switch_time() * NSEC_PER_USEC;
+#ifdef CONFIG_SMP
+	cpu_work = &per_cpu(cpufreq_work, policy->cpu);
+	INIT_WORK(&cpu_work->work, set_cpu_work);
+	init_completion(&cpu_work->complete);
+#endif
 
 	return 0;
 }
@@ -403,7 +364,7 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS,
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
-	.target		= msm_cpufreq_target_sync,
+	.target		= msm_cpufreq_target,
 	.get		= msm_cpufreq_get_freq,
 	.name		= "msm",
 	.attr		= msm_freq_attr,
@@ -416,28 +377,15 @@ static struct notifier_block msm_cpufreq_pm_notifier = {
 static int __init msm_cpufreq_register(void)
 {
 	int cpu;
-#ifdef CONFIG_SMP
-	struct cpufreq_work_struct *cpu_work = NULL;
-#endif
+
 	for_each_possible_cpu(cpu) {
 		mutex_init(&(per_cpu(cpufreq_suspend, cpu).suspend_mutex));
 		per_cpu(cpufreq_suspend, cpu).device_suspended = 0;
-#ifdef CONFIG_SMP
-		cpu_work = &per_cpu(cpufreq_work, cpu);
-		INIT_WORK(&cpu_work->work, set_cpu_work);
-		init_completion(&cpu_work->complete);
-#endif
 	}
 
 #ifdef CONFIG_SMP
 	msm_cpufreq_wq = create_workqueue("msm-cpufreq");
 #endif
-
-	if ((cpu_is_apq8064() && msm_force_sync_cpufreq) || cpu_is_msm8625())
-		msm_sync_cpufreq = 1;
-
-	if (cpu_is_msm8625())
-		msm_force_sync_cpufreq = 0;
 
 	register_pm_notifier(&msm_cpufreq_pm_notifier);
 	return cpufreq_register_driver(&msm_cpufreq_driver);
