@@ -1001,6 +1001,8 @@ struct vfe32_ctrl_type {
 	uint32_t frame_skip_cnt;
 	uint32_t frame_skip_pattern;
 	uint32_t snapshot_frame_cnt;
+
+	uint32_t simultaneous_sof_stat;
 };
 
 #define statsAeNum      0
