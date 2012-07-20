@@ -648,12 +648,13 @@ static void __init reserve_ion_memory(void)
 		msm8960_fmem_pdata.reserved_size_low = fixed_low_size +
 							HOLE_SIZE;
 		msm8960_fmem_pdata.reserved_size_high = fixed_high_size;
+		msm8960_fmem_pdata.size += HOLE_SIZE;
 	}
 
 	/* Since the fixed area may be carved out of lowmem,
 	 * make sure the length is a multiple of 1M.
 	 */
-	fixed_size = (fixed_size + MSM_MM_FW_SIZE + SECTION_SIZE - 1)
+	fixed_size = (fixed_size + HOLE_SIZE + SECTION_SIZE - 1)
 		& SECTION_MASK;
 	msm8960_reserve_fixed_area(fixed_size);
 
@@ -823,7 +824,7 @@ static void __init msm8960_reserve(void)
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 		if (reserve_info->fixed_area_size) {
 			msm8960_fmem_pdata.phys =
-				reserve_info->fixed_area_start + MSM_MM_FW_SIZE;
+				reserve_info->fixed_area_start;
 			pr_info("mm fw at %lx (fixed) size %x\n",
 				reserve_info->fixed_area_start, MSM_MM_FW_SIZE);
 			pr_info("fmem start %lx (fixed) size %lx\n",
