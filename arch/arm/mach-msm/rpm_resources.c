@@ -1069,7 +1069,8 @@ device_initcall(msm_rpmrs_init);
 
 static int __init msm_rpmrs_l2_init(void)
 {
-	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064()) {
+	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_apq8064() ||
+	    cpu_is_msm8627()) {
 
 		msm_pm_set_l2_flush_flag(0);
 
