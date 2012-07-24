@@ -151,21 +151,6 @@ static uint32 mdp_prim_panel_type = NO_PANEL;
 struct list_head mdp_hist_lut_list;
 DEFINE_MUTEX(mdp_hist_lut_list_mutex);
 
-struct hist_debug_elem {
-	uint8_t index;
-	uint32_t data[256];
-};
-
-uint8_t hist_debug_index = 0;
-struct hist_debug_elem mdp_hist_debug[256];
-
-void set_hist_debug(uint32_t data)
-{
-	struct hist_debug_elem *elem = &(mdp_hist_debug[hist_debug_index]);
-	elem->data[elem->index] = data;
-	elem->index = ((elem->index)++)%256;
-}
-
 uint32_t mdp_block2base(uint32_t block)
 {
 	uint32_t base = 0x0;
@@ -619,7 +604,6 @@ static void mdp_hist_read_work(struct work_struct *data);
 static int mdp_hist_init_mgmt(struct mdp_hist_mgmt *mgmt, uint32_t block)
 {
 	uint32_t bins, extra, index, term = 0;
-	int i;
 	init_completion(&mgmt->mdp_hist_comp);
 	mutex_init(&mgmt->mdp_hist_mutex);
 	mutex_init(&mgmt->mdp_do_hist_mutex);
@@ -689,10 +673,6 @@ static int mdp_hist_init_mgmt(struct mdp_hist_mgmt *mgmt, uint32_t block)
 		goto error_extra;
 
 	INIT_WORK(&mgmt->mdp_histogram_worker, mdp_hist_read_work);
-	for (i = 0; i<512; i++) {
-		mgmt->deadbeef[i]=512;
-		mgmt->deadbeef2[i]=512;
-	}
 	mgmt->hist = NULL;
 
 	mdp_hist_mgmt_array[index] = mgmt;
@@ -947,7 +927,7 @@ int mdp_histogram_start(struct mdp_histogram_start_req *req)
 	mgmt->bit_mask = req->bit_mask;
 	mgmt->num_bins = req->num_bins;
 	mgmt->hist = NULL;
-	set_hist_debug(1);
+
 	ret = mdp_histogram_enable(mgmt);
 
 	mgmt->mdp_is_hist_start = TRUE;
@@ -986,7 +966,6 @@ int mdp_histogram_stop(struct fb_info *info, uint32_t block)
 		goto error_lock;
 	}
 
-	set_hist_debug(8192);
 	ret = mdp_histogram_disable(mgmt);
 
 	mutex_unlock(&mgmt->mdp_hist_mutex);
@@ -1005,7 +984,6 @@ static int _mdp_histogram_read_dma_data(struct mdp_hist_mgmt *mgmt)
 	char *mdp_hist_base;
 	uint32_t r_data_offset, g_data_offset, b_data_offset;
 	int i, ret = 0;
-	int bad = 0;
 
 	mdp_hist_base = MDP_BASE + mgmt->base;
 
@@ -1024,20 +1002,6 @@ static int _mdp_histogram_read_dma_data(struct mdp_hist_mgmt *mgmt)
 	if (!mgmt->hist) {
 		pr_err("%s: mgmt->hist not set, mgmt->hist = 0x%08x",
 		__func__, (uint32_t) mgmt->hist);
-		for (i = 0; i < 512; i++) {
-			if ( mgmt->deadbeef[i] != 512 || mgmt->deadbeef2[i] != 512)
-				bad = 1;
-		}
-		if (bad != 0)
-			pr_err("%s: deadbeef corrupted", __func__);
-		set_hist_debug(1073741823);
-		hist_debug_index = (hist_debug_index+1)%256;
-
-		if (hist_debug_index == 255) {
-			pr_err("%s: PANIC : 255 hist = NULL's\n", __func__);
-			mdp_hist_base = NULL;
-			*mdp_hist_base = '*';
-		}
 		return -EINVAL;
 	}
 
@@ -1063,7 +1027,6 @@ static int _mdp_histogram_read_dma_data(struct mdp_hist_mgmt *mgmt)
 		} else
 			ret = -ENOMEM;
 	}
-	set_hist_debug(32);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	if (!ret)
@@ -1110,7 +1073,6 @@ static int _mdp_histogram_read_vg_data(struct mdp_hist_mgmt *mgmt)
 		} else
 			ret = -ENOMEM;
 	}
-	set_hist_debug(32);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 	if (!ret)
@@ -1127,16 +1089,12 @@ static void mdp_hist_read_work(struct work_struct *data)
 							mdp_histogram_worker);
 	int ret = 0;
 	mutex_lock(&mgmt->mdp_hist_mutex);
-	if (mgmt->hist == NULL)
-		set_hist_debug(15);
-
 	if (mgmt->mdp_is_hist_data == FALSE) {
 		pr_debug("%s, Histogram disabled before read.\n", __func__);
 		ret = -EINVAL;
 		goto error;
 	}
 
-	set_hist_debug(16);
 	switch (mgmt->block) {
 	case MDP_BLOCK_DMA_P:
 	case MDP_BLOCK_DMA_S:
@@ -1157,7 +1115,6 @@ static void mdp_hist_read_work(struct work_struct *data)
 	 * don't wake up readers
 	 */
 	if (!ret && mgmt->mdp_is_hist_valid && mgmt->mdp_is_hist_init) {
-		set_hist_debug(64);
 		mgmt->hist = NULL;
 		complete(&mgmt->mdp_hist_comp);
 	}
@@ -1168,13 +1125,10 @@ static void mdp_hist_read_work(struct work_struct *data)
 			mgmt->mdp_is_hist_init = TRUE;
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	if (!ret) {
-		set_hist_debug(65);
+	if (!ret)
 		__mdp_histogram_kickoff(mgmt);
-	} else {
-		set_hist_debug(66);
+	else
 		__mdp_histogram_reset(mgmt);
-	}
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 error:
@@ -1229,7 +1183,6 @@ static int mdp_do_histogram(struct fb_info *info,
 	}
 
 	mutex_lock(&mgmt->mdp_do_hist_mutex);
-	set_hist_debug(2);
 	if (!mgmt->frame_cnt || (mgmt->num_bins == 0)) {
 		pr_info("%s - frame_cnt = %d, num_bins = %d", __func__,
 		mgmt->frame_cnt, mgmt->num_bins);
@@ -1245,7 +1198,6 @@ static int mdp_do_histogram(struct fb_info *info,
 		goto error;
 }
 	mutex_lock(&mgmt->mdp_hist_mutex);
-	set_hist_debug(4);
 	if (!mgmt->mdp_is_hist_data) {
 		pr_info("%s - hist_data = false!", __func__);
 		ret = -EINVAL;
@@ -1261,22 +1213,18 @@ static int mdp_do_histogram(struct fb_info *info,
 	if (mgmt->hist != NULL) {
 		pr_err("%s; histogram attempted to be read twice\n", __func__);
 		ret = -EPERM;
-		set_hist_debug(7);
 		goto error_lock;
 	}
 	mgmt->hist = hist;
-	set_hist_debug(8);
 	mutex_unlock(&mgmt->mdp_hist_mutex);
 
 	if (wait_for_completion_killable(&mgmt->mdp_hist_comp)) {
 		pr_err("%s(): histogram bin collection killed", __func__);
 		ret = -EINVAL;
-		set_hist_debug(127);
 		goto error;
 	}
 
 	mutex_lock(&mgmt->mdp_hist_mutex);
-	set_hist_debug(128);
 	if (mgmt->mdp_is_hist_data && mgmt->mdp_is_hist_init)
 		ret =  _mdp_copy_hist_data(hist, mgmt);
 	else
@@ -1648,22 +1596,17 @@ void mdp_histogram_handle_isr(struct mdp_hist_mgmt *mgmt)
 	outpdw(base_addr + MDP_HIST_INTR_CLEAR_OFF, isr);
 	mb();
 	isr &= mask;
-	if (isr & INTR_HIST_RESET_SEQ_DONE) {
-		set_hist_debug(9);
+	if (isr & INTR_HIST_RESET_SEQ_DONE)
 		__mdp_histogram_kickoff(mgmt);
-	}
 
 	if (isr & INTR_HIST_DONE) {
-		set_hist_debug(10);
-		if ((waitqueue_active(&mgmt->mdp_hist_comp.wait))
-			 && (mgmt->hist != NULL)) {
-			set_hist_debug(11);
+		if (waitqueue_active(&mgmt->mdp_hist_comp.wait)) {
 			if (!queue_work(mdp_hist_wq,
 						&mgmt->mdp_histogram_worker)) {
-				set_hist_debug(13);
+				pr_err("%s %d- can't queue hist_read\n",
+							 __func__, mgmt->block);
 			}
 		} else {
-			set_hist_debug(12);
 			__mdp_histogram_reset(mgmt);
 		}
 	}
