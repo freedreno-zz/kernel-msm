@@ -1706,7 +1706,7 @@ static void __init select_freq_plan(void)
 		acpu_freq_tbl = acpu_freq_tbl_8627;
 		l2_freq_tbl = l2_freq_tbl_8627;
 		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8627);
-	} else if (cpu_is_msm8930() || cpu_is_msm8930aa()) {
+	} else if (cpu_is_msm8930()) {
 		enum pvs pvs_id = get_pvs();
 
 		scalable = scalable_8930;
