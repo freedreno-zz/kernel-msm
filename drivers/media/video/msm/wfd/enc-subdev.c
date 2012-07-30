@@ -1930,10 +1930,17 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 				client_ctx->user_ion_client,
 				client_ctx->recon_buffer_ion_handle[i],	0);
 
-			rc = ion_map_iommu(client_ctx->user_ion_client,
-				client_ctx->recon_buffer_ion_handle[i],
-				VIDEO_DOMAIN, VIDEO_MAIN_POOL, SZ_4K,
-				0, &phy_addr, (unsigned long *)&len, 0, 0);
+			if (inst->secure) {
+				rc = ion_phys(client_ctx->user_ion_client,
+					client_ctx->recon_buffer_ion_handle[i],
+					&phy_addr, (size_t *)&len);
+			} else {
+				rc = ion_map_iommu(client_ctx->user_ion_client,
+					client_ctx->recon_buffer_ion_handle[i],
+					VIDEO_DOMAIN, VIDEO_MAIN_POOL, SZ_4K,
+					0, &phy_addr, (unsigned long *)&len,
+					0, 0);
+			}
 			if (rc) {
 				WFD_MSG_ERR("Failed to allo recon buffers\n");
 				break;
@@ -2082,9 +2089,12 @@ static long venc_free_recon_buffers(struct v4l2_subdev *sd, void *arg)
 				WFD_MSG_ERR("Failed to free recon buffer\n");
 
 			if (client_ctx->recon_buffer_ion_handle[i]) {
-				ion_unmap_iommu(client_ctx->user_ion_client,
-					 client_ctx->recon_buffer_ion_handle[i],
-					 VIDEO_DOMAIN, VIDEO_MAIN_POOL);
+				if (!inst->secure) {
+					ion_unmap_iommu(
+					client_ctx->user_ion_client,
+					client_ctx->recon_buffer_ion_handle[i],
+					VIDEO_DOMAIN, VIDEO_MAIN_POOL);
+				}
 				ion_unmap_kernel(client_ctx->user_ion_client,
 					client_ctx->recon_buffer_ion_handle[i]);
 				ion_free(client_ctx->user_ion_client,
