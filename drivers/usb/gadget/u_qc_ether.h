@@ -93,5 +93,5 @@ int ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
 int
 rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 					 u32 vendorID, const char *manufacturer,
-					 u8 maxPktPerXfer);
+					 u8 max_pkt_per_xfer);
 #endif /* __U_QC_ETHER_H */
