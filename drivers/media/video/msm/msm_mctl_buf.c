@@ -252,6 +252,11 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	}
 	pmctl = msm_camera_get_mctl(pcam->mctl_handle);
+	if (!pmctl) {
+		D("%s mctl ptr is null", __func__);
+		buf->state = MSM_BUFFER_STATE_UNUSED;
+		return;
+	}
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		videobuf2_pmem_contig_user_put(mem, pmctl->client);
