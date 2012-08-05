@@ -44,7 +44,7 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 	adreno_regwrite(rb->device, REG_CP_RB_WPTR, rb->wptr);
 }
 
-static void
+static int
 adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 			  int wptr_ahead)
 {
@@ -80,17 +80,23 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb, unsigned int numcmds,
 
 	/* wait for space in ringbuffer */
 	do {
+		if (signal_pending(current))
+			return -ERESTARTSYS;
+
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
 
 		freecmds = rb->rptr - rb->wptr;
 
 	} while ((freecmds != 0) && (freecmds <= numcmds));
+
+	return 0;
 }
 
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 					     unsigned int numcmds)
 {
 	unsigned int	*ptr = NULL;
+	int ret = 0;
 
 	BUG_ON(numcmds >= rb->sizedwords);
 
@@ -101,17 +107,20 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 		/* reserve dwords for nop packet */
 		if ((rb->wptr + numcmds) > (rb->sizedwords -
 				GSL_RB_NOP_SIZEDWORDS))
-			adreno_ringbuffer_waitspace(rb, numcmds, 1);
+			ret = adreno_ringbuffer_waitspace(rb, numcmds, 1);
 	} else {
 		/* wptr behind rptr */
 		if ((rb->wptr + numcmds) >= rb->rptr)
-			adreno_ringbuffer_waitspace(rb, numcmds, 0);
+			ret = adreno_ringbuffer_waitspace(rb, numcmds, 0);
 		/* check for remaining space */
 		/* reserve dwords for nop packet */
-		if ((rb->wptr + numcmds) > (rb->sizedwords -
+		if (!ret && (rb->wptr + numcmds) > (rb->sizedwords -
 				GSL_RB_NOP_SIZEDWORDS))
-			adreno_ringbuffer_waitspace(rb, numcmds, 1);
+			ret = adreno_ringbuffer_waitspace(rb, numcmds, 1);
 	}
+
+	if (ret)
+		return ERR_PTR(ret);
 
 	ptr = (unsigned int *)rb->buffer_desc.hostptr + rb->wptr;
 	rb->wptr += numcmds;
@@ -423,14 +432,13 @@ void adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
 }
 
-static uint32_t
+static int
 adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				unsigned int flags, unsigned int *cmds,
-				int sizedwords)
+				int sizedwords, uint32_t *timestamp)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 	unsigned int *ringcmds;
-	unsigned int timestamp;
 	unsigned int total_sizedwords = sizedwords + 6;
 	unsigned int i;
 	unsigned int rcmd_gpu;
@@ -446,6 +454,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 7;
 
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
+	if (IS_ERR(ringcmds))
+		return PTR_ERR(ringcmds);
 	rcmd_gpu = rb->buffer_desc.gpuaddr
 		+ sizeof(uint)*(rb->wptr-total_sizedwords);
 
@@ -473,7 +483,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	}
 
 	rb->timestamp++;
-	timestamp = rb->timestamp;
+	*timestamp = rb->timestamp;
 
 	/* start-of-pipeline and end-of-pipeline timestamps */
 	GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_type0_packet(REG_CP_TIMESTAMP, 1));
@@ -527,11 +537,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	adreno_ringbuffer_submit(rb);
 
-	/* return timestamp of issued coREG_ands */
-	return timestamp;
+	return 0;
 }
 
-void
+int
 adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 						unsigned int flags,
 						unsigned int *cmds,
@@ -539,10 +548,11 @@ adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	uint32_t timestamp;
 
 	if (device->state & KGSL_STATE_HUNG)
-		return;
-	adreno_ringbuffer_addcmds(rb, flags, cmds, sizedwords);
+		return -EINVAL;
+	return adreno_ringbuffer_addcmds(rb, flags, cmds, sizedwords, &timestamp);
 }
 
 int
@@ -560,6 +570,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int i;
 	struct adreno_context *drawctxt;
 	unsigned int start_index = 0;
+	int ret;
 
 	if (device->state & KGSL_STATE_HUNG)
 		return -EBUSY;
@@ -587,7 +598,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	commands are stored in the first node of the IB chain. We can skip that
 	if a context switch hasn't occured */
 
-	if (drawctxt->flags & CTXT_FLAGS_PREAMBLE &&
+	if ((drawctxt->flags & CTXT_FLAGS_PREAMBLE) &&
 		adreno_dev->drawctxt_active == drawctxt)
 		start_index = 1;
 
@@ -606,9 +617,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	adreno_drawctxt_switch(adreno_dev, drawctxt, flags);
 
-	*timestamp = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
+	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					KGSL_CMD_FLAGS_NOT_KERNEL_CMD,
-					&link[0], (cmds - link));
+					&link[0], (cmds - link), timestamp);
 
 	KGSL_CMD_INFO(device, "ctxt %d g %08x numibs %d ts %d\n",
 		context->id, (unsigned int)ibdesc, numibs, *timestamp);
@@ -624,7 +635,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 #endif
 
-	return 0;
+	return ret;
 }
 
 int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
