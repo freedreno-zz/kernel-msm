@@ -1480,6 +1480,8 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 };
 #endif
 
+#define MSM_MPM_PIN_USB1_OTGSESSVLD	40
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -1488,6 +1490,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.power_budget		= 750,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
+	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
 #endif
 };
 #endif
