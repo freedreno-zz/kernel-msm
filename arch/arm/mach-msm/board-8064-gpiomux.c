@@ -902,7 +902,7 @@ static struct msm_gpiomux_config mdm_i2s_configs[] __initdata = {
 	},
 	/* MDM2AP_ERRFATAL */
 	{
-		.gpio = 19,
+		.gpio = 46,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mdm2ap_errfatal_cfg,
 		}
