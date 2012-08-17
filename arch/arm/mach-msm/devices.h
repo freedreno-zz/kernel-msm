@@ -416,3 +416,7 @@ extern struct platform_device msm8974_device_rng;
 extern struct platform_device mdm_sglte_device;
 
 extern struct platform_device apq_device_tz_log;
+
+extern struct platform_device apq_cpudai_mi2s;
+extern struct platform_device apq_cpudai_i2s_rx;
+extern struct platform_device apq_cpudai_i2s_tx;
