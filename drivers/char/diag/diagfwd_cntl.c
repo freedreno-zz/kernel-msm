@@ -401,7 +401,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"in_busy_qdsp_2: %d\n"
 		"in_busy_wcnss_1: %d\n"
 		"in_busy_wcnss_2: %d\n"
-		"in_busy_dci: %d\n",
+		"in_busy_dci: %d\n"
+		"logging_mode: %d\n",
 		(unsigned int)driver->ch,
 		(unsigned int)driver->chqdsp,
 		(unsigned int)driver->ch_wcnss,
@@ -421,7 +422,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->in_busy_qdsp_2,
 		driver->in_busy_wcnss_1,
 		driver->in_busy_wcnss_2,
-		driver->in_busy_dci);
+		driver->in_busy_dci,
+		driver->logging_mode);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, DEBUG_BUF_SIZE,
@@ -555,29 +557,35 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 	}
 
 	ret = scnprintf(buf, DEBUG_BUF_SIZE,
-		"hsic initialized: %d\n"
 		"hsic ch: %d\n"
 		"hsic enabled: %d\n"
 		"hsic_opened: %d\n"
-		"hisc_suspend: %d\n"
-		"in_busy_hsic_read_on_mdm: %d\n"
-		"in_busy_hsic_write_on_mdm: %d\n"
+		"hsic_suspend: %d\n"
+		"in_busy_hsic_read_on_device: %d\n"
 		"in_busy_hsic_write: %d\n"
-		"in_busy_hsic_read: %d\n"
+		"count_hsic_pool: %d\n"
+		"count_hsic_write_pool: %d\n"
+		"diag_hsic_pool: %x\n"
+		"diag_hsic_write_pool: %x\n"
+		"write_len_mdm: %d\n"
+		"num_hsic_buf_tbl_entries: %d\n"
 		"usb_mdm_connected: %d\n"
 		"diag_read_mdm_work: %d\n"
 		"diag_read_hsic_work: %d\n"
 		"diag_disconnect_work: %d\n"
 		"diag_usb_read_complete_work: %d\n",
-		driver->hsic_initialized,
 		driver->hsic_ch,
 		driver->hsic_device_enabled,
 		driver->hsic_device_opened,
 		driver->hsic_suspend,
 		driver->in_busy_hsic_read_on_device,
-		driver->in_busy_hsic_write_on_device,
 		driver->in_busy_hsic_write,
-		driver->in_busy_hsic_read,
+		driver->count_hsic_pool,
+		driver->count_hsic_write_pool,
+		(unsigned int)driver->diag_hsic_pool,
+		(unsigned int)driver->diag_hsic_write_pool,
+		driver->write_len_mdm,
+		driver->num_hsic_buf_tbl_entries,
 		driver->usb_mdm_connected,
 		work_pending(&(driver->diag_read_mdm_work)),
 		work_pending(&(driver->diag_read_hsic_work)),
