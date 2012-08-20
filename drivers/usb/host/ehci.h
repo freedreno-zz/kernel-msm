@@ -124,7 +124,7 @@ struct ehci_hcd {			/* one per controller */
 	ktime_t			last_periodic_enable;
 	u32			command;
 
-	unsigned		max_log2_irq_thresh;
+	unsigned		log2_irq_thresh;
 
 	/* SILICON QUIRKS */
 	unsigned		no_selective_suspend:1;
