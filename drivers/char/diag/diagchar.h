@@ -34,6 +34,8 @@
 #define POOL_TYPE_COPY		1
 #define POOL_TYPE_HDLC		2
 #define POOL_TYPE_WRITE_STRUCT	4
+#define POOL_TYPE_HSIC		8
+#define POOL_TYPE_HSIC_WRITE	16
 #define POOL_TYPE_ALL		7
 #define MODEM_DATA 		1
 #define QDSP_DATA  		2
@@ -264,18 +266,18 @@ struct diagchar_dev {
 #endif
 #ifdef CONFIG_DIAG_HSIC_PIPE
 	unsigned char *buf_in_hsic;
-	unsigned char *usb_buf_mdm_out;
 	int hsic_initialized;
 	int hsic_ch;
 	int hsic_device_enabled;
 	int hsic_device_opened;
 	int hsic_suspend;
-	int read_len_mdm;
 	int in_busy_hsic_read_on_device;
-	int in_busy_hsic_write_on_device;
 	int in_busy_hsic_write;
-	int in_busy_hsic_read;
+	/* USB MDM channel variables */
 	int usb_mdm_connected;
+	int read_len_mdm;
+	int write_len_mdm;
+	unsigned char *usb_buf_mdm_out;
 	struct usb_diag_ch *mdm_ch;
 	struct workqueue_struct *diag_hsic_wq;
 	struct work_struct diag_read_mdm_work;
@@ -283,7 +285,16 @@ struct diagchar_dev {
 	struct work_struct diag_disconnect_work;
 	struct work_struct diag_usb_read_complete_work;
 	struct diag_request *usb_read_mdm_ptr;
-	struct diag_request *write_ptr_mdm;
+	int count_hsic_pool;
+	int count_hsic_write_pool;
+	unsigned int poolsize_hsic;
+	unsigned int poolsize_hsic_write;
+	unsigned int itemsize_hsic;
+	unsigned int itemsize_hsic_write;
+	mempool_t *diag_hsic_pool;
+	mempool_t *diag_hsic_write_pool;
+	int num_hsic_buf_tbl_entries;
+	struct diag_write_device *hsic_buf_tbl;
 #endif
 };
 
