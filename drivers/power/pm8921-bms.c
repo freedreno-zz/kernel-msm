@@ -142,6 +142,8 @@ struct pm8921_bms_chip {
 	int			ignore_shutdown_soc;
 	int			prev_iavg_ua;
 	int			prev_uuc_iavg_ma;
+	int			prev_pc_unusable;
+	int			adjust_soc_low_threshold;
 };
 
 /*
@@ -1158,17 +1160,58 @@ static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 
 static int calculate_uuc_uah_at_given_current(struct pm8921_bms_chip *chip,
 				 int batt_temp, int chargecycles,
-				int rbatt, int fcc_uah, int i_ma)
+				int rbatt, int fcc_uah, int i_ma,
+				int *ret_pc_unusable)
 {
 	int unusable_uv, pc_unusable, uuc;
 
-	/* calculate unusable charge with itest */
 	unusable_uv = (rbatt * i_ma) + (chip->v_cutoff * 1000);
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp, chargecycles);
 	uuc = (fcc_uah * pc_unusable) / 100;
 	pr_debug("For i_ma = %d, unusable_uv = %d unusable_pc = %d uuc = %d\n",
 					i_ma, unusable_uv, pc_unusable, uuc);
+	*ret_pc_unusable = pc_unusable;
 	return uuc;
+}
+
+static int adjust_uuc(struct pm8921_bms_chip *chip, int fcc_uah,
+			int new_pc_unusable,
+			int new_uuc,
+			int batt_temp,
+			int rbatt,
+			int *iavg_ma)
+{
+	int new_unusable_mv;
+	int batt_temp_degc = batt_temp / 10;
+
+	if (chip->prev_pc_unusable == -EINVAL
+		|| abs(chip->prev_pc_unusable - new_pc_unusable) <= 1) {
+		chip->prev_pc_unusable = new_pc_unusable;
+		return new_uuc;
+	}
+
+	/* the uuc is trying to change more than 1% restrict it */
+	if (new_pc_unusable > chip->prev_pc_unusable)
+		chip->prev_pc_unusable++;
+	else
+		chip->prev_pc_unusable--;
+
+	new_uuc = (fcc_uah * chip->prev_pc_unusable) / 100;
+
+	/* also find update the iavg_ma accordingly */
+	new_unusable_mv = interpolate_ocv(chip, batt_temp_degc,
+						chip->prev_pc_unusable);
+	if (new_unusable_mv < chip->v_cutoff)
+		new_unusable_mv = chip->v_cutoff;
+
+	*iavg_ma = (new_unusable_mv - chip->v_cutoff) * 1000 / rbatt;
+	if (*iavg_ma == 0)
+		*iavg_ma = 1;
+	pr_debug("Restricting UUC to %d (%d%%) unusable_mv = %d iavg_ma = %d\n",
+					new_uuc, chip->prev_pc_unusable,
+					new_unusable_mv, *iavg_ma);
+
+	return new_uuc;
 }
 
 static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
@@ -1253,6 +1296,7 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 	static int iavg_index;
 	static int iavg_num_samples;
 	static int firsttime = 1;
+	int pc_unusable;
 
 	/*
 	 * if we are called first time fill all the
@@ -1293,8 +1337,15 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 
 	uuc_uah_iavg = calculate_uuc_uah_at_given_current(chip,
 					batt_temp, chargecycles,
-					rbatt, fcc_uah, iavg_ma);
+					rbatt, fcc_uah, iavg_ma,
+					&pc_unusable);
 	pr_debug("iavg = %d uuc_iavg = %d\n", iavg_ma, uuc_uah_iavg);
+
+	/* restrict the uuc such that it can increase only by one percent */
+	uuc_uah_iavg = adjust_uuc(chip, fcc_uah, pc_unusable, uuc_uah_iavg,
+					batt_temp, rbatt, &iavg_ma);
+
+	/* find out what the avg current should be for this uuc */
 	chip->prev_uuc_iavg_ma = iavg_ma;
 
 	firsttime = 0;
@@ -1440,6 +1491,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	int soc_new = 0;
 	int m = 0;
 	int rc = 0;
+	int delta_ocv_uv_limit = 0;
 
 	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
 							&ibat_ua,
@@ -1452,6 +1504,9 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 
 	if (ibat_ua < 0)
 		goto out;
+
+	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
+
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt)/1000;
 	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp, last_chargecycles);
 	soc_est = div_s64((s64)fcc_uah * pc_est - uuc_uah*100,
@@ -1469,7 +1524,8 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 	 * and  cause a bad user experience
 	 */
 	if (soc_est == soc
-		|| (is_between(45, 25, soc_est) && is_between(50, 20, soc))
+		|| (is_between(45, chip->adjust_soc_low_threshold, soc_est)
+		&& is_between(50, chip->adjust_soc_low_threshold - 5, soc))
 		|| soc >= 90)
 		goto out;
 
@@ -1504,6 +1560,18 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc, int batt_temp,
 
 	delta_ocv_uv = div_s64((soc - soc_est) * (s64)m * 1000,
 							n * (pc - pc_new));
+
+	if (abs(delta_ocv_uv) > delta_ocv_uv_limit) {
+		pr_debug("limiting delta ocv %d limit = %d\n", delta_ocv_uv,
+				delta_ocv_uv_limit);
+
+		if (delta_ocv_uv > 0)
+			delta_ocv_uv = delta_ocv_uv_limit;
+		else
+			delta_ocv_uv = -1 * delta_ocv_uv_limit;
+		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
+	}
+
 	chip->last_ocv_uv -= delta_ocv_uv;
 
 	if (chip->last_ocv_uv >= chip->max_voltage_uv)
@@ -1675,6 +1743,7 @@ static void adjust_rc_and_uuc_for_specific_soc(
 	int soc_rbatt;
 	int iavg_ma;
 	int num_tries = 0;
+	int pc_unusable;
 
 	iavg_ma = chip->prev_uuc_iavg_ma;
 
@@ -1693,7 +1762,8 @@ recalculate_ocv:
 		rbatt = new_rbatt;
 		uuc_uah = calculate_uuc_uah_at_given_current(chip,
 					batt_temp, chargecycles,
-					new_rbatt, fcc_uah, iavg_ma);
+					new_rbatt, fcc_uah, iavg_ma,
+					&pc_unusable);
 
 		pr_debug("rbatt not settled uuc = %d for rbatt = %d iavg_ma = %d num_tries = %d\n",
 					uuc_uah, rbatt, iavg_ma, num_tries);
@@ -3038,6 +3108,12 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
+	chip->adjust_soc_low_threshold = pdata->adjust_soc_low_threshold;
+	if (chip->adjust_soc_low_threshold >= 45)
+		chip->adjust_soc_low_threshold = 45;
+
+	chip->prev_pc_unusable = -EINVAL;
+
 	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);
 	if (rc) {
