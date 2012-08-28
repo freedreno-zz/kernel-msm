@@ -1459,6 +1459,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	struct msm_hsic_hcd *mehci;
 	struct msm_hsic_host_platform_data *pdata;
 	int ret;
+	int is_pbl = 0;
+	int log2_itc = 0;
 
 	dev_dbg(&pdev->dev, "ehci_msm-hsic probe\n");
 
@@ -1509,8 +1511,20 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	mehci->ehci.resume_sof_bug = 1;
 
-	if (pdata)
-		mehci->ehci.log2_irq_thresh = pdata->log2_irq_thresh;
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IO, "MDM2AP_PBLRDY");
+	if (res) {
+		dev_dbg(mehci->dev, "pblrdy: %d\n", res->start);
+		is_pbl = gpio_get_value(res->start);
+	}
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_IO, "ITC");
+	if (res) {
+		dev_dbg(mehci->dev, "log2_itc: %d\n", res->start);
+		log2_itc = is_pbl ? 0 : res->start;
+	}
+
+	mehci->ehci.log2_irq_thresh = log2_itc;
 
 	res = platform_get_resource_byname(pdev,
 			IORESOURCE_IRQ,

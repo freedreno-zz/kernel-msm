@@ -787,6 +787,7 @@ static struct resource resources_hsusb_host[] = {
 	},
 };
 
+#define MDM2AP_PBLRDY			46
 static struct resource resources_hsic_host[] = {
 	{
 		.start	= 0x12510000,
@@ -808,6 +809,26 @@ static struct resource resources_hsic_host[] = {
 		.start	= 47,
 		.end	= 47,
 		.name	= "wakeup",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_PBLRDY,
+		.end	= MDM2AP_PBLRDY,
+		.name	= "MDM2AP_PBLRDY",
+		.flags	= IORESOURCE_IO,
+	},
+
+	/* Interrupt threshold(ITC) control is the max rate at which hsic/usb
+	*  controller generates interrupts. Interval is measured in
+	*  micorframes(125us). It can be caluculated as (2**N) * 125us. Where N
+	*  is the value indicated below resource. For example, if resource
+	*  indicates 6, ITC: (2**6) * 125us = 8ms. Hence hsic controller
+	*  generates interrupts at 8ms rate.
+	*/
+	{
+		.start	= 6,
+		.end	= 6,
+		.name	= "ITC",
 		.flags	= IORESOURCE_IO,
 	},
 };
