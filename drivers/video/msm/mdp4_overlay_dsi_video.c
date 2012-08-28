@@ -27,6 +27,7 @@
 #include <linux/ktime.h>
 #include <linux/wakelock.h>
 #include <linux/time.h>
+#include <linux/pm_qos_params.h>
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
@@ -459,11 +460,47 @@ static void mdp4_dsi_video_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 #define VSYNC_INTERVAL	16
 #define WAKE_DELAY	3 /* 3 ioctls * 600 us = 2ms + 1ms buffer */
 #define MAX_VSYNC_GAP   4 /* Marker to detect whether to skip timer */
+/* Latency requirements of MDP in us.*/
+#define MDP_IDLE_LATENCY 5
 
 /* Move the globals into context data structure for 3.4 upgrade */
 static int first_time = 1;
 static ktime_t last_vsync_time_ns;
 static struct hrtimer hr_mdp_timer_pc;
+static struct workqueue_struct *mdp_cpu_pc_wq;	/*mdp cpu pmqos wq */
+static struct pm_qos_request_list qos_req_list; /* pm request queue */
+
+/* Work queue items for CPU PC PM QOS */
+static struct cpu_pc_work_t *mdp_cpu_pc_worker;
+static void mdp_cpu_pc_workqueue_handler(struct work_struct *work)
+{
+	struct cpu_pc_work_t *cur_cpu_pc_work = (struct cpu_pc_work_t *)work;
+	if (pm_qos_request_active(&qos_req_list)) {
+		if (cur_cpu_pc_work->enablePC == 0)
+			pm_qos_update_request(&qos_req_list,
+					MDP_IDLE_LATENCY);
+		else
+			pm_qos_update_request(&qos_req_list,
+					PM_QOS_DEFAULT_VALUE);
+	}
+}
+
+static void init_cpu_pc_wq(void)
+{
+	mdp_cpu_pc_wq = create_singlethread_workqueue("mdp_cpu_pc_wq");
+	if (mdp_cpu_pc_wq) {
+		mdp_cpu_pc_worker =
+			(struct cpu_pc_work_t *)kmalloc(
+				sizeof(struct cpu_pc_work_t), GFP_KERNEL);
+		if (mdp_cpu_pc_worker)
+			INIT_WORK((struct work_struct *)mdp_cpu_pc_worker,
+					mdp_cpu_pc_workqueue_handler);
+		else
+			pr_err("%s : Could not create mdp_cpu_pc_work item\n",
+					__func__);
+	} else
+		pr_err("%s : Could not create pc workqueue\n", __func__);
+}
 
 static unsigned long compute_vsync_interval(void)
 {
@@ -492,14 +529,21 @@ static unsigned long compute_vsync_interval(void)
 
 static enum hrtimer_restart mdp_pc_hrtimer_callback(struct hrtimer *timer)
 {
+	/* Disable all PC till next VSync */
+
 	if (!wake_lock_active(&mdp_idle_wakelock)) {
 		/* Hold Wakelock if no locks held */
 		wake_lock(&mdp_idle_wakelock);
 	}
+
+	mdp_cpu_pc_worker->enablePC = 0;
+	if (!queue_work(mdp_cpu_pc_wq, (struct work_struct *)mdp_cpu_pc_worker))
+		pr_err("%s : can't queue work for pc disable!\n", __func__);
+
 	return HRTIMER_NORESTART;
 }
 
-static void init_pc_timer(void)
+static void init_cpu_pc_vetoers(void)
 {
 	/*
 	 * Initialize hr timer which fires a few ms before Vsync - this
@@ -508,6 +552,11 @@ static void init_pc_timer(void)
 	 */
 	hrtimer_init(&hr_mdp_timer_pc, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hr_mdp_timer_pc.function = &mdp_pc_hrtimer_callback;
+	/*  Add pm_qos request */
+	pm_qos_add_request(&qos_req_list, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
+	/* Initialize PMQOS request workqueue */
+	init_cpu_pc_wq();
 }
 
 static void program_pc_timer(unsigned long diff_interval)
@@ -557,7 +606,7 @@ static void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 	if ((intr_done == INTR_PRIMARY_VSYNC) ||
 			(intr_done == INTR_DMA_P_DONE)) {
 		if (first_time) {
-			init_pc_timer();
+			init_cpu_pc_vetoers();
 			first_time = 0;
 		}
 		vsync_interval = compute_vsync_interval();
@@ -652,6 +701,12 @@ void mdp4_primary_vsync_dsi_video(void)
 	/* Release Wakelock */
 	if (wake_lock_active(&mdp_idle_wakelock))
 		wake_unlock(&mdp_idle_wakelock);
+
+	mdp_cpu_pc_worker->enablePC = 1;
+	if (!queue_work(mdp_cpu_pc_wq,
+				(struct work_struct *) mdp_cpu_pc_worker))
+		pr_err("%s : Vsync isr can't queue work\n", __func__);
+
 }
 
  /*
@@ -687,6 +742,12 @@ void mdp4_dma_p_done_dsi_video(struct mdp_dma_data *dma)
 	/*  Release Wakelock */
 	if (wake_lock_active(&mdp_idle_wakelock))
 		wake_unlock(&mdp_idle_wakelock);
+	mdp_cpu_pc_worker->enablePC = 1;
+	if (!queue_work(mdp_cpu_pc_wq,
+				(struct work_struct *) mdp_cpu_pc_worker))
+		pr_err("%s : DMA isr can't queue work\n", __func__);
+
+
 }
 
 /*
