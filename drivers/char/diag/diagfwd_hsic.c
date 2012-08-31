@@ -82,7 +82,6 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 			 * asynchronous.  Once the read is complete the read
 			 * callback function will be called.
 			 */
-			int err;
 			pr_debug("diag: read from HSIC\n");
 			num_reads_submitted++;
 			err = diag_bridge_read((char *)buf_in_hsic,
@@ -110,7 +109,7 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	 * was no hsic data, and if no unrecoverable error occurred
 	 * (-ENODEV is an unrecoverable error), then set up the next read
 	 */
-	if ((num_reads_submitted == 0) && (err != ENODEV))
+	if ((num_reads_submitted == 0) && (err != -ENODEV))
 		queue_work(driver->diag_hsic_wq,
 				 &driver->diag_read_hsic_work);
 }
