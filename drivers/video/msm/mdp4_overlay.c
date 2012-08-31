@@ -1544,9 +1544,13 @@ static void mdp4_mixer_stage_commit(int mixer)
 			if (pull_mode) {
 				outpdw(MDP_BASE + 0x18000, flush_bits);
 			/* wait for vsync on both pull mode interfaces */
-				msleep(20);
 			}
 		}
+
+		if ((ctrl->mixer_cfg[MDP4_MIXER0] != cfg[MDP4_MIXER0]) &&
+			((ctrl->mixer_cfg[MDP4_MIXER1] != cfg[MDP4_MIXER1]) ||
+			(ctrl->mixer_cfg[MDP4_MIXER2] != cfg[MDP4_MIXER2])))
+				msleep(20);
 
 		if (ctrl->mixer_cfg[MDP4_MIXER2] != cfg[MDP4_MIXER2]) {
 			off = 0x100F0;
@@ -1558,6 +1562,7 @@ static void mdp4_mixer_stage_commit(int mixer)
 
 			outpdw(MDP_BASE + off, data); /* LAYERMIXER_IN_CFG */
 		}
+
 	} else {
 		if (mixer == MDP4_MIXER0) {
 			if ((ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO) ||
