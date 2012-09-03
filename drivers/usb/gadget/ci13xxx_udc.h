@@ -158,6 +158,11 @@ struct ci13xxx {
 	unsigned long dTD_update_fail_count;
 };
 
+struct ci13xxx_platform_data {
+	u8 usb_core_id;
+	void *prv_data;
+};
+
 /******************************************************************************
  * REGISTERS
  *****************************************************************************/
