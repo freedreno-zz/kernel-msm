@@ -944,8 +944,13 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	 */
 	adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 #endif
+	/* If context hung and recovered then return error so that the
+	 * application may handle it */
+	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG_RECOVERED)
+		return -EDEADLK;
+	else
+		return 0;
 
-	return 0;
 }
 
 static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
@@ -1033,10 +1038,10 @@ static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
 		if (2 == i)
 			check = true;
 	} while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr);
-	/* temp_rb_rptr points to the global eop, move forward till
-	 * the next command */
+	/* temp_rb_rptr points to the command stream after global eop,
+	 * move backward till the start of command sequence */
 	if (!status) {
-		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, true);
+		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, false);
 		if (!status) {
 			*rb_rptr = temp_rb_rptr;
 			KGSL_DRV_ERR(rb->device,
@@ -1044,6 +1049,9 @@ static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
 			temp_rb_rptr / sizeof(unsigned int));
 		}
 	}
+	if (status)
+		KGSL_DRV_ERR(rb->device,
+		"Failed to find the command sequence after eop timestamp\n");
 	return status;
 }
 
@@ -1237,8 +1245,9 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 
 	context = idr_find(&device->context_idr, rec_data->context_id);
 
-	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr, rec_data->global_eop,
-						false);
+	/* Look for the command stream that is right after the global eop */
+	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr,
+				rec_data->global_eop + 1, false);
 	if (status)
 		goto done;
 
@@ -1253,6 +1262,8 @@ int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 					goto copy_rb_contents;
 			}
 			_turn_preamble_on_for_ib_seq(rb, rb_rptr);
+		} else {
+			status = -EINVAL;
 		}
 	}
 
@@ -1263,11 +1274,15 @@ copy_rb_contents:
 				&rec_data->bad_rb_size,
 				&rec_data->last_valid_ctx_id);
 	/* If we failed to get the hanging IB sequence then we cannot execute
-	 * commands from the bad context */
+	 * commands from the bad context or preambles not supported */
 	if (status) {
 		rec_data->bad_rb_size = 0;
 		status = 0;
 	}
+	/* If there is no context then that means there are no commands for
+	 * good case */
+	if (!context)
+		rec_data->rb_size = 0;
 done:
 	return status;
 }
