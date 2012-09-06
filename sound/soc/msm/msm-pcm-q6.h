@@ -82,6 +82,8 @@ struct msm_audio {
 	int mmap_flag;
 	atomic_t pending_buffer;
 	int cmd_interrupt;
+	bool set_channel_map;
+	char channel_map[8];
 };
 
 struct output_meta_data_st {
