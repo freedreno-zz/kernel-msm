@@ -2273,8 +2273,7 @@ static int mdp_probe(struct platform_device *pdev)
 		if (!(mdp_pdata->cont_splash_enabled))
 			mdp4_hw_init();
 #else
-		if (!(mdp_pdata->cont_splash_enabled))
-			mdp_hw_init();
+		mdp_hw_init(mdp_pdata->cont_splash_enabled);
 #endif
 
 #ifdef CONFIG_FB_MSM_OVERLAY
@@ -2310,7 +2309,8 @@ static int mdp_probe(struct platform_device *pdev)
 		if (mdp_pdata->cont_splash_enabled) {
 			mfd->cont_splash_done = 0;
 			if (!contSplash_update_done) {
-				if (mfd->panel.type == MIPI_VIDEO_PANEL)
+				if (mfd->panel.type == MIPI_VIDEO_PANEL ||
+				    mfd->panel.type == LCDC_PANEL)
 					mdp_pipe_ctrl(MDP_CMD_BLOCK,
 						MDP_BLOCK_POWER_ON, FALSE);
 				contSplash_update_done = 1;
