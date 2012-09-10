@@ -355,7 +355,7 @@ u32 __branch_clk_disable_reg(const struct branch *clk, const char *name)
 {
 	u32 reg_val;
 
-	reg_val = readl_relaxed(clk->ctl_reg);
+	reg_val = clk->ctl_reg ? readl_relaxed(clk->ctl_reg) : 0;
 	if (clk->en_mask) {
 		reg_val &= ~(clk->en_mask);
 		writel_relaxed(reg_val, clk->ctl_reg);
@@ -567,7 +567,7 @@ enum handoff branch_handoff(struct branch *clk, struct clk *c)
 	if (!branch_in_hwcg_mode(clk)) {
 		clk->hwcg_mask = 0;
 		c->flags &= ~CLKFLAG_HWCG;
-		if (readl_relaxed(clk->ctl_reg) & clk->en_mask)
+		if (clk->ctl_reg && readl_relaxed(clk->ctl_reg) & clk->en_mask)
 			return HANDOFF_ENABLED_CLK;
 	} else {
 		c->flags |= CLKFLAG_HWCG;
