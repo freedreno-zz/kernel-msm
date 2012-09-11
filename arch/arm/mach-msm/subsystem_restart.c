@@ -575,7 +575,7 @@ static int __init subsys_restart_init(void)
 
 	restart_level = RESET_SOC;
 
-	ssr_wq = alloc_workqueue("ssr_wq", 0, 0);
+	ssr_wq = alloc_workqueue("ssr_wq", WQ_CPU_INTENSIVE, 0);
 
 	if (!ssr_wq)
 		panic("Couldn't allocate workqueue for subsystem restart.\n");
