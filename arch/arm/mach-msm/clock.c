@@ -265,11 +265,6 @@ void clk_unprepare(struct clk *clk)
 	if (clk->prepare_count == 1) {
 		struct clk *parent = clk_get_parent(clk);
 
-		if (WARN(!clk->warned && clk->count,
-			"%s: Don't call unprepare when the clock is enabled\n",
-				clk->dbg_name))
-			clk->warned = true;
-
 		if (clk->ops->unprepare)
 			clk->ops->unprepare(clk);
 		clk_unprepare(clk->depends);
