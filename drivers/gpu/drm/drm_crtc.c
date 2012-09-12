@@ -3189,6 +3189,8 @@ struct drm_property *drm_property_create(struct drm_device *dev, int flags,
 	if (!property)
 		return NULL;
 
+	property->dev = dev;
+
 	if (num_values) {
 		property->values = kzalloc(sizeof(uint64_t)*num_values, GFP_KERNEL);
 		if (!property->values)
@@ -3209,6 +3211,9 @@ struct drm_property *drm_property_create(struct drm_device *dev, int flags,
 	}
 
 	list_add_tail(&property->head, &dev->mode_config.property_list);
+
+	BUG_ON(!drm_property_type_valid(property));
+
 	return property;
 fail:
 	kfree(property->values);
@@ -3292,19 +3297,38 @@ struct drm_property *drm_property_create_range(struct drm_device *dev, int flags
 }
 EXPORT_SYMBOL(drm_property_create_range);
 
+struct drm_property *drm_property_create_object(struct drm_device *dev,
+					 int flags, const char *name, uint32_t type)
+{
+	struct drm_property *property;
+
+	flags |= DRM_MODE_PROP_OBJECT;
+
+	property = drm_property_create(dev, flags, name, 1);
+	if (!property)
+		return NULL;
+
+	property->values[0] = type;
+
+	return property;
+}
+EXPORT_SYMBOL(drm_property_create_object);
+
 int drm_property_add_enum(struct drm_property *property, int index,
 			  uint64_t value, const char *name)
 {
 	struct drm_property_enum *prop_enum;
 
-	if (!(property->flags & (DRM_MODE_PROP_ENUM | DRM_MODE_PROP_BITMASK)))
+	if (!(drm_property_type_is(property, DRM_MODE_PROP_ENUM) ||
+			drm_property_type_is(property, DRM_MODE_PROP_BITMASK)))
 		return -EINVAL;
 
 	/*
 	 * Bitmask enum properties have the additional constraint of values
 	 * from 0 to 63
 	 */
-	if ((property->flags & DRM_MODE_PROP_BITMASK) && (value > 63))
+	if (drm_property_type_is(property, DRM_MODE_PROP_BITMASK) &&
+			(value > 63))
 		return -EINVAL;
 
 	if (!list_empty(&property->enum_blob_list)) {
@@ -3429,10 +3453,11 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 	}
 	property = obj_to_property(obj);
 
-	if (property->flags & (DRM_MODE_PROP_ENUM | DRM_MODE_PROP_BITMASK)) {
+	if (drm_property_type_is(property, DRM_MODE_PROP_ENUM) ||
+			drm_property_type_is(property, DRM_MODE_PROP_BITMASK)) {
 		list_for_each_entry(prop_enum, &property->enum_blob_list, head)
 			enum_count++;
-	} else if (property->flags & DRM_MODE_PROP_BLOB) {
+	} else if (drm_property_type_is(property, DRM_MODE_PROP_BLOB)) {
 		list_for_each_entry(prop_blob, &property->enum_blob_list, head)
 			blob_count++;
 	}
@@ -3454,7 +3479,8 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 	}
 	out_resp->count_values = value_count;
 
-	if (property->flags & (DRM_MODE_PROP_ENUM | DRM_MODE_PROP_BITMASK)) {
+	if (drm_property_type_is(property, DRM_MODE_PROP_ENUM) ||
+			drm_property_type_is(property, DRM_MODE_PROP_BITMASK)) {
 		if ((out_resp->count_enum_blobs >= enum_count) && enum_count) {
 			copied = 0;
 			enum_ptr = (struct drm_mode_property_enum __user *)(unsigned long)out_resp->enum_blob_ptr;
@@ -3476,7 +3502,7 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 		out_resp->count_enum_blobs = enum_count;
 	}
 
-	if (property->flags & DRM_MODE_PROP_BLOB) {
+	if (drm_property_type_is(property, DRM_MODE_PROP_BLOB)) {
 		if ((out_resp->count_enum_blobs >= blob_count) && blob_count) {
 			copied = 0;
 			blob_id_ptr = (uint32_t __user *)(unsigned long)out_resp->enum_blob_ptr;
@@ -3607,19 +3633,25 @@ static bool drm_property_change_is_valid(struct drm_property *property,
 {
 	if (property->flags & DRM_MODE_PROP_IMMUTABLE)
 		return false;
-	if (property->flags & DRM_MODE_PROP_RANGE) {
+
+	if (drm_property_type_is(property, DRM_MODE_PROP_RANGE)) {
 		if (value < property->values[0] || value > property->values[1])
 			return false;
 		return true;
-	} else if (property->flags & DRM_MODE_PROP_BITMASK) {
+	} else if (drm_property_type_is(property, DRM_MODE_PROP_BITMASK)) {
 		int i;
 		uint64_t valid_mask = 0;
 		for (i = 0; i < property->num_values; i++)
 			valid_mask |= (1ULL << property->values[i]);
 		return !(value & ~valid_mask);
-	} else if (property->flags & DRM_MODE_PROP_BLOB) {
+	} else if (drm_property_type_is(property, DRM_MODE_PROP_BLOB)) {
 		/* Only the driver knows */
 		return true;
+	} else if (drm_property_type_is(property, DRM_MODE_PROP_OBJECT)) {
+		/* a zero value for an object property translates to null: */
+		if (value == 0)
+			return true;
+		return drm_property_get_obj(property, value) != NULL;
 	} else {
 		int i;
 		for (i = 0; i < property->num_values; i++)
@@ -3696,9 +3728,9 @@ static int drm_mode_plane_set_obj_prop(struct drm_plane *plane,
 	return ret;
 }
 
-static int drm_mode_set_obj_prop(struct drm_device *dev,
-		struct drm_mode_object *obj, void *state,
-		struct drm_property *property, uint64_t value, void *blob_data)
+static int drm_mode_set_obj_prop(struct drm_mode_object *obj,
+		void *state, struct drm_property *property, 
+		uint64_t value, void *blob_data)
 {
 	if (drm_property_change_is_valid(property, value)) {
 		switch (obj->type) {
@@ -3712,6 +3744,8 @@ static int drm_mode_set_obj_prop(struct drm_device *dev,
 			return drm_mode_plane_set_obj_prop(obj_to_plane(obj),
 					state, property, value, blob_data);
 		}
+	} else {
+		DRM_DEBUG("invalid value: %s = %llx\n", property->name, value);
 	}
 
 	return -EINVAL;
@@ -3746,7 +3780,7 @@ static int drm_mode_set_obj_prop_id(struct drm_device *dev, void *state,
 		return -ENOENT;
 	property = obj_to_property(prop_obj);
 
-	return drm_mode_set_obj_prop(dev, arg_obj, state, property,
+	return drm_mode_set_obj_prop(arg_obj, state, property, 
 			value, blob_data);
 }
 
