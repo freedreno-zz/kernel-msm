@@ -2833,6 +2833,8 @@ struct drm_property *drm_property_create(struct drm_device *dev, int flags,
 	if (!property)
 		return NULL;
 
+	property->dev = dev;
+
 	if (num_values) {
 		property->values = kzalloc(sizeof(uint64_t)*num_values, GFP_KERNEL);
 		if (!property->values)
@@ -2935,6 +2937,23 @@ struct drm_property *drm_property_create_range(struct drm_device *dev, int flags
 	return property;
 }
 EXPORT_SYMBOL(drm_property_create_range);
+
+struct drm_property *drm_property_create_object(struct drm_device *dev,
+					 int flags, const char *name, uint32_t type)
+{
+	struct drm_property *property;
+
+	flags |= DRM_MODE_PROP_OBJECT;
+
+	property = drm_property_create(dev, flags, name, 1);
+	if (!property)
+		return NULL;
+
+	property->values[0] = type;
+
+	return property;
+}
+EXPORT_SYMBOL(drm_property_create_object);
 
 int drm_property_add_enum(struct drm_property *property, int index,
 			  uint64_t value, const char *name)
@@ -3264,6 +3283,11 @@ static bool drm_property_change_is_valid(struct drm_property *property,
 	} else if (property->flags & DRM_MODE_PROP_BLOB) {
 		/* Only the driver knows */
 		return true;
+	} else if (property->flags & DRM_MODE_PROP_OBJECT) {
+		/* a zero value for an object property translates to null: */
+		if (value == 0)
+			return true;
+		return drm_property_get_obj(property, value) != NULL;
 	} else {
 		int i;
 		for (i = 0; i < property->num_values; i++)
@@ -3340,9 +3364,9 @@ static int drm_mode_plane_set_obj_prop(struct drm_plane *plane,
 	return ret;
 }
 
-static int drm_mode_set_obj_prop(struct drm_device *dev,
-		struct drm_mode_object *obj, void *state,
-		struct drm_property *property, uint64_t value, void *blob_data)
+static int drm_mode_set_obj_prop(struct drm_mode_object *obj,
+		void *state, struct drm_property *property, 
+		uint64_t value, void *blob_data)
 {
 	if (drm_property_change_is_valid(property, value)) {
 		switch (obj->type) {
@@ -3356,6 +3380,8 @@ static int drm_mode_set_obj_prop(struct drm_device *dev,
 			return drm_mode_plane_set_obj_prop(obj_to_plane(obj),
 					state, property, value, blob_data);
 		}
+	} else {
+		DRM_DEBUG("invalid value: %s = %llx\n", property->name, value);
 	}
 
 	return -EINVAL;
@@ -3390,7 +3416,7 @@ static int drm_mode_set_obj_prop_id(struct drm_device *dev, void *state,
 		return -ENOENT;
 	property = obj_to_property(prop_obj);
 
-	return drm_mode_set_obj_prop(dev, arg_obj, state, property,
+	return drm_mode_set_obj_prop(arg_obj, state, property, 
 			value, blob_data);
 }
 
