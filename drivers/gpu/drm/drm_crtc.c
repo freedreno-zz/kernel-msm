@@ -3278,13 +3278,11 @@ struct drm_property *drm_property_create_bitmask(struct drm_device *dev,
 }
 EXPORT_SYMBOL(drm_property_create_bitmask);
 
-struct drm_property *drm_property_create_range(struct drm_device *dev, int flags,
-					 const char *name,
+static struct drm_property *property_create_range(struct drm_device *dev,
+					 int flags, const char *name,
 					 uint64_t min, uint64_t max)
 {
 	struct drm_property *property;
-
-	flags |= DRM_MODE_PROP_RANGE;
 
 	property = drm_property_create(dev, flags, name, 2);
 	if (!property)
@@ -3295,7 +3293,24 @@ struct drm_property *drm_property_create_range(struct drm_device *dev, int flags
 
 	return property;
 }
+
+struct drm_property *drm_property_create_range(struct drm_device *dev, int flags,
+					 const char *name,
+					 uint64_t min, uint64_t max)
+{
+	return property_create_range(dev, DRM_MODE_PROP_RANGE | flags,
+			name, min, max);
+}
 EXPORT_SYMBOL(drm_property_create_range);
+
+struct drm_property *drm_property_create_signed_range(struct drm_device *dev,
+					 int flags, const char *name,
+					 int64_t min, int64_t max)
+{
+	return property_create_range(dev, DRM_MODE_PROP_SIGNED_RANGE | flags,
+			name, I642U64(min), I642U64(max));
+}
+EXPORT_SYMBOL(drm_property_create_signed_range);
 
 struct drm_property *drm_property_create_object(struct drm_device *dev,
 					 int flags, const char *name, uint32_t type)
@@ -3636,6 +3651,12 @@ static bool drm_property_change_is_valid(struct drm_property *property,
 
 	if (drm_property_type_is(property, DRM_MODE_PROP_RANGE)) {
 		if (value < property->values[0] || value > property->values[1])
+			return false;
+		return true;
+	} else if (drm_property_type_is(property, DRM_MODE_PROP_SIGNED_RANGE)) {
+		int64_t svalue = U642I64(value);
+		if (svalue < U642I64(property->values[0]) ||
+				svalue > U642I64(property->values[1]))
 			return false;
 		return true;
 	} else if (drm_property_type_is(property, DRM_MODE_PROP_BITMASK)) {
