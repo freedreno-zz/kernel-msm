@@ -369,6 +369,7 @@ struct msm_hsic_host_platform_data {
 	unsigned strobe;
 	unsigned data;
 	struct msm_bus_scale_pdata *bus_scale_table;
+	u32 swfi_latency;
 };
 
 struct msm_usb_host_platform_data {
