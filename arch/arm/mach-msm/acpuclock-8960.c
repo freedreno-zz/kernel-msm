@@ -434,58 +434,9 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
 
 static uint32_t bus_perf_client;
 
-/* TODO: Update vdd_dig and vdd_mem when voltage data is available. */
-#define L2(x) (&l2_freq_tbl_8960_kraitv1[(x)])
-static struct l2_level l2_freq_tbl_8960_kraitv1[] = {
-	[0]  = { {STBY_KHZ, QSB,   0, 0, 0x00 }, 1050000, 1050000, 0 },
-	[1]  = { {  384000, PLL_8, 0, 2, 0x00 }, 1050000, 1050000, 1 },
-	[2]  = { {  432000, HFPLL, 2, 0, 0x20 }, 1050000, 1050000, 1 },
-	[3]  = { {  486000, HFPLL, 2, 0, 0x24 }, 1050000, 1050000, 1 },
-	[4]  = { {  540000, HFPLL, 2, 0, 0x28 }, 1050000, 1050000, 1 },
-	[5]  = { {  594000, HFPLL, 1, 0, 0x16 }, 1050000, 1050000, 2 },
-	[6]  = { {  648000, HFPLL, 1, 0, 0x18 }, 1050000, 1050000, 2 },
-	[7]  = { {  702000, HFPLL, 1, 0, 0x1A }, 1050000, 1050000, 2 },
-	[8]  = { {  756000, HFPLL, 1, 0, 0x1C }, 1150000, 1150000, 2 },
-	[9]  = { {  810000, HFPLL, 1, 0, 0x1E }, 1150000, 1150000, 3 },
-	[10] = { {  864000, HFPLL, 1, 0, 0x20 }, 1150000, 1150000, 3 },
-	[11] = { {  918000, HFPLL, 1, 0, 0x22 }, 1150000, 1150000, 3 },
-};
-
-static struct acpu_level acpu_freq_tbl_8960_kraitv1_slow[] = {
-	{ 0, {STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   900000 },
-	{ 1, {  384000, PLL_8, 0, 2, 0x00 }, L2(1),   900000 },
-	{ 1, {  432000, HFPLL, 2, 0, 0x20 }, L2(6),   925000 },
-	{ 1, {  486000, HFPLL, 2, 0, 0x24 }, L2(6),   925000 },
-	{ 1, {  540000, HFPLL, 2, 0, 0x28 }, L2(6),   937500 },
-	{ 1, {  594000, HFPLL, 1, 0, 0x16 }, L2(6),   962500 },
-	{ 1, {  648000, HFPLL, 1, 0, 0x18 }, L2(6),   987500 },
-	{ 1, {  702000, HFPLL, 1, 0, 0x1A }, L2(6),  1000000 },
-	{ 1, {  756000, HFPLL, 1, 0, 0x1C }, L2(11), 1025000 },
-	{ 1, {  810000, HFPLL, 1, 0, 0x1E }, L2(11), 1062500 },
-	{ 1, {  864000, HFPLL, 1, 0, 0x20 }, L2(11), 1062500 },
-	{ 1, {  918000, HFPLL, 1, 0, 0x22 }, L2(11), 1087500 },
-	{ 0, { 0 } }
-};
-
-static struct acpu_level acpu_freq_tbl_8960_kraitv1_nom_fast[] = {
-	{ 0, {STBY_KHZ, QSB,   0, 0, 0x00 }, L2(0),   862500 },
-	{ 1, {  384000, PLL_8, 0, 2, 0x00 }, L2(1),   862500 },
-	{ 1, {  432000, HFPLL, 2, 0, 0x20 }, L2(6),   862500 },
-	{ 1, {  486000, HFPLL, 2, 0, 0x24 }, L2(6),   887500 },
-	{ 1, {  540000, HFPLL, 2, 0, 0x28 }, L2(6),   900000 },
-	{ 1, {  594000, HFPLL, 1, 0, 0x16 }, L2(6),   925000 },
-	{ 1, {  648000, HFPLL, 1, 0, 0x18 }, L2(6),   925000 },
-	{ 1, {  702000, HFPLL, 1, 0, 0x1A }, L2(6),   937500 },
-	{ 1, {  756000, HFPLL, 1, 0, 0x1C }, L2(11),  962500 },
-	{ 1, {  810000, HFPLL, 1, 0, 0x1E }, L2(11), 1012500 },
-	{ 1, {  864000, HFPLL, 1, 0, 0x20 }, L2(11), 1025000 },
-	{ 1, {  918000, HFPLL, 1, 0, 0x22 }, L2(11), 1025000 },
-	{ 0, { 0 } }
-};
-
 #undef L2
-#define L2(x) (&l2_freq_tbl_8960_kraitv2[(x)])
-static struct l2_level l2_freq_tbl_8960_kraitv2[] = {
+#define L2(x) (&l2_freq_tbl_8960[(x)])
+static struct l2_level l2_freq_tbl_8960[] = {
 	[0]  = { {STBY_KHZ, QSB,   0, 0, 0x00 }, 1050000, 1050000, 0 },
 	[1]  = { {  384000, PLL_8, 0, 2, 0x00 }, 1050000, 1050000, 1 },
 	[2]  = { {  432000, HFPLL, 2, 0, 0x20 }, 1050000, 1050000, 2 },
@@ -891,13 +842,7 @@ static struct acpu_level acpu_freq_tbl_8627[] = {
 	{ 0, { 0 } }
 };
 
-static struct acpu_level *acpu_freq_tbl_8960_v1[NUM_PVS] __initdata = {
-	[PVS_SLOW] = acpu_freq_tbl_8960_kraitv1_slow,
-	[PVS_NOM] = acpu_freq_tbl_8960_kraitv1_nom_fast,
-	[PVS_FAST] = acpu_freq_tbl_8960_kraitv1_nom_fast,
-};
-
-static struct acpu_level *acpu_freq_tbl_8960_v2[NUM_PVS] __initdata = {
+static struct acpu_level *acpu_freq_tbl_8960[NUM_PVS] __initdata = {
 	[PVS_SLOW] = acpu_freq_tbl_8960_kraitv2_slow,
 	[PVS_NOM] = acpu_freq_tbl_8960_kraitv2_nom,
 	[PVS_FAST] = acpu_freq_tbl_8960_kraitv2_fast,
@@ -930,15 +875,6 @@ static unsigned long acpuclk_8960_get_rate(int cpu)
 	return scalable[cpu].current_speed->khz;
 }
 
-/* Get the selected source on primary MUX. */
-static int get_pri_clk_src(struct scalable *sc)
-{
-	uint32_t regval;
-
-	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	return regval & 0x3;
-}
-
 /* Set the selected source on primary MUX. */
 static void set_pri_clk_src(struct scalable *sc, uint32_t pri_src_sel)
 {
@@ -951,15 +887,6 @@ static void set_pri_clk_src(struct scalable *sc, uint32_t pri_src_sel)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
-}
-
-/* Get the selected source on secondary MUX. */
-static int get_sec_clk_src(struct scalable *sc)
-{
-	uint32_t regval;
-
-	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	return (regval >> 2) & 0x3;
 }
 
 /* Set the selected source on secondary MUX. */
@@ -1564,24 +1491,9 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 					    unsigned long action, void *hcpu)
 {
 	static int prev_khz[NR_CPUS];
-	static int prev_pri_src[NR_CPUS];
-	static int prev_sec_src[NR_CPUS];
 	int cpu = (int)hcpu;
 
 	switch (action) {
-	case CPU_DYING:
-	case CPU_DYING_FROZEN:
-		/*
-		 * On Krait v1, the primary and secondary muxes must be set to
-		 * QSB before L2 power collapse and restored after.
-		 */
-		if (cpu_is_krait_v1()) {
-			prev_sec_src[cpu] = get_sec_clk_src(&scalable[cpu]);
-			prev_pri_src[cpu] = get_pri_clk_src(&scalable[cpu]);
-			set_sec_clk_src(&scalable[cpu], SEC_SRC_SEL_QSB);
-			set_pri_clk_src(&scalable[cpu], PRI_SRC_SEL_SEC_SRC);
-		}
-		break;
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
 		prev_khz[cpu] = acpuclk_8960_get_rate(cpu);
@@ -1602,12 +1514,8 @@ static int __cpuinit acpuclock_cpu_callback(struct notifier_block *nfb,
 		break;
 	case CPU_STARTING:
 	case CPU_STARTING_FROZEN:
-		if (!scalable[cpu].clocks_initialized) {
+		if (!scalable[cpu].clocks_initialized)
 			per_cpu_init(NULL);
-		} else if (cpu_is_krait_v1()) {
-			set_sec_clk_src(&scalable[cpu], prev_sec_src[cpu]);
-			set_pri_clk_src(&scalable[cpu], prev_pri_src[cpu]);
-		}
 		break;
 	default:
 		break;
@@ -1685,15 +1593,9 @@ static void __init select_freq_plan(void)
 		enum pvs pvs_id = get_pvs();
 
 		scalable = scalable_8960;
-		if (cpu_is_krait_v1()) {
-			acpu_freq_tbl = acpu_freq_tbl_8960_v1[pvs_id];
-			l2_freq_tbl = l2_freq_tbl_8960_kraitv1;
-			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv1);
-		} else {
-			acpu_freq_tbl = acpu_freq_tbl_8960_v2[pvs_id];
-			l2_freq_tbl = l2_freq_tbl_8960_kraitv2;
-			l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960_kraitv2);
-		}
+		acpu_freq_tbl = acpu_freq_tbl_8960[pvs_id];
+		l2_freq_tbl = l2_freq_tbl_8960;
+		l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_8960);
 	} else if (cpu_is_apq8064()) {
 		enum pvs pvs_id = get_pvs();
 
