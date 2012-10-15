@@ -7183,9 +7183,12 @@ static void ivybridge_init_clock_gating(struct drm_device *dev)
 	/*
 	 * According to the spec, bit 13 (RCZUNIT) must be set on IVB.
 	 * This implements the WaDisableRCZUnitClockGating:ivb workaround.
-	 */
+	 * This implements the WaDisableRCZUnitClockGating workaround.
+	 * New w/a on hsw: bit 31 must be set, too. This implements for
+	 * WaDisableVFUnitClockGating */
 	I915_WRITE(GEN6_UCGCTL2,
-		   GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
+		   GEN6_RCZUNIT_CLOCK_GATE_DISABLE |
+		   GEN6_VFUNIT_CLOCK_GATE_DISABLE);
 
 	/* This is required by WaCatErrorRejectionIssue:ivb */
 	I915_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
