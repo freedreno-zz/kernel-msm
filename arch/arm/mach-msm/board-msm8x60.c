@@ -12788,6 +12788,25 @@ static struct msm_board_data tenderloin_board_data __initdata = {
 	.gpiomux_cfgs = tenderloin_gpiomux_cfgs,
 };
 
+/* hijack adsp pmem.. hopefully this doesn't get overwritten..
+ */
+#define MSM_RAM_CONSOLE_SIZE 0x2000000
+#define MSM_RAM_CONSOLE_BASE 0x67900000
+static struct resource ram_console_resource[] = {
+		{
+				.flags = IORESOURCE_MEM,
+				.start = MSM_RAM_CONSOLE_BASE,
+				.end   = MSM_RAM_CONSOLE_BASE + MSM_RAM_CONSOLE_SIZE - 1,
+		}
+};
+
+static struct platform_device ram_console_device = {
+		.name = "ram_console",
+		.id = -1,
+		.num_resources  = ARRAY_SIZE(ram_console_resource),
+		.resource       = ram_console_resource,
+};
+
 static void __init msm8x60_init(struct msm_board_data *board_data)
 {
 	uint32_t soc_platform_version;
@@ -13135,6 +13154,8 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #ifdef CONFIG_A6
 	init_a6();
 #endif
+
+	platform_device_register(&ram_console_device);
 }
 
 static void __init msm8x60_rumi3_init(void)
