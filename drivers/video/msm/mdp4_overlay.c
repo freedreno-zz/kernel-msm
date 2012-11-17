@@ -49,6 +49,7 @@ struct mdp4_overlay_ctrl {
 	struct mdp4_overlay_pipe *stage[MDP4_MIXER_MAX][MDP4_MIXER_STAGE_MAX];
 	struct mdp4_overlay_pipe *baselayer[MDP4_MIXER_MAX];
 	struct blend_cfg blend[MDP4_MIXER_MAX][MDP4_MIXER_STAGE_MAX];
+	struct mdp4_overlay_pipe sf_plist[MDP4_MIXER_MAX][OVERLAY_PIPE_MAX];
 	uint32 mixer_cfg[MDP4_MIXER_MAX];
 	uint32 flush[MDP4_MIXER_MAX];
 	struct iommu_free_list iommu_free[MDP4_MIXER_MAX];
@@ -177,6 +178,8 @@ int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
 	mdp_disable_iommu_clocks();
 	return ret;
 }
+
+static void mdp4_overlay_bg_solidfill(struct blend_cfg *blend);
 
 /*
  * mdp4_overlay_iommu_unmap_freelist()
@@ -1719,6 +1722,35 @@ void mdp4_mixer_reset(int mixer)
 	mdp4_vg_csc_restore();
 	mdp4_overlay_dmap_reconfig();
 	mdp_clk_ctrl(0);
+}
+
+void mdp4_solidfill_commit(int mixer)
+{
+	struct blend_cfg bcfg;
+	struct mdp4_overlay_pipe *pp = NULL;
+	int i = 0;
+
+	for (i = 0; i < OVERLAY_PIPE_MAX; i++) {
+		pp = &ctrl->sf_plist[mixer][i];
+		if (pp->pipe_ndx && pp->solid_fill) {
+			bcfg.solidfill = 1;
+			bcfg.solidfill_pipe = pp;
+			mdp4_overlay_bg_solidfill(&bcfg);
+			mdp4_overlay_reg_flush(pp, 1);
+			mdp4_mixer_stage_up(pp, 0);
+		}
+	}
+	mdp4_mixer_stage_commit(mixer);
+
+	for (i = 0; i < OVERLAY_PIPE_MAX; i++) {
+		pp = &ctrl->sf_plist[mixer][i];
+		if (pp->pipe_ndx && pp->solid_fill) {
+			mdp4_overlay_reg_flush(pp, 1);
+			mdp4_mixer_stage_down(pp, 0);
+			pp->solid_fill = 0;
+		}
+	}
+	mdp4_mixer_stage_commit(mixer);
 }
 
 void mdp4_mixer_stage_commit(int mixer)
@@ -3272,9 +3304,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 								__func__);
 	}
 
-	if (hdmi_prim_display)
-		fill_black_screen(FALSE, pipe->pipe_num, pipe->mixer_num);
-
 	mdp4_overlay_mdp_pipe_req(pipe, mfd);
 	ret = mdp4_overlay_mdp_perf_req(mfd);
 
@@ -3354,9 +3383,13 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 		}
 	} else {	/* mixer1, DTV, ATV */
 		if (ctrl->panel_mode & MDP4_PANEL_DTV) {
-			if (hdmi_prim_display)
-				fill_black_screen(TRUE, pipe->pipe_num,
-					pipe->mixer_num);
+			if (hdmi_prim_display) {
+				struct mdp4_overlay_pipe *pp;
+				pp = &ctrl->sf_plist[pipe->mixer_num]
+					[pipe->pipe_ndx - 1];
+				*pp = *pipe; /* clone it */
+				pp->solid_fill = 1;
+			}
 			mdp4_overlay_dtv_unset(mfd, pipe);
 		}
 	}
