@@ -849,7 +849,7 @@ static int adreno_dump(struct kgsl_device *device)
 	}
 
 	/* Dump the registers if the user asked for it */
-
+if (0) {
 	if (adreno_is_a20x(adreno_dev))
 		adreno_dump_regs(device, a200_registers,
 			a200_registers_count);
@@ -859,6 +859,7 @@ static int adreno_dump(struct kgsl_device *device)
 	else if (adreno_is_a3xx(adreno_dev))
 		adreno_dump_regs(device, a3xx_registers,
 			a3xx_registers_count);
+}
 
 error_vfree:
 	vfree(rb_copy);
