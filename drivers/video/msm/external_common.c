@@ -2129,6 +2129,8 @@ int hdmi_common_read_edid(void)
 	return 0;
 
 error:
+	external_common_state->hdmi_sink = TRUE;
+	external_common_state->default_res_supported = TRUE;
 	external_common_state->disp_mode_list.num_of_elements = 1;
 	external_common_state->disp_mode_list.disp_mode_list[0] =
 		external_common_state->video_resolution;
