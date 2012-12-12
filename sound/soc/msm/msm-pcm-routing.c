@@ -2991,7 +2991,11 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			msm_pcm_routing_build_matrix(i,
 				fe_dai_map[i][session_type], path_type);
 			srs_port_id = bedai->port_id;
-			srs_send_params(srs_port_id, 1, 0);
+			if ((srs_port_id == SLIMBUS_0_RX) ||
+			   (srs_port_id == PRIMARY_I2S_RX) ||
+			   (srs_port_id == HDMI_RX)) {
+				srs_send_params(srs_port_id, 1, 0);
+			}
 		}
 	}
 
