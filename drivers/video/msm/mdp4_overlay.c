@@ -1129,8 +1129,8 @@ uint32 mdp4_overlay_format(struct mdp4_overlay_pipe *pipe)
 
 uint32 mdp4_overlay_unpack_pattern(struct mdp4_overlay_pipe *pipe)
 {
-	return (pipe->element3 << 24) | (pipe->element2 << 16) |
-			(pipe->element1 << 8) | pipe->element0;
+	return (pipe->element3 << 24) | (pipe->element0 << 16) |
+			(pipe->element1 << 8) | pipe->element2;
 }
 
 /*
