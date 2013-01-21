@@ -490,7 +490,9 @@ kgsl_sharedmem_vmalloc_user(struct kgsl_memdesc *memdesc,
 	void *ptr;
 	unsigned int protflags;
 
-	BUG_ON(size == 0);
+	if (WARN_ON(size == 0))
+		return -EINVAL;
+
 	ptr = vmalloc_user(size);
 
 	if (ptr == NULL) {
