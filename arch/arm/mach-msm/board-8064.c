@@ -3405,3 +3405,14 @@ MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
 	.restart = msm_restart,
 MACHINE_END
 
+MACHINE_START(MPQ8064_DMA, "QCT MPQ8064 DMA")
+	.map_io = apq8064_map_io,
+	.reserve = apq8064_reserve,
+	.init_irq = apq8064_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = apq8064_cdp_init,
+	.init_early = apq8064_allocate_memory_regions,
+	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
+MACHINE_END

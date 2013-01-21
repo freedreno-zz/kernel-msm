@@ -898,6 +898,12 @@ config MACH_MPQ8064_DTV
 	help
 	  Support for the Qualcomm MPQ8064 DTV device.
 
+config MACH_MPQ8064_DMA
+        depends on ARCH_APQ8064
+        bool "MPQ8064 DMA"
+        help
+          Support for the Qualcomm MPQ8064 DMA device.
+
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
 	depends on !MSM_STACKED_MEMORY
