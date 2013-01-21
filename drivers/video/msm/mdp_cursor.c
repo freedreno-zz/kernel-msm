@@ -137,6 +137,7 @@ static void mdp_hw_cursor_enable_vsync(void)
 }
 
 #define CONFIG_FB_MSM_FLIP_UD
+#define CONFIG_FB_MSM_FLIP_LR
 
 int mdp_hw_cursor_sync_update(struct fb_info *info, struct fb_cursor *cursor)
 {
