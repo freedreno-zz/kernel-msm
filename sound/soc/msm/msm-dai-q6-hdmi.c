@@ -204,7 +204,8 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	if (hdmi_ca.set_ca)
+	/* set channel allocation only for lpcm type */
+	if (hdmi_ca.set_ca && !dai_data->port_config.hdmi_multi_ch.data_type)
 		dai_data->port_config.hdmi_multi_ch.channel_allocation =
 								hdmi_ca.ca;
 
