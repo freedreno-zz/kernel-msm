@@ -1284,6 +1284,20 @@ static struct i2c_board_info cs8427_device_info[] __initdata = {
 	},
 };
 
+static struct cs8427_platform_data cs8427_i2c_platform_data_mpq_dma = {
+	.irq = MSM_GPIO_TO_INT(36),
+	.reset_gpio = 35,
+	.enable = enable_100KHz_ls,
+	.ls_gpio = 64
+};
+
+static struct i2c_board_info cs8427_device_info_mpq_dma[] __initdata = {
+	{
+		I2C_BOARD_INFO("cs8427", CS8427_ADDR4),
+		.platform_data = &cs8427_i2c_platform_data_mpq_dma,
+	},
+};
+
 #define HAP_SHIFT_LVL_OE_GPIO		PM8921_MPP_PM_TO_SYS(8)
 #define ISA1200_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
 #define ISA1200_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
@@ -3111,9 +3125,10 @@ static void __init apq8064_init_dsps(void)
 #define I2C_MPQ_CDP	BIT(5)
 #define I2C_MPQ_HRD	BIT(6)
 #define I2C_MPQ_DTV	BIT(7)
+#define I2C_MPQ_DMA	BIT(8)
 
 struct i2c_registry {
-	u8                     machs;
+	u32                    machs;
 	int                    bus;
 	struct i2c_board_info *info;
 	int                    len;
@@ -3145,10 +3160,16 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		ARRAY_SIZE(isa1200_board_info),
 	},
 	{
-		I2C_MPQ_CDP,
+		I2C_MPQ_CDP | I2C_MPQ_HRD | I2C_MPQ_DTV,
 		APQ_8064_GSBI5_QUP_I2C_BUS_ID,
 		cs8427_device_info,
 		ARRAY_SIZE(cs8427_device_info),
+	},
+	{
+		I2C_MPQ_DMA,
+		APQ_8064_GSBI5_QUP_I2C_BUS_ID,
+		cs8427_device_info_mpq_dma,
+		ARRAY_SIZE(cs8427_device_info_mpq_dma),
 	},
 };
 
@@ -3219,7 +3240,7 @@ static struct i2c_board_info sx150x_gpio_exp_info[] = {
 #define MPQ8064_I2C_GSBI1_BUS_ID        0
 static struct i2c_registry mpq8064_i2c_devices[] __initdata = {
 	{
-		I2C_MPQ_CDP,
+		I2C_MPQ_CDP | I2C_MPQ_HRD | I2C_MPQ_DTV | I2C_MPQ_DMA,
 		MPQ8064_I2C_GSBI5_BUS_ID,
 		sx150x_gpio_exp_info,
 		ARRAY_SIZE(sx150x_gpio_exp_info),
@@ -3228,7 +3249,7 @@ static struct i2c_registry mpq8064_i2c_devices[] __initdata = {
 
 static struct i2c_registry mpq8064_rev2_i2c_devices[] __initdata = {
 	{
-		I2C_MPQ_CDP,
+		I2C_MPQ_CDP | I2C_MPQ_HRD | I2C_MPQ_DTV,
 		MPQ8064_I2C_GSBI1_BUS_ID,
 		sx150x_gpio_exp_info,
 		ARRAY_SIZE(sx150x_gpio_exp_info),
@@ -3237,7 +3258,7 @@ static struct i2c_registry mpq8064_rev2_i2c_devices[] __initdata = {
 
 static void __init register_i2c_devices(void)
 {
-	u8 mach_mask = 0;
+	u32 mach_mask = 0;
 	int i;
 	uint32_t hrd_version = socinfo_get_version();
 
@@ -3256,8 +3277,14 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_FFA;
 	else if (machine_is_apq8064_liquid())
 		mach_mask = I2C_LIQUID;
-	else if (PLATFORM_IS_MPQ8064())
+	else if (machine_is_mpq8064_cdp())
 		mach_mask = I2C_MPQ_CDP;
+	else if (machine_is_mpq8064_hrd())
+		mach_mask = I2C_MPQ_HRD;
+	else if (machine_is_mpq8064_dtv())
+		mach_mask = I2C_MPQ_DTV;
+	else if (machine_is_mpq8064_dma())
+		mach_mask = I2C_MPQ_DMA;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
