@@ -159,9 +159,22 @@ static boolean msg_recv_complete = TRUE;
 
 #define HDMI_MSM_CEC_WR_DATA_DATA(___d)		(((___d)&0xFF) << 8)
 
+#define HDMI_CEC_RD_START_RANGE  0x364
+#define HDMI_CEC_RD_TOTAL_RANGE  0x368
+#define HDMI_CEC_COMPL_CTL       0x360
+#define HDMI_CEC_WR_CHECK_CONFIG 0x370
+
+#define HDMI_VERSION_2_0 0x02000000
 
 void hdmi_msm_cec_init(void)
 {
+	/*
+	 * 0x02E4 HDMI_VERSION
+	 * Available only since HDMI Tx 2.0. The readback of 0x02E4
+	 * from HDMI Tx v1 will be 0.
+	 */
+	uint32 hdmi_version = HDMI_INP(0x2E4);
+
 	/* 0x02A8 CEC_REFTIMER */
 	HDMI_OUTP(0x02A8,
 		HDMI_MSM_CEC_REFTIMER_REFTIMER_ENABLE
@@ -185,27 +198,46 @@ void hdmi_msm_cec_init(void)
 		  | HDMI_MSM_CEC_INT_MONITOR_MASK		\
 		  | HDMI_MSM_CEC_INT_FRAME_RD_DONE_MASK);
 
+	/* CEC_RD_FILTER */
 	HDMI_OUTP(0x02B0, 0x7FF << 4 | 1);
 
 	/*
 	 * Slight adjustment to logic 1 low periods on read,
 	 * CEC Test 8.2-3 was failing, 8 for the
 	 * BIT_1_ERR_RANGE_HI = 8 => 750us, the test used 775us,
-	 * so increased this to 9 which => 800us.
+	 * so increased this to 9 which => 800us.i
+	 *
+	 * hdmi_version is 0x0 for HDMI Tx V1 hardware block.
 	 */
-	/*
-	 * CEC latch up issue - To fire monitor interrupt
-	 * for every start of message
-	 */
-	HDMI_OUTP(0x02E0, 0x880000);
+
+	if (hdmi_version == 0x0 || hdmi_version == HDMI_VERSION_2_0) {
+		/*
+		* CEC_RD_RANGE. CEC latch up issue - To fire monitor interrupt
+		* for every start of message
+		*/
+		HDMI_OUTP(0x02E0, 0x00889788);
+
+		/*
+		* CEC_WR_RANGE Slight adjustment to logic 0 low period on write
+		*/
+		HDMI_OUTP(0x02DC, 0x8888A888);
+	} else if (hdmi_version > HDMI_VERSION_2_0) {
+		HDMI_OUTP(0x02E0, 0x30AB9888);
+		HDMI_OUTP(0x02DC, 0x888AA888);
+
+		HDMI_OUTP(HDMI_CEC_RD_START_RANGE, 0x88888888);
+		HDMI_OUTP(HDMI_CEC_RD_TOTAL_RANGE, 0x99);
+		HDMI_OUTP(HDMI_CEC_COMPL_CTL, 0xF);
+		/* 0x4 = 250 us rise time */
+		HDMI_OUTP(HDMI_CEC_WR_CHECK_CONFIG, 0x4);
+	} else {
+	        DEV_ERR("Unknown HDMI Tx version: 0x%x", hdmi_version);
+		HDMI_OUTP(0x02E0, 0x00889788);
+		HDMI_OUTP(0x02DC, 0x8888A888);
+	}
 
 	/*
-	 * Slight adjustment to logic 0 low period on write
-	 */
-	HDMI_OUTP(0x02DC, 0x8888A888);
-
-	/*
-	 * Enable Signal Free Time counter and set to 7 bit periods
+	 * CEC_TIME. Enable Signal Free Time counter and set to 7 bit periods
 	 */
 	HDMI_OUTP(0x02A4, 0x1 | (7 * 0x30) << 7);
 
