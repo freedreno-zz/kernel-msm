@@ -2354,7 +2354,9 @@ static unsigned long calculate_alignment(unsigned long flags,
 	 * The hardware cache alignment cannot override the specified
 	 * alignment though. If that is greater then use it.
 	 */
-	if (flags & SLAB_HWCACHE_ALIGN) {
+	// XXX hack, making everything cacheline aligned seems to paper
+	// over some memory corruption issues that we are having..
+	if (1) {
 		unsigned long ralign = cache_line_size();
 		while (size <= ralign / 2)
 			ralign /= 2;
