@@ -705,12 +705,12 @@ static int eth_stop(struct net_device *net)
 /*-------------------------------------------------------------------------*/
 
 /* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
-static char *dev_addr;
+static char *dev_addr = "56:df:13:ff:5e:1a";
 module_param(dev_addr, charp, S_IRUGO);
 MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");
 
 /* this address is invisible to ifconfig */
-static char *host_addr;
+static char *host_addr = "26:c5:75:3d:e0:87";
 module_param(host_addr, charp, S_IRUGO);
 MODULE_PARM_DESC(host_addr, "Host Ethernet Address");
 
