@@ -695,6 +695,8 @@ static struct platform_device msm_camera_server = {
 
 void __init apq8064_init_cam(void)
 {
+	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+					machine_is_mpq8064_dtv()))
 	msm_gpiomux_install(apq8064_cam_common_configs,
 			ARRAY_SIZE(apq8064_cam_common_configs));
 
