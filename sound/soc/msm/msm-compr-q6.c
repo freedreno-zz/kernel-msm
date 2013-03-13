@@ -770,8 +770,10 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 
 	prtd->dsp_cnt = 0;
 	atomic_set(&prtd->pending_buffer, 1);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		compr->codec = FORMAT_MP3;
+		compressed_audio.prtd =  &compr->prtd;
+	}
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
@@ -782,7 +784,26 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 int compressed_set_volume(unsigned volume)
 {
 	int rc = 0;
-	if (compressed_audio.prtd && compressed_audio.prtd->audio_client) {
+	struct snd_pcm_substream *substream = NULL;
+	struct compr_audio *compr = NULL;
+
+	if (compressed_audio.prtd)
+		substream = compressed_audio.prtd->substream;
+	if (substream)
+		compr = substream->runtime->private_data;
+	if (compr) {
+		switch (compr->info.codec_param.codec.id) {
+		case SND_AUDIOCODEC_AC3_PASS_THROUGH:
+		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
+		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
+		case SND_AUDIOCODEC_PASS_THROUGH:
+			pr_err("%s: called on passthrough handle", __func__);
+			return rc;
+		}
+	} else
+		return rc;
+
+	if (compressed_audio.prtd->audio_client) {
 		rc = q6asm_set_volume(compressed_audio.prtd->audio_client,
 								 volume);
 		if (rc < 0) {
@@ -848,7 +869,6 @@ static int msm_compr_capture_close(struct snd_pcm_substream *substream)
 	pr_debug("%s\n", __func__);
 	atomic_set(&prtd->pending_buffer, 0);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
-	compressed_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 	if (compr->info.codec_param.codec.id ==
