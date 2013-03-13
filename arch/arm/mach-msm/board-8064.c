@@ -3216,7 +3216,7 @@ static struct i2c_board_info sx150x_gpio_exp_info[] = {
 };
 
 #define MPQ8064_I2C_GSBI5_BUS_ID	5
-
+#define MPQ8064_I2C_GSBI1_BUS_ID        0
 static struct i2c_registry mpq8064_i2c_devices[] __initdata = {
 	{
 		I2C_MPQ_CDP,
@@ -3226,10 +3226,20 @@ static struct i2c_registry mpq8064_i2c_devices[] __initdata = {
 	},
 };
 
+static struct i2c_registry mpq8064_rev2_i2c_devices[] __initdata = {
+	{
+		I2C_MPQ_CDP,
+		MPQ8064_I2C_GSBI1_BUS_ID,
+		sx150x_gpio_exp_info,
+		ARRAY_SIZE(sx150x_gpio_exp_info),
+	},
+};
+
 static void __init register_i2c_devices(void)
 {
 	u8 mach_mask = 0;
 	int i;
+	uint32_t hrd_version = socinfo_get_version();
 
 #ifdef CONFIG_MSM_CAMERA
 	struct i2c_registry apq8064_camera_i2c_devices = {
@@ -3264,13 +3274,23 @@ static void __init register_i2c_devices(void)
 			apq8064_camera_i2c_devices.info,
 			apq8064_camera_i2c_devices.len);
 #endif
-
-	for (i = 0; i < ARRAY_SIZE(mpq8064_i2c_devices); ++i) {
-		if (mpq8064_i2c_devices[i].machs & mach_mask)
-			i2c_register_board_info(
-					mpq8064_i2c_devices[i].bus,
-					mpq8064_i2c_devices[i].info,
-					mpq8064_i2c_devices[i].len);
+	if (machine_is_mpq8064_hrd() &&
+		(SOCINFO_VERSION_MAJOR(hrd_version) == 2)) {
+		for (i = 0; i < ARRAY_SIZE(mpq8064_rev2_i2c_devices); ++i) {
+			if (mpq8064_rev2_i2c_devices[i].machs & mach_mask)
+				i2c_register_board_info(
+					mpq8064_rev2_i2c_devices[i].bus,
+					mpq8064_rev2_i2c_devices[i].info,
+					mpq8064_rev2_i2c_devices[i].len);
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(mpq8064_i2c_devices); ++i) {
+			if (mpq8064_i2c_devices[i].machs & mach_mask)
+				i2c_register_board_info(
+						mpq8064_i2c_devices[i].bus,
+						mpq8064_i2c_devices[i].info,
+						mpq8064_i2c_devices[i].len);
+		}
 	}
 }
 
