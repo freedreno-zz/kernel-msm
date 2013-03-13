@@ -57,4 +57,8 @@ int adm_multi_ch_copp_pseudo_open_v3(int port_id, int path, int rate,
 int adm_get_copp_id(int port_id);
 #endif
 
+void adm_set_multi_ch_map(char *channel_map);
+
+void adm_get_multi_ch_map(char *channel_map);
+
 #endif /* __Q6_ADM_H__ */

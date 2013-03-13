@@ -46,6 +46,16 @@ static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
 static struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
 
 static struct adm_ctl			this_adm;
+
+struct adm_multi_ch_map {
+	bool set_channel_map;
+	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
+};
+
+static struct adm_multi_ch_map multi_ch_map = { false,
+					       {0, 0, 0, 0, 0, 0, 0, 0}
+					    };
+
 static int pseudo_copp[2];
 
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
@@ -412,6 +422,21 @@ int srs_ss3d_open(int port_id, int srs_tech_id, void *srs_params)
 fail_cmd:
 	kfree(open);
 	return ret;
+}
+
+void adm_set_multi_ch_map(char *channel_map)
+{
+	memcpy(multi_ch_map.channel_mapping, channel_map,
+		PCM_FORMAT_MAX_NUM_CHANNEL);
+	multi_ch_map.set_channel_map = true;
+}
+
+void adm_get_multi_ch_map(char *channel_map)
+{
+	if (multi_ch_map.set_channel_map) {
+		memcpy(channel_map, multi_ch_map.channel_mapping,
+			PCM_FORMAT_MAX_NUM_CHANNEL);
+	}
 }
 
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
@@ -1139,7 +1164,6 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 
 	/* Create a COPP if port id are not enabled */
 	if (atomic_read(&this_adm.copp_cnt[index]) == 0) {
-
 		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 
@@ -1189,6 +1213,12 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 					channel_mode);
 			return -EINVAL;
 		}
+                if ((channel_mode > 2) &&
+			multi_ch_map.set_channel_map)
+			memcpy(open.dev_channel_mapping,
+				multi_ch_map.channel_mapping,
+				PCM_FORMAT_MAX_NUM_CHANNEL);
+
 		open.hdr.src_svc = APR_SVC_ADM;
 		open.hdr.src_domain = APR_DOMAIN_APPS;
 		open.hdr.src_port = port_id;
