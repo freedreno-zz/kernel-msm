@@ -56,7 +56,7 @@ static struct adm_multi_ch_map multi_ch_map = { false,
 					       {0, 0, 0, 0, 0, 0, 0, 0}
 					    };
 
-static int pseudo_copp[2];
+static u16 pseudo_copp[2];
 
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 {
@@ -1342,9 +1342,19 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		pr_debug("%s: port_id[%d]: %d, index: %d\n", __func__, i,
 			 port_id[i], tmp);
 
-		if (tmp >= 0 && tmp < AFE_MAX_PORTS)
-			route.session[0].copp_id[i] =
+		if (tmp >= 0 && tmp < AFE_MAX_PORTS) {
+			if (tmp == IDX_PSEUDOPORT_01) {
+				if (path == 0x1)
+					route.session[0].copp_id[i] =
+						pseudo_copp[0];
+				else if(path == 0x2 || path == 0x3)
+                                        route.session[0].copp_id[i] =
+	                                        pseudo_copp[1];
+			} else {
+				route.session[0].copp_id[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
+			}
+		}
 	}
 
 	if (copp_cnt % 2)

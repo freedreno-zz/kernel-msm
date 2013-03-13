@@ -362,11 +362,6 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 	mutex_lock(&routing_lock);
 
 	payload.num_copps = 0;
-	adm_multi_ch_copp_pseudo_open_v3(PSEUDOPORT_01,
-					path_type, sample_rate, channels,
-					DEFAULT_COPP_TOPOLOGY);
-
-	payload.copp_ids[payload.num_copps++] = PSEUDOPORT_01;
 
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions))
@@ -375,6 +370,11 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
 
+			adm_multi_ch_copp_pseudo_open_v3(PSEUDOPORT_01,
+					path_type, sample_rate, channels,
+					DEFAULT_COPP_TOPOLOGY);
+
+			payload.copp_ids[payload.num_copps++] = PSEUDOPORT_01;
 			mode = afe_get_port_type(msm_bedais[i].port_id);
 			ret = adm_connect_afe_port_v2(mode, dspst_id,
 						msm_bedais[i].port_id,
@@ -384,6 +384,7 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 			if (ret < 0)
 				pr_err("%s: adm_connect_afe_port_v2 failed\n",
 					__func__);
+			break;
 		}
 	}
 	if (payload.num_copps)
@@ -584,7 +585,15 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 
 			channels = msm_bedais[reg].channel;
 
-			if ((session_type == SESSION_TYPE_RX) &&
+			if (msm_bedais[reg].port_id == PSEUDOPORT_01) {
+				adm_multi_ch_copp_pseudo_open_v3(
+						msm_bedais[reg].port_id,
+						path_type,
+						msm_bedais[reg].sample_rate,
+						channels > 6 ? 6 :
+						channels,
+						DEFAULT_COPP_TOPOLOGY);
+			} else if ((session_type == SESSION_TYPE_RX) &&
 				((channels == 1) || (channels == 2))
 				&& msm_bedais[reg].perf_mode) {
 				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
@@ -622,7 +631,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		clear_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
-			adm_close(msm_bedais[reg].port_id);
+			if (msm_bedais[reg].port_id == PSEUDOPORT_01)
+				adm_pseudo_close(msm_bedais[reg].port_id);
+			else
+				adm_close(msm_bedais[reg].port_id);
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
 		}
@@ -1533,8 +1545,11 @@ static const struct snd_kcontrol_new pseudo_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia4", MSM_BACKEND_DAI_PSEUDO_PORT,
 	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
-	SOC_SINGLE_EXT("MultiMedia2", MSM_BACKEND_DAI_PSEUDO_PORT,
-	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	SOC_SINGLE_EXT("MultiMedia7", MSM_BACKEND_DAI_PSEUDO_PORT,
+	MSM_FRONTEND_DAI_MULTIMEDIA7, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia8", MSM_BACKEND_DAI_PSEUDO_PORT,
+	MSM_FRONTEND_DAI_MULTIMEDIA8, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 };
 	/* incall music delivery mixer */
@@ -1607,6 +1622,12 @@ static const struct snd_kcontrol_new afe_pcm_rx_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("MultiMedia5", MSM_BACKEND_DAI_AFE_PCM_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA5, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia7", MSM_BACKEND_DAI_AFE_PCM_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA7, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia8", MSM_BACKEND_DAI_AFE_PCM_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA8, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 };
 
@@ -2706,6 +2727,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"HDMI", NULL, "HDMI Mixer"},
 
 	{"PSEUDO Mixer", "MultiMedia4", "MM_DL4"},
+	{"PSEUDO Mixer", "MultiMedia7", "MM_DL7"},
+	{"PSEUDO Mixer", "MultiMedia8", "MM_DL8"},
 	{"PSEUDO", NULL, "PSEUDO Mixer"},
 
 		/* incall */
@@ -2755,6 +2778,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AFE_PCM_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
 	{"AFE_PCM_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
 	{"AFE_PCM_RX Audio Mixer", "MultiMedia5", "MM_DL5"},
+	{"AFE_PCM_RX Audio Mixer", "MultiMedia7", "MM_DL7"},
+	{"AFE_PCM_RX Audio Mixer", "MultiMedia8", "MM_DL8"},
 	{"PCM_RX", NULL, "AFE_PCM_RX Audio Mixer"},
 
 	{"MultiMedia1 Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},

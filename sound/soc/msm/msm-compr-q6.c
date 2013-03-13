@@ -1124,6 +1124,8 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		unsigned int cmd, void *arg)
 {
 	int rc = 0;
+	struct snd_compr_routing param;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
@@ -1330,6 +1332,43 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 
 		prtd->cmd_interrupt = 0;
 		return rc;
+	case SNDRV_COMPRESS_SET_ROUTING:
+		pr_debug("SNDRV_COMPRESS_SET_ROUTING: ");
+		if (copy_from_user(&param, (void *) arg,
+			sizeof(struct snd_compr_routing))) {
+			rc = -EFAULT;
+			pr_err("%s: ERROR: copy from user\n", __func__);
+			return rc;
+		}
+		if (param.session_type == TRANSCODE_SESSION &&
+			prtd->enc_audio_client) {
+			if (param.operation == DISCONNECT_STREAM)
+				msm_pcm_routing_dereg_pseudo_stream(
+					MSM_FRONTEND_DAI_PSEUDO,
+					prtd->enc_audio_client->session);
+			else if (param.operation == CONNECT_STREAM)
+				msm_pcm_routing_reg_pseudo_stream(
+					MSM_FRONTEND_DAI_PSEUDO,
+					prtd->enc_audio_client->perf_mode,
+					prtd->enc_audio_client->session,
+					SNDRV_PCM_STREAM_CAPTURE,
+					48000, runtime->channels > 6 ?
+					6 : runtime->channels);
+		}
+		if (param.session_type == PASSTHROUGH_SESSION) {
+			if (param.operation == DISCONNECT_STREAM)
+				msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					0);
+			else if (param.operation == CONNECT_STREAM)
+				msm_pcm_routing_reg_psthr_stream(
+					soc_prtd->dai_link->be_id,
+					prtd->session_id, substream->stream,
+					1);
+		}
+		return 0;
+
 	default:
 		break;
 	}

@@ -42,7 +42,16 @@ struct snd_compressed_buffer {
 };
 
 /**
- * struct snd_compr_params: compressed stream params
+ * struct snd_compr_routing: routing params
+ * @session_type: type of session to be routed
+ * @operation: operation to be applied connect/disconnect
+ */
+struct snd_compr_routing {
+	__u32 session_type;
+	__u32 operation;
+	__u32 reserved;
+};
+/**
  * @buffer: buffer description
  * @codec: codec parameters
  * @no_wake_mode: dont wake on fragment elapsed
@@ -148,6 +157,8 @@ struct snd_compr_audio_info {
  * SNDRV_COMPRESS_STOP: stop a running stream, discarding ring buffer content
  * and the buffers currently with DSP
  * SNDRV_COMPRESS_DRAIN: Play till end of buffers and stop after that
+ * SNDRV_COMPRESS_SET_ROUTING: Connect and disconnect the ADM and AFE
+ * connections dynamically
  * SNDRV_COMPRESS_IOCTL_VERSION: Query the API version
  */
 #define SNDRV_COMPRESS_IOCTL_VERSION	_IOR('C', 0x00, int)
@@ -163,6 +174,8 @@ struct snd_compr_audio_info {
 #define SNDRV_COMPRESS_START		_IO('C', 0x32)
 #define SNDRV_COMPRESS_STOP		_IO('C', 0x33)
 #define SNDRV_COMPRESS_DRAIN		_IO('C', 0x34)
+#define SNDRV_COMPRESS_SET_ROUTING	_IOR('C', 0x35,\
+						struct snd_compr_routing)
 /*
  * TODO
  * 1. add mmap support
