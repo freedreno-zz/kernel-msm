@@ -443,6 +443,17 @@ static struct gpiomux_setting hdmi_active_2_cfg = {
 	.drv = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+static struct gpiomux_setting mpqrev2_gsbi1_suspended_cfg = {
+        .func = GPIOMUX_FUNC_4,
+        .drv = GPIOMUX_DRV_2MA,
+        .pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting mpqrev2_gsbi1_active_cfg = {
+        .func = GPIOMUX_FUNC_4,
+        .drv = GPIOMUX_DRV_8MA,
+        .pull = GPIOMUX_PULL_NONE,
+};
 
 static struct gpiomux_setting gsbi5_suspended_cfg = {
 	.func = GPIOMUX_FUNC_2,
@@ -1202,7 +1213,22 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 		},
 	},
 };
-
+static struct msm_gpiomux_config mpq8064_gsbi1_i2c_configs[] __initdata = {
+        {
+                .gpio      = 0,                         /* GSBI1 I2C QUP SDA */
+                .settings = {
+                        [GPIOMUX_SUSPENDED] = &mpqrev2_gsbi1_suspended_cfg,
+                        [GPIOMUX_ACTIVE] = &mpqrev2_gsbi1_active_cfg,
+                },
+        },
+        {
+                .gpio      = 1,                         /* GSBI1 I2C QUP SCL */
+                .settings = {
+                        [GPIOMUX_SUSPENDED] = &mpqrev2_gsbi1_suspended_cfg,
+                        [GPIOMUX_ACTIVE] = &mpqrev2_gsbi1_active_cfg,
+                },
+        },
+};
 static struct msm_gpiomux_config mpq8064_gsbi5_i2c_configs[] __initdata = {
 	{
 		.gpio      = 53,			/* GSBI5 I2C QUP SDA */
@@ -1431,6 +1457,8 @@ void __init apq8064_init_gpiomux(void)
 		 machine_is_mpq8064_dtv()) {
 		msm_gpiomux_install(mpq8064_gsbi5_i2c_configs,
 				ARRAY_SIZE(mpq8064_gsbi5_i2c_configs));
+		msm_gpiomux_install(mpq8064_gsbi1_i2c_configs,
+				ARRAY_SIZE(mpq8064_gsbi1_i2c_configs));
 #ifdef CONFIG_MSM_VCAP
 		msm_gpiomux_install(vcap_configs,
 				ARRAY_SIZE(vcap_configs));

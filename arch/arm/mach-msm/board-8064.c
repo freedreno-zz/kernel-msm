@@ -2704,6 +2704,9 @@ static struct platform_device *mpq_devices[] __initdata = {
 #endif
 	&rc_input_loopback_pdev,
 };
+static struct platform_device *mpq8064_hrd_rev2_devices[] __initdata = {
+	&mpq8064_device_qup_i2c_gsbi1,
+};
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 	.max_clock_speed = 1100000,
@@ -2763,6 +2766,49 @@ static struct msm_i2c_platform_data mpq8064_i2c_qup_gsbi5_pdata = {
 
 #define GSBI_DUAL_MODE_CODE 0x60
 #define MSM_GSBI1_PHYS		0x12440000
+#define MSM_GSBI5_PHYS		0x1A200000
+#define GSBI1_I2C_SEL 0x02
+#define GSBI1_UART_I2C_SEL      0x008020D0
+static void __init mpq8064_i2c_init(void)
+{
+	void __iomem *gsbi1_uart_i2c_sel_mem;
+	void __iomem *gsbi_mem;
+
+	uint32_t hrd_version = socinfo_get_version();
+	/*GSBI1 is available only in Rev2.0 of mpq8064*/
+	if (machine_is_mpq8064_hrd() &&
+	(SOCINFO_VERSION_MAJOR(hrd_version) == 2)) {
+		/*Select between standard GSBI1
+		and copy GSBI1 I2C interface on GPIO*/
+		gsbi1_uart_i2c_sel_mem =
+		ioremap_nocache(GSBI1_UART_I2C_SEL, 4);
+		if (!gsbi1_uart_i2c_sel_mem)
+			pr_err("%s(): ioremap failure\n", __func__);
+		else {
+			writel_relaxed(GSBI1_I2C_SEL,
+			gsbi1_uart_i2c_sel_mem);
+			/* Ensure protocol code is
+			written before proceeding */
+			wmb();
+			iounmap(gsbi1_uart_i2c_sel_mem);
+			mpq8064_device_qup_i2c_gsbi1.dev.platform_data =
+				&apq8064_i2c_qup_gsbi1_pdata;
+		}
+	}
+	gsbi_mem = ioremap_nocache(MSM_GSBI5_PHYS, 4);
+	if (!gsbi_mem)
+		pr_err("%s(): ioremap failure\n", __func__);
+	else {
+		writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+		/* Ensure protocol code is written before proceeding */
+		wmb();
+		iounmap(gsbi_mem);
+		mpq8064_i2c_qup_gsbi5_pdata.use_gsbi_shared_mode = 1;
+		mpq8064_device_qup_i2c_gsbi5.dev.platform_data =
+					&mpq8064_i2c_qup_gsbi5_pdata;
+	}
+}
+
 static void __init apq8064_i2c_init(void)
 {
 	void __iomem *gsbi_mem;
@@ -2781,8 +2827,6 @@ static void __init apq8064_i2c_init(void)
 					&apq8064_i2c_qup_gsbi1_pdata;
 	apq8064_device_qup_i2c_gsbi4.dev.platform_data =
 					&apq8064_i2c_qup_gsbi4_pdata;
-	mpq8064_device_qup_i2c_gsbi5.dev.platform_data =
-					&mpq8064_i2c_qup_gsbi5_pdata;
 }
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -3273,7 +3317,12 @@ static void __init apq8064_common_init(void)
 		pr_err("Failed to initialize XO votes\n");
 	msm_clock_init(&apq8064_clock_init_data);
 	apq8064_init_gpiomux();
-	apq8064_i2c_init();
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+			machine_is_mpq8064_dtv())
+		mpq8064_i2c_init();
+	else
+		apq8064_i2c_init();
+
 	register_i2c_devices();
 
 	apq8064_device_qup_spi_gsbi5.dev.platform_data =
@@ -3361,6 +3410,8 @@ static void __init apq8064_allocate_memory_regions(void)
 
 static void __init apq8064_cdp_init(void)
 {
+	uint32_t hrd_version = socinfo_get_version();
+
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 	if (machine_is_apq8064_mtp() &&
@@ -3372,6 +3423,11 @@ static void __init apq8064_cdp_init(void)
 		enable_avc_i2c_bus();
 		msm_rotator_set_split_iommu_domain();
 		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
+		if (machine_is_mpq8064_hrd() &&
+		(SOCINFO_VERSION_MAJOR(hrd_version) == 2)) {
+			platform_add_devices(mpq8064_hrd_rev2_devices,
+				ARRAY_SIZE(mpq8064_hrd_rev2_devices));
+		}
 		mpq8064_pcie_init();
 	} else {
 		ethernet_init();
