@@ -3032,6 +3032,151 @@ static struct platform_device mtp_kp_pdev = {
 	},
 };
 
+#define MPQ_HRD_HOME_GPIO	SX150X_EXP2_GPIO_BASE
+#define MPQ_HRD_VOL_UP_GPIO	(SX150X_EXP2_GPIO_BASE + 1)
+#define MPQ_HRD_VOL_DOWN_GPIO	(SX150X_EXP2_GPIO_BASE + 2)
+#define MPQ_HRD_RIGHT_GPIO	(SX150X_EXP2_GPIO_BASE + 3)
+#define MPQ_HRD_LEFT_GPIO	(SX150X_EXP2_GPIO_BASE + 4)
+#define MPQ_HRD_ENTER_GPIO	(SX150X_EXP2_GPIO_BASE + 5)
+
+static struct gpio_keys_button mpq_hrd_keys[] = {
+	{
+		.code		= KEY_HOME,
+		.gpio		= MPQ_HRD_HOME_GPIO,
+		.desc		= "home_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_VOLUMEUP,
+		.gpio		= MPQ_HRD_VOL_UP_GPIO,
+		.desc		= "volume_up_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_VOLUMEDOWN,
+		.gpio		= MPQ_HRD_VOL_DOWN_GPIO,
+		.desc		= "volume_down_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_RIGHT,
+		.gpio		= MPQ_HRD_RIGHT_GPIO,
+		.desc		= "right_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_LEFT,
+		.gpio		= MPQ_HRD_LEFT_GPIO,
+		.desc		= "left_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_ENTER,
+		.gpio		= MPQ_HRD_ENTER_GPIO,
+		.desc		= "enter_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+};
+
+static struct gpio_keys_platform_data mpq_hrd_keys_pdata = {
+		.buttons	= mpq_hrd_keys,
+		.nbuttons	= ARRAY_SIZE(mpq_hrd_keys),
+};
+
+static struct platform_device mpq_hrd_keys_pdev = {
+		.name	= "gpio-keys",
+		.id	= -1,
+		.dev	= {
+			.platform_data = &mpq_hrd_keys_pdata,
+		},
+};
+
+static struct gpio_keys_button mpq_rev2hrd_keys[] = {
+	{
+		.code		= KEY_HOME,
+		.gpio		= MPQ_HRD_HOME_GPIO,
+		.desc		= "home_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_VOLUMEUP,
+		.gpio		= GPIO_KEY_VOLUME_UP,
+		.desc		= "volume_up_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_VOLUMEDOWN,
+		.gpio		= GPIO_KEY_VOLUME_DOWN_PM8921,
+		.desc		= "volume_down_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_RIGHT,
+		.gpio		= MPQ_HRD_RIGHT_GPIO,
+		.desc		= "right_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_LEFT,
+		.gpio		= MPQ_HRD_LEFT_GPIO,
+		.desc		= "left_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+	{
+		.code		= KEY_ENTER,
+		.gpio		= MPQ_HRD_ENTER_GPIO,
+		.desc		= "enter_key",
+		.active_low	= 1,
+		.type		= EV_KEY,
+		.wakeup		= 1,
+		.debounce_interval = 15,
+	},
+};
+static struct gpio_keys_platform_data mpq_rev2hrd_keys_pdata = {
+		.buttons	= mpq_rev2hrd_keys,
+		.nbuttons	= ARRAY_SIZE(mpq_rev2hrd_keys),
+};
+
+static struct platform_device mpq_rev2hrd_keys_pdev = {
+		.name	= "gpio-keys",
+		.id	= -1,
+		.dev	= {
+			.platform_data = &mpq_rev2hrd_keys_pdata,
+		},
+};
 static struct gpio_keys_button mpq_keys[] = {
 	{
 		.code           = KEY_VOLUMEDOWN,
@@ -3437,6 +3582,13 @@ static void __init apq8064_common_init(void)
 		mpq8064_i2c_init();
 	else
 		apq8064_i2c_init();
+	/* configure sx150x parameters for HRD */
+	if (machine_is_mpq8064_hrd()) {
+		mpq8064_sx150x_pdata[SX150X_EXP2].irq_summary    =
+					PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 40);
+		mpq8064_sx150x_pdata[SX150X_EXP2].io_pullup_ena  = 0xff;
+		mpq8064_sx150x_pdata[SX150X_EXP2].io_pulldn_ena  = 0x00;
+	}
 
 	register_i2c_devices();
 
@@ -3610,6 +3762,11 @@ static void __init apq8064_cdp_init(void)
 	if (machine_is_mpq8064_cdp()) {
 		platform_device_register(&mpq_gpio_keys_pdev);
 		platform_device_register(&mpq_keypad_device);
+	} else if (machine_is_mpq8064_hrd()) {
+		if (SOCINFO_VERSION_MAJOR(hrd_version) == 2)
+			platform_device_register(&mpq_rev2hrd_keys_pdev);
+		else
+			platform_device_register(&mpq_hrd_keys_pdev);
 	}
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv() || machine_is_mpq8064_dma())
