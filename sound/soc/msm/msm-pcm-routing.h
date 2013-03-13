@@ -131,9 +131,9 @@ int lpa_set_volume(unsigned volume);
 
 int msm_routing_check_backend_enabled(int fedai_id);
 
-int multi_ch_pcm_set_volume(unsigned volume);
+int multi_ch_pcm_set_volume(unsigned volume, int fe_id);
 
-int compressed_set_volume(unsigned volume);
+int compressed_set_volume(unsigned volume, int fe_id);
 
 void multi_ch_pcm_set_channel_map(char *channel_mapping);
 
