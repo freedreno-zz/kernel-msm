@@ -1557,7 +1557,7 @@ void __init apq8064_init_gpiomux(void)
 				ARRAY_SIZE(wcnss_5wire_interface));
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-		 machine_is_mpq8064_dtv()) {
+		 machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()) {
 		msm_gpiomux_install(mpq8064_gsbi5_i2c_configs,
 				ARRAY_SIZE(mpq8064_gsbi5_i2c_configs));
 		msm_gpiomux_install(mpq8064_gsbi1_i2c_configs,
@@ -1585,7 +1585,7 @@ void __init apq8064_init_gpiomux(void)
 			ARRAY_SIZE(apq8064_audio_codec_configs));
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-		machine_is_mpq8064_dtv()) {
+		machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()) {
 
 		msm_gpiomux_install(mpq8064_audio_auxpcm_configs,
 			ARRAY_SIZE(mpq8064_audio_auxpcm_configs));
@@ -1599,7 +1599,7 @@ void __init apq8064_init_gpiomux(void)
 		" for these GPIO Pins\n", __func__);
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-		machine_is_mpq8064_dtv())
+		machine_is_mpq8064_dtv() || machine_is_mpq8064_dma())
 		msm_gpiomux_install(mpq8064_mi2s_configs,
 			ARRAY_SIZE(mpq8064_mi2s_configs));
 
