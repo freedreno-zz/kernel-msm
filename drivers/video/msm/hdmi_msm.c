@@ -771,6 +771,11 @@ static void hdmi_msm_turn_on(void);
 static int hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
+static int hdmi_msm_power_on(struct platform_device *pdev);
+static int hdmi_msm_power_off(struct platform_device *pdev);
+static void hdmi_msm_hpd_polarity_setup(bool polarity, bool trigger);
+
+static struct platform_device *hdmi_msm_pdev;
 
 static bool hdmi_ready(void)
 {
@@ -815,6 +820,13 @@ static void hdmi_msm_send_event(boolean on)
 		DEV_INFO("hdmi: HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
 		kobject_uevent(external_common_state->uevent_kobj,
 			KOBJ_OFFLINE);
+	}
+
+	if (hdmi_prim_display) {
+		if (on)
+			hdmi_msm_power_on(hdmi_msm_pdev);
+		else
+			hdmi_msm_power_off(hdmi_msm_pdev);
 	}
 }
 
@@ -4504,7 +4516,8 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	if (!hdmi_msm_is_dvi_mode())
 		hdmi_msm_audio_off();
 
-	hdmi_msm_powerdown_phy();
+	if (!hdmi_prim_display)
+		hdmi_msm_powerdown_phy();
 
 	hdmi_msm_state->panel_power_on = FALSE;
 	DEV_INFO("power: OFF (audio off)\n");
@@ -4686,6 +4699,7 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	mfd->is_panel_ready = hdmi_msm_cable_connected;
 
 	if (hdmi_prim_display) {
+		hdmi_msm_pdev = fb_dev;
 		rc = hdmi_msm_hpd_on();
 		if (rc)
 			goto error;
