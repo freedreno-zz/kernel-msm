@@ -61,6 +61,26 @@ static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
 #define HPD_EVENT_OFFLINE 0
 #define HPD_EVENT_ONLINE  1
 
+static int hdmi_msm_res_priority[HDMI_VFRMT_MAX] = {
+	[HDMI_VFRMT_720x240p60_4_3]    = 1,
+	[HDMI_VFRMT_1440x480i60_16_9]  = 2,
+	[HDMI_VFRMT_1440x576i50_4_3]   = 3,
+	[HDMI_VFRMT_1440x576i50_16_9]  = 4,
+	[HDMI_VFRMT_640x480p60_4_3]    = 5,
+	[HDMI_VFRMT_720x480p60_4_3]    = 6,
+	[HDMI_VFRMT_720x480p60_16_9]   = 7,
+	[HDMI_VFRMT_720x576p50_4_3]    = 8,
+	[HDMI_VFRMT_720x576p50_16_9]   = 9,
+	[HDMI_VFRMT_1920x1080i60_16_9] = 10,
+	[HDMI_VFRMT_1280x720p50_16_9]  = 11,
+	[HDMI_VFRMT_1280x720p60_16_9]  = 12,
+	[HDMI_VFRMT_1920x1080p24_16_9] = 13,
+	[HDMI_VFRMT_1920x1080p25_16_9] = 14,
+	[HDMI_VFRMT_1920x1080p30_16_9] = 15,
+	[HDMI_VFRMT_1920x1080p50_16_9] = 16,
+	[HDMI_VFRMT_1920x1080p60_16_9] = 17,
+};
+
 #define SWITCH_SET_HDMI_AUDIO(d, force) \
 	do {\
 		if (!hdmi_msm_is_dvi_mode() &&\
@@ -773,7 +793,6 @@ static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
 static int hdmi_msm_power_on(struct platform_device *pdev);
 static int hdmi_msm_power_off(struct platform_device *pdev);
-static void hdmi_msm_hpd_polarity_setup(bool polarity, bool trigger);
 
 static struct platform_device *hdmi_msm_pdev;
 
@@ -783,6 +802,47 @@ static bool hdmi_ready(void)
 			hdmi_msm_state &&
 				hdmi_msm_state->hdmi_app_clk &&
 					hdmi_msm_state->hpd_initialized;
+}
+
+static void hdmi_msm_reinit_panel_info(void)
+{
+	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
+	uint32 num   = external_common_state->disp_mode_list.num_of_elements;
+	uint32 *list = external_common_state->disp_mode_list.disp_mode_list;
+	struct fb_info *fbi;
+	int i;
+
+	for (i = 0; i < num; i++) {
+		uint32 best_format = external_common_state->best_video_format;
+		if (hdmi_msm_res_priority[list[i]] >
+		    hdmi_msm_res_priority[best_format])
+			external_common_state->best_video_format = list[i];
+	}
+
+	if (external_common_state->best_video_format !=
+	    external_common_state->video_resolution) {
+		external_common_state->video_resolution =
+			external_common_state->best_video_format;
+
+		hdmi_common_init_panel_info(&mfd->panel_info);
+
+		fbi = mfd->fbi;
+
+		fbi->var.xres         = mfd->panel_info.xres;
+		fbi->var.yres         = mfd->panel_info.yres;
+		fbi->var.pixclock     = mfd->panel_info.clk_rate;
+		fbi->var.left_margin  = mfd->panel_info.lcdc.h_back_porch;
+		fbi->var.right_margin = mfd->panel_info.lcdc.h_front_porch;
+		fbi->var.upper_margin = mfd->panel_info.lcdc.v_back_porch;
+		fbi->var.lower_margin = mfd->panel_info.lcdc.v_front_porch;
+		fbi->var.hsync_len    = mfd->panel_info.lcdc.h_pulse_width;
+		fbi->var.vsync_len    = mfd->panel_info.lcdc.v_pulse_width;
+
+		mfd->var_xres         = mfd->panel_info.xres;
+		mfd->var_yres         = mfd->panel_info.yres;
+		mfd->var_frame_rate   = mfd->panel_info.frame_rate;
+		mfd->var_pixclock     = mfd->panel_info.clk_rate;
+	}
 }
 
 static void hdmi_msm_send_event(boolean on)
@@ -800,6 +860,7 @@ static void hdmi_msm_send_event(boolean on)
 	if (on) {
 		/* Build EDID table */
 		hdmi_msm_read_edid();
+		hdmi_msm_reinit_panel_info();
 		switch_set_state(&external_common_state->sdev, 1);
 		DEV_INFO("%s: hdmi state switched to %d\n", __func__,
 				external_common_state->sdev.state);
@@ -816,6 +877,7 @@ static void hdmi_msm_send_event(boolean on)
 		}
 	} else {
 		switch_set_state(&external_common_state->sdev, 0);
+		external_common_state->best_video_format = 0;
 		DEV_INFO("%s: hdmi state switch to %d\n", __func__,
 				external_common_state->sdev.state);
 		DEV_INFO("hdmi: HDMI HPD: sense DISCONNECTED: send OFFLINE\n");

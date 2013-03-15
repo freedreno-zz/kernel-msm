@@ -248,6 +248,7 @@ struct external_common_state_type {
 	uint16 video_latency, audio_latency;
 	uint16 physical_address;
 	uint32 preferred_video_format;
+	uint32 best_video_format;
 	uint8 pt_scan_info;
 	uint8 it_scan_info;
 	uint8 ce_scan_info;
