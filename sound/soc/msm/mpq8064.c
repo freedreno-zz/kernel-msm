@@ -578,7 +578,6 @@ static const char * const mi2s_rate[] = {"Default", "Variable"};
 static const char * const hdmi_rate[] = {"Default", "Variable"};
 
 
-
 static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),

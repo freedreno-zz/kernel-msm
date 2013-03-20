@@ -3853,7 +3853,8 @@ int q6asm_cmd(struct audio_client *ac, int cmd)
 	case CMD_CLOSE:
 		pr_debug("%s:CMD_CLOSE\n", __func__);
 		hdr.opcode = ASM_STREAM_CMD_CLOSE;
-		state = &ac->cmd_state;
+		atomic_set(&ac->cmd_close_state, 1);
+		state = &ac->cmd_close_state;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", cmd);

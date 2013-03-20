@@ -734,75 +734,14 @@ static struct reserve_info msm8930_reserve_info __initdata = {
 	.paddr_to_memtype = msm8930_paddr_to_memtype,
 };
 
-static int msm8930_memory_bank_size(void)
-{
-	return 1<<29;
-}
-
-static void __init locate_unstable_memory(void)
-{
-	struct membank *mb = &meminfo.bank[meminfo.nr_banks - 1];
-	unsigned long bank_size;
-	unsigned long low, high;
-
-	bank_size = msm8930_memory_bank_size();
-	low = meminfo.bank[0].start;
-	high = mb->start + mb->size;
-
-	/* Check if 32 bit overflow occured */
-	if (high < mb->start)
-		high -= PAGE_SIZE;
-
-	if (high < MAX_FIXED_AREA_SIZE + MSM8930_FIXED_AREA_START)
-		panic("fixed area extends beyond end of memory\n");
-
-	low &= ~(bank_size - 1);
-
-	if (high - low <= bank_size)
-		goto no_dmm;
-
-	msm8930_reserve_info.bank_size = bank_size;
-#ifdef CONFIG_ENABLE_DMM
-	msm8930_reserve_info.low_unstable_address = mb->start -
-					MIN_MEMORY_BLOCK_SIZE + mb->size;
-	msm8930_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
-	pr_info("low unstable address %lx max size %lx bank size %lx\n",
-		msm8930_reserve_info.low_unstable_address,
-		msm8930_reserve_info.max_unstable_size,
-		msm8930_reserve_info.bank_size);
-	return;
-#endif
-no_dmm:
-	msm8930_reserve_info.low_unstable_address = high;
-	msm8930_reserve_info.max_unstable_size = 0;
-}
-
-static void __init place_movable_zone(void)
-{
-#ifdef CONFIG_ENABLE_DMM
-	movable_reserved_start = msm8930_reserve_info.low_unstable_address;
-	movable_reserved_size = msm8930_reserve_info.max_unstable_size;
-	pr_info("movable zone start %lx size %lx\n",
-		movable_reserved_start, movable_reserved_size);
-#endif
-}
-
 static void __init msm8930_early_memory(void)
 {
 	reserve_info = &msm8930_reserve_info;
-	locate_unstable_memory();
-	place_movable_zone();
 }
 
 static void __init msm8930_reserve(void)
 {
 	msm_reserve();
-}
-
-static int msm8930_change_memory_power(u64 start, u64 size,
-	int change_type)
-{
-	return soc_change_memory_power(start, size, change_type);
 }
 
 static void __init msm8930_allocate_memory_regions(void)
@@ -1646,11 +1585,18 @@ static uint8_t spm_wfi_cmd_sequence[] __initdata = {
 	0x03, 0x0f,
 };
 
+
 static uint8_t spm_retention_cmd_sequence[] __initdata = {
 	0x00, 0x05, 0x03, 0x0D,
 	0x0B, 0x00, 0x0f,
 };
 
+static uint8_t spm_retention_with_krait_v3_cmd_sequence[] __initdata = {
+	0x42, 0x1B, 0x00,
+	0x05, 0x03, 0x0D, 0x0B,
+	0x00, 0x42, 0x1B,
+	0x0f,
+};
 static uint8_t spm_power_collapse_without_rpm[] __initdata = {
 	0x00, 0x24, 0x54, 0x10,
 	0x09, 0x03, 0x01,
@@ -1695,11 +1641,16 @@ static struct msm_spm_seq_entry msm_spm_nonboot_cpu_seq_list[] __initdata = {
 		.cmd = spm_wfi_cmd_sequence,
 	},
 	[1] = {
+		.mode = MSM_SPM_MODE_POWER_RETENTION,
+		.notify_rpm = false,
+		.cmd = spm_retention_cmd_sequence,
+	},
+	[2] = {
 		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
 		.notify_rpm = false,
 		.cmd = spm_power_collapse_without_rpm,
 	},
-	[2] = {
+	[3] = {
 		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
 		.notify_rpm = true,
 		.cmd = spm_power_collapse_with_rpm,
@@ -1730,9 +1681,9 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
 #endif
 		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020204,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x03020004,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0084009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x00A4001C,
 		.vctl_timeout_us = 50,
 		.num_modes = ARRAY_SIZE(msm_spm_nonboot_cpu_seq_list),
 		.modes = msm_spm_nonboot_cpu_seq_list,
@@ -2849,6 +2800,23 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 	pdata->uses_pm8917 = true;
 }
 
+static void __init msm8930ab_update_retention_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for krait retention on all cores */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_retention_cmd_sequence)
+				pdata->modes[j].cmd =
+				spm_retention_with_krait_v3_cmd_sequence;
+		}
+	}
+}
+
 static void __init msm8930_cdp_init(void)
 {
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
@@ -2917,6 +2885,12 @@ static void __init msm8930_cdp_init(void)
 #endif
 	msm8930_i2c_init();
 	msm8930_init_gpu();
+	if (cpu_is_krait_v3()) {
+		msm_pm_set_tz_retention_flag(0);
+		msm8930ab_update_retention_spm();
+	} else {
+		msm_pm_set_tz_retention_flag(1);
+	}
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
@@ -2972,9 +2946,7 @@ static void __init msm8930_cdp_init(void)
 	msm8930_init_fb();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
-	change_memory_power = &msm8930_change_memory_power;
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-	msm_pm_set_tz_retention_flag(1);
 
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));

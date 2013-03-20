@@ -59,9 +59,6 @@ struct mdp4_overlay_ctrl {
 	uint32 mixer0_played;
 	uint32 mixer1_played;
 	uint32 mixer2_played;
-	uint32 sec_mapped;
-	uint32 mmu_clk_on;
-	uint32 sec_active;
 } mdp4_overlay_db = {
 	.cs_controller = CS_CONTROLLER_0,
 	.plist = {
@@ -123,10 +120,20 @@ struct mdp4_overlay_perf perf_current;
 
 static struct ion_client *display_iclient;
 
-static int mdp4_map_sec_resource(void)
+static int mdp4_map_sec_resource(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
-	if (ctrl->sec_mapped)
+
+	if (!mfd) {
+		pr_err("%s: mfd is invalid\n", __func__);
+		return -ENODEV;
+	}
+
+	pr_debug("%s %d mfd->index=%d,mapped=%d,active=%d\n",
+		__func__, __LINE__,
+		 mfd->index, mfd->sec_mapped, mfd->sec_active);
+
+	if (mfd->sec_mapped)
 		return 0;
 
 	ret = mdp_enable_iommu_clocks();
@@ -139,16 +146,26 @@ static int mdp4_map_sec_resource(void)
 		pr_err("ION heap secure failed heap id %d ret %d\n",
 			   ION_CP_MM_HEAP_ID, ret);
 	else
-		ctrl->sec_mapped = 1;
+		mfd->sec_mapped = 1;
 	mdp_disable_iommu_clocks();
 	return ret;
 }
 
-int mdp4_unmap_sec_resource(void)
+int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
-	if ((ctrl->sec_mapped == 0) || (ctrl->sec_active))
+
+	if (!mfd) {
+		pr_err("%s: mfd is invalid\n", __func__);
+		return -ENODEV;
+	}
+
+	if ((mfd->sec_mapped == 0) || (mfd->sec_active))
 		return 0;
+
+	pr_debug("%s %d mfd->index=%d,mapped=%d,active=%d\n",
+		__func__, __LINE__,
+		 mfd->index, mfd->sec_mapped, mfd->sec_active);
 
 	ret = mdp_enable_iommu_clocks();
 	if (ret) {
@@ -156,7 +173,7 @@ int mdp4_unmap_sec_resource(void)
 		return ret;
 	}
 	msm_ion_unsecure_heap(ION_HEAP(ION_CP_MM_HEAP_ID));
-	ctrl->sec_mapped = 0;
+	mfd->sec_mapped = 0;
 	mdp_disable_iommu_clocks();
 	return ret;
 }
@@ -944,8 +961,29 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	outpdw(vg_base + 0x0008, dst_size);	/* MDP_RGB_DST_SIZE */
 	outpdw(vg_base + 0x000c, dst_xy);	/* MDP_RGB_DST_XY */
 
-	if (pipe->frame_format != MDP4_FRAME_FORMAT_LINEAR)
+	if (pipe->frame_format != MDP4_FRAME_FORMAT_LINEAR) {
+		struct mdp4_overlay_pipe *real_pipe;
+		u32 psize, csize;
+
+		/*
+		 * video tile frame size register is NOT double buffered.
+		 * when this register updated, it kicks in immediatly
+		 * During transition from smaller resolution to higher
+		 * resolution  it may have possibility that mdp still fetch
+		 * from smaller resolution buffer with new higher resolution
+		 * frame size. This will cause iommu page fault.
+		 */
+		real_pipe = mdp4_overlay_ndx2pipe(pipe->pipe_ndx);
+		psize = real_pipe->prev_src_height * real_pipe->prev_src_width;
+		csize = pipe->src_height * pipe->src_width;
+		if (psize && (csize > psize)) {
+			frame_size = (real_pipe->prev_src_height << 16 |
+					real_pipe->prev_src_width);
+		}
 		outpdw(vg_base + 0x0048, frame_size);	/* TILE frame size */
+		real_pipe->prev_src_height = pipe->src_height;
+		real_pipe->prev_src_width = pipe->src_width;
+	}
 
 	/*
 	 * Adjust src X offset to avoid MDP from overfetching pixels
@@ -2916,6 +2954,9 @@ int mdp4_overlay_mdp_perf_req(struct msm_fb_data_type *mfd)
 		 perf_req->use_ov_blt[0],
 		 perf_req->use_ov_blt[1]);
 
+	if (perf_req->use_ov_blt[0] || perf_req->use_ov_blt[1])
+		return ret;
+
 	return 0;
 }
 
@@ -3170,7 +3211,7 @@ int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req)
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	int ret, mixer;
+	int ret = 0, mixer;
 	struct mdp4_overlay_pipe *pipe;
 
 	if (mfd == NULL) {
@@ -3200,6 +3241,11 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		return ret;
 	}
 
+	if (pipe->flags & MDP_SECURE_OVERLAY_SESSION) {
+		mdp4_map_sec_resource(mfd);
+		mfd->sec_active = TRUE;
+	}
+
 	/* return id back to user */
 	req->id = pipe->pipe_ndx;	/* pipe_ndx start from 1 */
 	pipe->req_data = *req;		/* keep original req */
@@ -3215,10 +3261,6 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		}
 	}
 
-	if (pipe->flags & MDP_SECURE_OVERLAY_SESSION) {
-		mdp4_map_sec_resource();
-		ctrl->sec_active = TRUE;
-	}
 	mdp4_stat.overlay_set[pipe->mixer_num]++;
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
@@ -3234,10 +3276,14 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		fill_black_screen(FALSE, pipe->pipe_num, pipe->mixer_num);
 
 	mdp4_overlay_mdp_pipe_req(pipe, mfd);
+	ret = mdp4_overlay_mdp_perf_req(mfd);
+
+	if (ret)
+		pr_err("%s: blt mode should not be enabled\n", __func__);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
-	return 0;
+	return ret;
 }
 
 int mdp4_overlay_unset_mixer(int mixer)
@@ -3318,7 +3364,7 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	mdp4_stat.overlay_unset[pipe->mixer_num]++;
 
 	if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
-		ctrl->sec_active = FALSE;
+		mfd->sec_active = FALSE;
 	mdp4_overlay_pipe_free(pipe);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
@@ -3345,6 +3391,13 @@ int mdp4_overlay_wait4vsync(struct fb_info *info)
 int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
 {
 	int cmd;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (mfd == NULL)
+		return -ENODEV;
+
+	if (!mfd->panel_power_on)
+		return -EINVAL;
 
 	if (enable)
 		cmd = 1;
@@ -3645,7 +3698,7 @@ int mdp4_overlay_commit(struct fb_info *info)
 	msm_fb_signal_timeline(mfd);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
-	mdp4_unmap_sec_resource();
+	mdp4_unmap_sec_resource(mfd);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
 	return ret;

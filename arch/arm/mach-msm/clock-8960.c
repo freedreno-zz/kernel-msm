@@ -4111,6 +4111,7 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 };
 #else
 static struct clk_freq_tbl clk_tbl_tv[] = {
+	F_END
 };
 #endif
 
@@ -5111,6 +5112,8 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(0x80|BVAL(5, 3, clk_sel), GCC_APCS_CLK_DIAG);
 		measure->sample_ticks = 0x4000;
 		measure->multiplier = 2;
+		if (cpu_is_krait_v3())
+			measure->multiplier = 8;
 		break;
 	default:
 		ret = -EPERM;
@@ -5305,7 +5308,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 #ifdef CONFIG_MACH_LGE
 	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	"msm_serial_hsl.0"),
 #else
-	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	""),
+	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c, "msm_serial_hs.1"),
 #endif
 	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c,	""),
@@ -5367,6 +5370,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"msm_serial_hsl.0"),
 #endif
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"qup_i2c.4"),
+	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,	"msm_serial_hs.1"),
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		"spi_qsd.0"),
 	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,		"qup_i2c.5"),
 	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,		""),
@@ -5397,6 +5401,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("core_clk",		pmic_ssbi2_clk.c,	""),
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-001a"),
+	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0010"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0034"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0020"),
 	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-0048"),
@@ -5758,6 +5763,7 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("core_clk",		pmic_ssbi2_clk.c,	""),
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-001a"),
+	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0010"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-006c"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0048"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,		NULL),
