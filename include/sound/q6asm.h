@@ -84,18 +84,18 @@
 
 #define SESSION_MAX	0x08
 
-#define SOFT_PAUSE_PERIOD       30   /* ramp up/down for 30ms    */
+#define SOFT_PAUSE_PERIOD       30   /* ramp up/down for 30ms */
 #define SOFT_PAUSE_STEP_LINEAR  0    /* Step value 0ms or 0us */
-#define SOFT_PAUSE_STEP         2000 /* Step value 2000ms or 2000us */
+#define SOFT_PAUSE_STEP         0    /* Step value 0ms or 0us */
 enum {
 	SOFT_PAUSE_CURVE_LINEAR = 0,
 	SOFT_PAUSE_CURVE_EXP,
 	SOFT_PAUSE_CURVE_LOG,
 };
 
-#define SOFT_VOLUME_PERIOD       30   /* ramp up/down for 30ms    */
+#define SOFT_VOLUME_PERIOD       30   /* ramp up/down for 30ms */
 #define SOFT_VOLUME_STEP_LINEAR  0    /* Step value 0ms or 0us */
-#define SOFT_VOLUME_STEP         2000 /* Step value 2000ms or 2000us */
+#define SOFT_VOLUME_STEP         0    /* Step value 0ms or 0us */
 enum {
 	SOFT_VOLUME_CURVE_LINEAR = 0,
 	SOFT_VOLUME_CURVE_EXP,
@@ -153,6 +153,7 @@ struct audio_client {
 	struct mutex	       cmd_lock;
 
 	atomic_t		cmd_state;
+	atomic_t		cmd_close_state;
 	atomic_t		time_flag;
 	atomic_t		nowait_cmd_cnt;
 	wait_queue_head_t	cmd_wait;

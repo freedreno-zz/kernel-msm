@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("dsi1_pll_vdda",	"mipi_dsi.1"),
 	REGULATOR_SUPPLY("HRD_VDDD_CDC_D",		"tabla2x-slim"),
 	REGULATOR_SUPPLY("HRD_CDC_VDDA_A_1P2V",	"tabla2x-slim"),
+	REGULATOR_SUPPLY("dsi_pll_vdda",	"mdp.0"),
 };
 VREG_CONSUMERS(L3) = {
 	REGULATOR_SUPPLY("8921_l3",		NULL),
@@ -62,6 +63,7 @@ VREG_CONSUMERS(L7) = {
 VREG_CONSUMERS(L8) = {
 	REGULATOR_SUPPLY("8921_l8",		NULL),
 	REGULATOR_SUPPLY("cam_vana",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vana",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0034"),
@@ -81,6 +83,7 @@ VREG_CONSUMERS(L11) = {
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("cam_vdig",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vdig",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vdig",		"4-0034"),
@@ -100,6 +103,7 @@ VREG_CONSUMERS(L15) = {
 VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("8921_l16",		NULL),
 	REGULATOR_SUPPLY("cam_vaf",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vaf",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0034"),
@@ -208,6 +212,7 @@ VREG_CONSUMERS(LVS4) = {
 VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("8921_lvs5",		NULL),
 	REGULATOR_SUPPLY("cam_vio",		"4-001a"),
+	REGULATOR_SUPPLY("cam_vio",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vio",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0034"),
@@ -222,6 +227,7 @@ VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
 	REGULATOR_SUPPLY("lvds_vdda",		"lvds.0"),
 	REGULATOR_SUPPLY("dsi1_vddio",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_pll_vddio",	"mdp.0"),
 	REGULATOR_SUPPLY("hdmi_vdda",		"hdmi_msm.0"),
 };
 VREG_CONSUMERS(USB_OTG) = {

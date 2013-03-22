@@ -122,10 +122,11 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
 #define MSM_FB_MAX_DBGFS 1024
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 
-/* 900 ms for fence time out */
-#define WAIT_FENCE_TIMEOUT 900
-/* 950 ms for display operation time out */
-#define WAIT_DISP_OP_TIMEOUT 950
+#define WAIT_FENCE_FIRST_TIMEOUT MSEC_PER_SEC
+#define WAIT_FENCE_FINAL_TIMEOUT 10 * MSEC_PER_SEC
+/* Display op timeout should be greater than total timeout */
+#define WAIT_DISP_OP_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT +\
+        WAIT_FENCE_FINAL_TIMEOUT) * MDP_MAX_FENCE_FD
 #define MAX_TIMELINE_NAME_LEN 16
 
 int msm_fb_debugfs_file_index;
@@ -381,14 +382,21 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	if ((pdev->id == 0) && (pdev->num_resources > 0)) {
 		msm_fb_pdata = pdev->dev.platform_data;
-		fbram_size =
-			pdev->resource[0].end - pdev->resource[0].start + 1;
-		fbram_phys = (char *)pdev->resource[0].start;
-		fbram = __va(fbram_phys);
+		if (pdev->resource[0].start) {
+			fbram_size =
+				pdev->resource[0].end -
+				pdev->resource[0].start + 1;
+			fbram_phys = (char *)pdev->resource[0].start;
+			fbram = __va(fbram_phys);
 
-		if (!fbram) {
-			printk(KERN_ERR "fbram ioremap failed!\n");
-			return -ENOMEM;
+			if (!fbram) {
+				printk(KERN_ERR "fbram ioremap failed!\n");
+				return -ENOMEM;
+			}
+		} else {
+			fbram_size = 0;
+			fbram_phys = NULL;
+			fbram = NULL;
 		}
 		MSM_FB_DEBUG("msm_fb_probe:  phy_Addr = 0x%x virt = 0x%x\n",
 			     (int)fbram_phys, (int)fbram);
@@ -826,11 +834,14 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	struct fb_info *fbi = mfd->fbi;
 	switch (mfd->fbi->var.bits_per_pixel) {
 	case 32:
-		memset32_io((void *)fbi->screen_base, 0xFF000000,
-							fbi->fix.smem_len);
+		if (fbi->screen_base)
+			memset32_io((void *)fbi->screen_base, 0xFF000000,
+				    fbi->fix.smem_len);
 		break;
 	default:
-		memset32_io((void *)fbi->screen_base, 0x00, fbi->fix.smem_len);
+		if (fbi->screen_base)
+			memset32_io((void *)fbi->screen_base, 0x00,
+				    fbi->fix.smem_len);
 		break;
 	}
 #endif
@@ -983,8 +994,9 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			bl_updated = 0;
 
 			/* clean fb to prevent displaying old fb */
-			memset((void *)info->screen_base, 0,
-					info->fix.smem_len);
+			if (info->screen_base)
+				memset((void *)info->screen_base, 0,
+				       info->fix.smem_len);
 
 			ret = pdata->off(mfd->pdev);
 			if (ret)
@@ -1102,8 +1114,14 @@ static int msm_fb_blank(int blank_mode, struct fb_info *info)
 	}
 	msm_fb_pan_idle(mfd);
 	if (mfd->op_enable == 0) {
-		if (blank_mode == FB_BLANK_UNBLANK)
+		if (blank_mode == FB_BLANK_UNBLANK) {
 			mfd->suspend.panel_power_on = TRUE;
+			/* if unblank is called when system is in suspend,
+			do not unblank but send SUCCESS to hwc, so that hwc
+			keeps pushing frames and display comes up as soon
+			 as system is resumed */
+			return 0;
+		}
 		else
 			mfd->suspend.panel_power_on = FALSE;
 	}
@@ -1133,6 +1151,10 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	u32 len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.smem_len);
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (!start)
+		return -EINVAL;
+
 	msm_fb_pan_idle(mfd);
 	if (off >= len) {
 		/* memory mapped io */
@@ -1478,12 +1500,16 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		pr_err("error: not enough memory!\n");
 		return -ENOMEM;
 	}
-	fbram_offset = PAGE_ALIGN((int)fbram)-(int)fbram;
-	fbram += fbram_offset;
-	fbram_phys += fbram_offset;
-	fbram_size -= fbram_offset;
 
-	if (!bf_supported || mfd->index == 0)
+	if (fbram) {
+		fbram_offset = PAGE_ALIGN((int)fbram)-(int)fbram;
+		fbram += fbram_offset;
+		fbram_phys += fbram_offset;
+		fbram_size -= fbram_offset;
+	} else
+		fbram_offset = 0;
+
+	if ((!bf_supported || mfd->index == 0) && fbram)
 		if (fbram_size < fix->smem_len) {
 			pr_err("error: no more framebuffer memory!\n");
 			return -ENOMEM;
@@ -1492,31 +1518,33 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	fbi->screen_base = fbram;
 	fbi->fix.smem_start = (unsigned long)fbram_phys;
 
-	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
-					DISPLAY_WRITE_DOMAIN,
-					GEN_POOL,
-					fbi->fix.smem_len,
-					SZ_4K,
-					0,
-					&(mfd->display_iova));
+	if (fbi->fix.smem_start) {
+		msm_iommu_map_contig_buffer(fbi->fix.smem_start,
+					    DISPLAY_WRITE_DOMAIN,
+					    GEN_POOL,
+					    fbi->fix.smem_len,
+					    SZ_4K,
+					    0,
+					    &(mfd->display_iova));
 
-	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
-					DISPLAY_READ_DOMAIN,
-					GEN_POOL,
-					fbi->fix.smem_len,
-					SZ_4K,
-					0,
-					&(mfd->display_iova));
+		msm_iommu_map_contig_buffer(fbi->fix.smem_start,
+					    DISPLAY_READ_DOMAIN,
+					    GEN_POOL,
+					    fbi->fix.smem_len,
+					    SZ_4K,
+					    0,
+					    &(mfd->display_iova));
 
-	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
-					ROTATOR_SRC_DOMAIN,
-					GEN_POOL,
-					fbi->fix.smem_len,
-					SZ_4K,
-					0,
-					&(mfd->rotator_iova));
+		msm_iommu_map_contig_buffer(fbi->fix.smem_start,
+					    ROTATOR_SRC_DOMAIN,
+					    GEN_POOL,
+					    fbi->fix.smem_len,
+					    SZ_4K,
+					    0,
+					    &(mfd->rotator_iova));
+	}
 
-	if (!bf_supported || mfd->index == 0)
+	if ((!bf_supported || mfd->index == 0) && fbi->screen_base)
 		memset(fbi->screen_base, 0x0, fix->smem_len);
 
 	mfd->op_enable = TRUE;
@@ -1565,9 +1593,11 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	fbram += fix->smem_len;
-	fbram_phys += fix->smem_len;
-	fbram_size -= fix->smem_len;
+	if (fbram) {
+		fbram += fix->smem_len;
+		fbram_phys += fix->smem_len;
+		fbram_size -= fix->smem_len;
+	}
 
 	MSM_FB_INFO
 	    ("FrameBuffer[%d] %dx%d size=%d bytes is registered successfully!\n",
@@ -1738,6 +1768,12 @@ static int msm_fb_open(struct fb_info *info, int user)
 			return 0;
 	}
 
+	if (mfd->op_enable == 0) {
+		/* if system is in suspend mode, do not unblank */
+		mfd->ref_cnt++;
+		return 0;
+	}
+
 	if (!mfd->ref_cnt) {
 		if (!bf_supported ||
 			(info->node != 1 && info->node != 2))
@@ -1792,7 +1828,15 @@ void msm_fb_wait_for_fence(struct msm_fb_data_type *mfd)
 	int i, ret = 0;
 	/* buf sync */
 	for (i = 0; i < mfd->acq_fen_cnt; i++) {
-		ret = sync_fence_wait(mfd->acq_fen[i], WAIT_FENCE_TIMEOUT);
+		ret = sync_fence_wait(mfd->acq_fen[i],
+				WAIT_FENCE_FIRST_TIMEOUT);
+		if (ret == -ETIME) {
+			pr_warn("%s: sync_fence_wait timed out!"
+				"Waiting %ld more seconds\n",
+				__func__,WAIT_FENCE_FINAL_TIMEOUT/MSEC_PER_SEC);
+			ret = sync_fence_wait(mfd->acq_fen[i],
+					WAIT_FENCE_FINAL_TIMEOUT);
+		}
 		if (ret < 0) {
 			pr_err("%s: sync_fence_wait failed! ret = %x\n",
 				__func__, ret);
@@ -2028,7 +2072,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 
 	mdp_dma_pan_update(info);
 	msm_fb_signal_timeline(mfd);
-	if (mdp4_unmap_sec_resource())
+	if (mdp4_unmap_sec_resource(mfd))
 		pr_err("%s: unmap secure res failed\n", __func__);
 
 	up(&msm_fb_pan_sem);
@@ -3637,7 +3681,7 @@ static int msmfb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
 static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 						struct mdp_buf_sync *buf_sync)
 {
-	int i, fence_cnt = 0, ret = 0;
+	int i, ret = 0;
 	u32 threshold;
 	int acq_fen_fd[MDP_MAX_FENCE_FD];
 	struct sync_fence *fence;
@@ -3667,10 +3711,9 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 		}
 		mfd->acq_fen[i] = fence;
 	}
-	fence_cnt = i;
+	mfd->acq_fen_cnt = i;
 	if (ret)
 		goto buf_sync_err_1;
-	mfd->acq_fen_cnt = fence_cnt;
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
 		msm_fb_wait_for_fence(mfd);
 	}
@@ -3719,7 +3762,7 @@ buf_sync_err_2:
 	mfd->cur_rel_fence = NULL;
 	mfd->cur_rel_fen_fd = 0;
 buf_sync_err_1:
-	for (i = 0; i < fence_cnt; i++)
+	for (i = 0; i < mfd->acq_fen_cnt; i++)
 		sync_fence_put(mfd->acq_fen[i]);
 	mfd->acq_fen_cnt = 0;
 	mutex_unlock(&mfd->sync_mutex);

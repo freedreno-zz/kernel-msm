@@ -1567,7 +1567,28 @@ static void hci_cs_disconn_physical_link(struct hci_dev *hdev, __u8 status)
 
 static void hci_cs_le_start_enc(struct hci_dev *hdev, u8 status)
 {
+	struct hci_cp_le_start_enc *cp;
+	struct hci_conn *conn;
+
 	BT_DBG("%s status 0x%x", hdev->name, status);
+	if (!status) {
+		return;
+	}
+
+	BT_DBG("%s Le start enc failed 0x%x", hdev->name, status);
+	cp = hci_sent_cmd_data(hdev, HCI_OP_LE_START_ENC);
+	if (!cp) {
+		BT_DBG("CP is null");
+		return;
+	}
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(cp->handle));
+	if (conn) {
+		BT_DBG("conn exists");
+		hci_conn_put(conn);
+	}
+	hci_dev_unlock(hdev);
 }
 
 static inline void hci_inquiry_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
@@ -2927,12 +2948,13 @@ static inline void hci_sync_conn_complete_evt(struct hci_dev *hdev, struct sk_bu
 	case 0x1a:	/* Unsupported Remote Feature */
 	case 0x1f:	/* Unspecified error */
 		if (conn->out && conn->attempt < 2) {
-			if (!conn->hdev->is_wbs)
+			if (!conn->hdev->is_wbs) {
 				conn->pkt_type =
 					(hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
-			hci_setup_sync(conn, conn->link->handle);
-			goto unlock;
+				hci_setup_sync(conn, conn->link->handle);
+				goto unlock;
+			}
 		}
 		/* fall through */
 

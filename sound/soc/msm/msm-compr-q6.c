@@ -149,6 +149,7 @@ static void compr_event_handler(uint32_t opcode,
 		} else
 			atomic_set(&prtd->pending_buffer, 0);
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
+			atomic_set(&prtd->pending_buffer, 1);
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
 			atomic_set(&prtd->pending_buffer, 1);
 			pr_debug("%s:compr driver underrun hw_ptr = %ld appl_ptr = %ld\n",
@@ -655,6 +656,7 @@ static int msm_compr_restart(struct snd_pcm_substream *substream)
 				(prtd->out_head + 1) & (runtime->periods - 1);
 
 		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
+		atomic_set(&prtd->pending_buffer, 0);
 		return 0;
 	}
 	return 0;
@@ -798,6 +800,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
+
 	return 0;
 }
 
