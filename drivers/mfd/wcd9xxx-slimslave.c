@@ -215,15 +215,15 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 		ch_cnt++;
 		pr_debug("list ch->ch_h %d ch->sph %d\n", rx->ch_h, rx->sph);
 	}
-	pr_debug("%s: ch_cnt[%d] rate=%d WATER_MARK_VAL %d\n",
-		 __func__, ch_cnt, rate, WATER_MARK_VAL);
+	pr_debug("%s: ch_cnt[%d] rate=%d, bit_width=%u, WATER_MARK_VAL %d\n",
+		 __func__, ch_cnt, rate, bit_width, WATER_MARK_VAL);
 	/* slim_define_ch api */
 	prop.prot = SLIM_AUTO_ISO;
 	prop.baser = SLIM_RATE_4000HZ;
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);
-	prop.sampleszbits = 16;
+	prop.sampleszbits = bit_width;
 
 	pr_debug("Before slim_define_ch:\n"
 		 "ch_cnt %d,ch_h[0] %d ch_h[1] %d, grph %d\n",

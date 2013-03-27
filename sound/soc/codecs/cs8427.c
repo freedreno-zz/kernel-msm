@@ -465,9 +465,9 @@ static int snd_cs8427_spdif_put(struct snd_kcontrol *kcontrol,
 		chip->playback.pcm_status : chip->playback.def_status;
 
 	change = memcmp(ucontrol->value.iec958.status, status,
-			CHANNEL_STATUS_SIZE) != 0;
+			CHANNEL_STATUS_SIZE);
 
-	if (!change) {
+	if (change) {
 		memcpy(status, ucontrol->value.iec958.status,
 			CHANNEL_STATUS_SIZE);
 		err = snd_cs8427_send_corudata(chip, 0, status,
