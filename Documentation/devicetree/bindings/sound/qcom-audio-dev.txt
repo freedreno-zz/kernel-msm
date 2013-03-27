@@ -121,6 +121,25 @@ Required properties:
  - qcom,msm_bus,vectors:                   Arrays of unsigned integers representing:
                                            master-id, slave-id, arbitrated bandwidth,
                                            instantaneous bandwidth
+* wcd9xxx_intc
+
+Required properties:
+
+ - compatible :                            "qcom,wcd9xxx-irq"
+
+ - interrupt-controller :                  Mark this device node as an interrupt
+                                           controller
+
+ - #interrupt-cells :                      Should be 1
+
+ - interrupt-parent :                      Parent interrupt controller
+
+ - interrupts :                            Interrupt number on the parent
+                                           interrupt controller
+
+ - interrupt-names :                       Name of interrupt on the parent
+                                           interrupt controller
+
 Example:
 
         qcom,msm-pcm {
@@ -201,3 +220,64 @@ Example:
 			<11 604 32505856 325058560>;
 	};
 
+	wcd9xxx_intc: wcd9xxx-irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <72 0>;
+		interrupt-names = "cdc-int";
+	};
+
+* MSM8974 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8974-audio-taiko"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,cdc-mclk-gpios : GPIO on which mclk signal is comming.
+- taiko-mclk-clk : phandle to PMIC8941 clkdiv1 node.
+- qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+
+Example:
+
+sound {
+	compatible = "qcom,msm8974-audio-taiko";
+	qcom,model = "msm8974-taiko-snd-card";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"LDO_H", "MCLK",
+		"HEADPHONE", "LDO_H",
+		"Ext Spk Bottom Pos", "LINEOUT1",
+		"Ext Spk Bottom Neg", "LINEOUT3",
+		"Ext Spk Top Pos", "LINEOUT2",
+		"Ext Spk Top Neg", "LINEOUT4",
+		"AMIC1", "MIC BIAS1 Internal1",
+		"MIC BIAS1 Internal1", "Handset Mic",
+		"AMIC2", "MIC BIAS2 External",
+		"MIC BIAS2 External", "Headset Mic",
+		"AMIC3", "MIC BIAS3 Internal1",
+		"MIC BIAS3 Internal1", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS1 Internal2",
+		"MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+		"DMIC1", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic1",
+		"DMIC2", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic2",
+		"DMIC3", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic3",
+		"DMIC4", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic4",
+		"DMIC5", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic5",
+		"DMIC6", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic6";
+
+	qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
+	taiko-mclk-clk = <&pm8941_clkdiv1>;
+	qcom,taiko-mclk-clk-freq = <9600000>;
+};
