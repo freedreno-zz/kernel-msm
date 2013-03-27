@@ -81,7 +81,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			switch (payload[0]) {
 			case AFE_PORT_AUDIO_IF_CONFIG:
 			case AFE_PORT_CMD_I2S_CONFIG:
-			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG:
+			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG_V2:
 			case AFE_PORT_AUDIO_SLIM_SCH_CONFIG:
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
@@ -319,7 +319,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		ret_size = SIZEOF_CFG_CMD(afe_port_mi2s_cfg);
 		break;
 	case HDMI_RX:
-		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_multi_ch_cfg);
+		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_multi_ch_cfg_v2);
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
@@ -491,7 +491,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		config.hdr.src_port = 0;
 		config.hdr.dest_port = 0;
 		config.hdr.token = 0;
-		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG;
+		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG_V2;
 	} else {
 
 		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
