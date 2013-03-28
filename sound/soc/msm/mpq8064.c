@@ -30,7 +30,6 @@
 #include "../codecs/wcd9310.h"
 
 /* 8064 machine driver */
-#define DEBUG
 #define PM8921_MPP_BASE			(PM8921_GPIO_BASE + PM8921_NR_GPIOS)
 #define PM8821_NR_MPPS		(4)
 #define PM8821_MPP_BASE			(PM8921_MPP_BASE + PM8921_NR_MPPS)
@@ -116,16 +115,14 @@ enum {
 #define GPIO_MI2S_DOUT0  32
 #define GPIO_MI2S_MCLK   33
 
-#ifdef ENABLE_SEC_I2S
 static struct clk *sec_i2s_rx_osr_clk;
 static struct clk *sec_i2s_rx_bit_clk;
-#endif
 
 struct request_gpio {
 	unsigned gpio_no;
 	char *gpio_name;
 };
-#ifdef ENABLE_SEC_I2S
+
 static struct request_gpio sec_i2s_rx_gpio[] = {
 	{
 		.gpio_no = GPIO_SEC_I2S_RX_MCLK,
@@ -144,7 +141,7 @@ static struct request_gpio sec_i2s_rx_gpio[] = {
 		.gpio_name = "SEC_I2S_RX_DOUT",
 	},
 };
-#endif
+
 static struct request_gpio mi2s_gpio[] = {
 	{
 		.gpio_no = GPIO_MI2S_WS,
@@ -770,7 +767,6 @@ static void *def_tabla_mbhc_cal(void)
 	return tabla_cal;
 }
 
-#ifdef ENABLE_SLIMBUS
 static int msm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
@@ -1002,7 +998,6 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-#endif
 
 static int mpq8064_proxy_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
@@ -1018,7 +1013,7 @@ static int mpq8064_proxy_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-#ifdef ENABLE_SEC_I2S
+
 static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -1036,7 +1031,7 @@ static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-#endif
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
@@ -1203,7 +1198,7 @@ static int mpq8064_aux_pcm_free_gpios(void)
 
 	return 0;
 }
-#ifdef ENABLE_SLIMBUS
+
 static int msm_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -1221,7 +1216,7 @@ static void msm_shutdown(struct snd_pcm_substream *substream)
 	if (detect_dtv_platform)
 		mpq_dtv_amp_power_down();
 }
-#endif
+
 static int mpq8064_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -1241,19 +1236,20 @@ static void mpq8064_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
 	mpq8064_aux_pcm_free_gpios();
 }
-#ifdef ENABLE_SLIMBUS
+
+
 static struct snd_soc_ops msm_be_ops = {
 	.startup = msm_startup,
 	.hw_params = msm_hw_params,
 	.shutdown = msm_shutdown,
 };
-#endif
+
 static struct snd_soc_ops mpq8064_auxpcm_be_ops = {
 	.startup = mpq8064_auxpcm_startup,
 	.shutdown = mpq8064_auxpcm_shutdown,
 };
 
-#ifdef ENABLE_SEC_I2S
+
 static int mpq8064_sec_i2s_rx_free_gpios(void)
 {
 	int	i;
@@ -1375,7 +1371,6 @@ static struct snd_soc_ops mpq8064_sec_i2s_rx_be_ops = {
 	.shutdown = mpq8064_sec_i2s_rx_shutdown,
 	.hw_params = mpq8064_sec_i2s_rx_hw_params,
 };
-#endif
 
 static struct snd_soc_ops msm_mi2s_tx_be_ops = {
 	.startup = msm_mi2s_startup,
@@ -1662,7 +1657,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_PSEUDO,
 	},
 	/* Backend DAI Links */
-#ifdef ENABLE_SLIMBUS
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
 		.stream_name = "Slimbus Playback",
@@ -1689,8 +1683,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm_be_ops,
 	},
-#endif
-#ifdef ENABLE_SEC_I2S
 	{
 		.name = LPASS_BE_SEC_I2S_RX,
 		.stream_name = "Secondary I2S Playback",
@@ -1704,8 +1696,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ops = &mpq8064_sec_i2s_rx_be_ops,
 		.ignore_pmdown_time = 1, /* this dainlink has playback support */
 	},
-#endif
-    {
+	{
 		.name = LPASS_BE_INT_FM_RX,
 		.stream_name = "Internal FM Playback",
 		.cpu_dai_name = "msm-dai-q6.12292",
@@ -1918,9 +1909,8 @@ static int __init msm_audio_init(void)
 		msm_headset_gpios_configured = 0;
 	} else
 		msm_headset_gpios_configured = 1;
-#ifdef ENABLE_SEC_I2S
+
 	configure_sec_i2s_rx_gpio();
-#endif
 	configure_mi2s_gpio();
 	return ret;
 
@@ -1934,9 +1924,7 @@ static void __exit msm_audio_exit(void)
 		return ;
 	}
 	msm_free_headset_mic_gpios();
-#ifdef ENABLE_SEC_I2S
 	mpq8064_sec_i2s_rx_free_gpios();
-#endif
 	msm_mi2s_free_gpios();
 	platform_device_unregister(msm_snd_device);
 	kfree(mbhc_cfg.calibration);

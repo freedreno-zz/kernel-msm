@@ -35,7 +35,7 @@
 #include <sound/initval.h>
 
 #define MAX_BE_USERS	8	/* adjust if too low for everday use */
-#define DEBUG
+
 static int soc_dpcm_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream);
 
 /* ASoC no host IO hardware.
