@@ -51,7 +51,6 @@
 int soc_dpcm_runtime_update(struct snd_soc_dapm_widget *);
 
 #define DAPM_UPDATE_STAT(widget, val) widget->dapm->card->dapm_stats.val++;
-#define DEBUG
 
 /* dapm power sequences - make this per codec in the future */
 static int dapm_up_seq[] = {
