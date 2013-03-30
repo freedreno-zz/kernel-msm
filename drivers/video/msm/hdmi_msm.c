@@ -3885,25 +3885,6 @@ static void hdmi_msm_en_acp_packet(uint32 byte1)
 }
 #endif
 
-int hdmi_msm_audio_get_sample_rate(void)
-{
-	return hdmi_msm_state->hdmi_audio.sample_rate;
-}
-EXPORT_SYMBOL(hdmi_msm_audio_get_sample_rate);
-
-void hdmi_msm_audio_sample_rate_reset(int rate)
-{
-	if (hdmi_msm_state->hdmi_audio.sample_rate == rate)
-		return;
-
-	hdmi_msm_state->hdmi_audio.sample_rate = rate;
-
-	if (hdmi_msm_state->hdcp_enable)
-		hdcp_deauthenticate();
-	else
-		hdmi_msm_turn_on();
-}
-EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
 static void hdmi_msm_audio_setup(void)
 {
@@ -3986,6 +3967,27 @@ void hdmi_msm_audio_reconfig(uint8 sample_rate, uint8 channel_num,
 		SWITCH_SET_HDMI_AUDIO(1, 0);
 	}
 }
+
+int hdmi_msm_audio_get_sample_rate(void)
+{
+	return hdmi_msm_state->hdmi_audio.sample_rate;
+}
+EXPORT_SYMBOL(hdmi_msm_audio_get_sample_rate);
+
+void hdmi_msm_audio_sample_rate_reset(int rate)
+{
+	if (hdmi_msm_state->hdmi_audio.sample_rate == rate)
+		return;
+
+	hdmi_msm_audio_reconfig(
+		rate,
+		hdmi_msm_state->hdmi_audio.channel_num,
+		hdmi_msm_state->hdmi_audio.spkr_alloc,
+		hdmi_msm_state->hdmi_audio.level_shift,
+		hdmi_msm_state->hdmi_audio.down_mix
+	);
+}
+EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
 static uint8 hdmi_msm_avi_iframe_lut[][17] = {
 /*	480p60	480i60	576p50	576i50	720p60	 720p50	1080p60	1080i60	1080p50
