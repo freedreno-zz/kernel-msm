@@ -21,6 +21,7 @@
 
 /* The start of the data block collection within the CEA Extension Version 3 */
 #define DBC_START_OFFSET 4
+#define GET_NIBBLE(var, n) ((var & (0xF << n * 4)) >> n * 4)
 
 #include "msm_fb.h"
 #include "hdmi_msm.h"
@@ -537,6 +538,23 @@ static ssize_t hdmi_common_wta_hpd(struct device *dev,
 	return ret;
 }
 
+static ssize_t external_common_wta_hdmi_audio(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret   = strnlen(buf, PAGE_SIZE);
+	int audio_cfg = atoi(buf);
+
+	external_common_state->hdmi_audio_cfg(
+				GET_NIBBLE(audio_cfg, 4),
+				GET_NIBBLE(audio_cfg, 3),
+				GET_NIBBLE(audio_cfg, 2),
+				GET_NIBBLE(audio_cfg, 1),
+				GET_NIBBLE(audio_cfg, 0)
+	);
+
+	return ret;
+}
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 /*
  * This interface for CEC feature is defined to suit
@@ -910,6 +928,7 @@ static DEVICE_ATTR(edid_3d_modes, S_IRUGO,
 	hdmi_common_rda_edid_3d_modes, NULL);
 static DEVICE_ATTR(3d_present, S_IRUGO, hdmi_common_rda_3d_present, NULL);
 static DEVICE_ATTR(hdcp_present, S_IRUGO, hdmi_common_rda_hdcp_present, NULL);
+static DEVICE_ATTR(hdmi_audio, S_IWUGO, NULL, external_common_wta_hdmi_audio);
 #endif
 #ifdef CONFIG_FB_MSM_HDMI_3D
 static DEVICE_ATTR(format_3d, S_IRUGO | S_IWUGO, hdmi_3d_rda_format_3d,
@@ -937,6 +956,7 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_edid_3d_modes.attr,
 	&dev_attr_3d_present.attr,
 	&dev_attr_hdcp_present.attr,
+	&dev_attr_hdmi_audio.attr,
 #endif
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	&dev_attr_format_3d.attr,

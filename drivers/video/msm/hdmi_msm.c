@@ -50,8 +50,6 @@
 #define MSM_HDMI_SAMPLE_RATE_MAX		7
 #define MSM_HDMI_SAMPLE_RATE_FORCE_32BIT	0x7FFFFFFF
 
-static int msm_hdmi_sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
-
 /* HDMI/HDCP Registers */
 #define HDCP_DDC_STATUS		0x0128
 #define HDCP_DDC_CTRL_0		0x0120
@@ -3889,16 +3887,16 @@ static void hdmi_msm_en_acp_packet(uint32 byte1)
 
 int hdmi_msm_audio_get_sample_rate(void)
 {
-	return msm_hdmi_sample_rate;
+	return hdmi_msm_state->hdmi_audio.sample_rate;
 }
 EXPORT_SYMBOL(hdmi_msm_audio_get_sample_rate);
 
 void hdmi_msm_audio_sample_rate_reset(int rate)
 {
-	if (msm_hdmi_sample_rate == rate)
+	if (hdmi_msm_state->hdmi_audio.sample_rate == rate)
 		return;
 
-	msm_hdmi_sample_rate = rate;
+	hdmi_msm_state->hdmi_audio.sample_rate = rate;
 
 	if (hdmi_msm_state->hdcp_enable)
 		hdcp_deauthenticate();
@@ -3909,19 +3907,27 @@ EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
 static void hdmi_msm_audio_setup(void)
 {
-	const int channels = MSM_HDMI_AUDIO_CHANNEL_2;
-
 	/* (0) for clr_avmute, (1) for set_avmute */
 	hdmi_msm_en_gc_packet(0);
 	/* (0) for isrc1 only, (1) for isrc1 and isrc2 */
 	hdmi_msm_en_isrc_packet(1);
 	/* arbitrary bit pattern for byte1 */
 	hdmi_msm_en_acp_packet(0x5a);
-	DEV_DBG("Not setting ACP, ISRC1, ISRC2 packets\n");
-	hdmi_msm_audio_acr_setup(TRUE,
+
+	hdmi_msm_audio_acr_setup(
+		TRUE,
 		external_common_state->video_resolution,
-		msm_hdmi_sample_rate, channels);
-	hdmi_msm_audio_info_setup(TRUE, channels, 0, 0, FALSE);
+		hdmi_msm_state->hdmi_audio.sample_rate,
+		hdmi_msm_state->hdmi_audio.channel_num
+	);
+
+	hdmi_msm_audio_info_setup(
+		TRUE,
+		hdmi_msm_state->hdmi_audio.channel_num,
+		hdmi_msm_state->hdmi_audio.spkr_alloc,
+		hdmi_msm_state->hdmi_audio.level_shift,
+		hdmi_msm_state->hdmi_audio.down_mix
+	);
 
 	/* Turn on Audio FIFO and SAM DROP ISR */
 	HDMI_OUTP(0x02CC, HDMI_INP(0x02CC) | BIT(1) | BIT(3));
@@ -3952,6 +3958,33 @@ static int hdmi_msm_audio_off(void)
 	hdmi_msm_audio_acr_setup(FALSE, 0, 0, 0);
 	DEV_INFO("HDMI Audio: Disabled\n");
 	return 0;
+}
+
+void hdmi_msm_audio_reconfig(uint8 sample_rate, uint8 channel_num,
+			uint8 spkr_alloc, uint8 level_shift, uint8 down_mix)
+{
+	if (hdmi_msm_state->hdmi_audio.sample_rate == sample_rate  &&
+	    hdmi_msm_state->hdmi_audio.channel_num == channel_num  &&
+	    hdmi_msm_state->hdmi_audio.spkr_alloc  == spkr_alloc   &&
+	    hdmi_msm_state->hdmi_audio.level_shift == level_shift  &&
+	    hdmi_msm_state->hdmi_audio.down_mix    == down_mix) {
+		DEV_DBG("%s: Audio configuration is same\n", __func__);
+		return;
+	}
+
+	if (!hdmi_msm_is_dvi_mode()) {
+		SWITCH_SET_HDMI_AUDIO(0, 0);
+		hdmi_msm_audio_off();
+
+		hdmi_msm_state->hdmi_audio.sample_rate = sample_rate;
+		hdmi_msm_state->hdmi_audio.channel_num = channel_num;
+		hdmi_msm_state->hdmi_audio.spkr_alloc  = spkr_alloc;
+		hdmi_msm_state->hdmi_audio.level_shift = level_shift;
+		hdmi_msm_state->hdmi_audio.down_mix    = down_mix;
+
+		hdmi_msm_audio_setup();
+		SWITCH_SET_HDMI_AUDIO(1, 0);
+	}
 }
 
 static uint8 hdmi_msm_avi_iframe_lut[][17] = {
@@ -5209,6 +5242,9 @@ static int __init hdmi_msm_init(void)
 		external_common_state->video_resolution =
 			HDMI_VFRMT_1920x1080p60_16_9;
 
+	hdmi_msm_state->hdmi_audio.sample_rate = MSM_HDMI_SAMPLE_RATE_48KHZ;
+	hdmi_msm_state->hdmi_audio.channel_num = MSM_HDMI_AUDIO_CHANNEL_2;
+
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
 #endif
@@ -5238,6 +5274,8 @@ static int __init hdmi_msm_init(void)
 	*/
 	hdmi_work_queue = create_workqueue("hdmi_hdcp");
 	external_common_state->hpd_feature = hdmi_msm_hpd_feature;
+
+	external_common_state->hdmi_audio_cfg = hdmi_msm_audio_reconfig;
 
 	rc = platform_driver_register(&this_driver);
 	if (rc) {
