@@ -105,7 +105,7 @@ enum {
 #define GPIO_SEC_I2S_RX_WS   48
 #define GPIO_SEC_I2S_RX_DOUT 49
 #define GPIO_SEC_I2S_RX_MCLK 50
-#define I2S_MCLK_RATE 1536000
+#define I2S_MCLK_RATE 12288000
 
 #define GPIO_MI2S_WS     27
 #define GPIO_MI2S_SCLK   28
