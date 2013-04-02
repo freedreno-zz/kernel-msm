@@ -725,16 +725,14 @@ static struct platform_device msm_camera_server = {
 
 void __init apq8064_init_cam(void)
 {
-	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-					machine_is_mpq8064_dtv()))
-	msm_gpiomux_install(apq8064_cam_common_configs,
-         ARRAY_SIZE(apq8064_cam_common_configs));
-	/* for SGLTE2 platform, do not configure i2c/gpiomux gsbi4 is used for
+	/* for MPQ,SGLTE2 platform, do not configure i2c/gpiomux gsbi4 is used for
 	 * some other purpose */
-	if (socinfo_get_platform_subtype() != PLATFORM_SUBTYPE_SGLTE2) {
+	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE2) ||
+		machine_is_mpq8064_dma() || machine_is_mpq8064_dtv()))
 		msm_gpiomux_install(apq8064_cam_common_configs,
-                ARRAY_SIZE(apq8064_cam_common_configs));
-	}
+		ARRAY_SIZE(apq8064_cam_common_configs));
+
 
 	if (machine_is_apq8064_cdp()) {
 		sensor_board_info_imx074.mount_angle = 0;
