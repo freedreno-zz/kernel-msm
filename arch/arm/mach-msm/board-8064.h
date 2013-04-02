@@ -110,7 +110,8 @@ void __init apq8064_bt_power_init(void);
 #define PLATFORM_IS_MPQ8064() \
 	(machine_is_mpq8064_hrd() || \
 	 machine_is_mpq8064_dtv() || \
-	 machine_is_mpq8064_cdp() \
+	 machine_is_mpq8064_cdp() || \
+	 machine_is_mpq8064_dma() \
 	)
 
 
