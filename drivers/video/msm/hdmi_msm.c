@@ -15,6 +15,10 @@
 #define DEV_DBG_PREFIX "HDMI: "
 /* #define REG_DUMP */
 
+#ifndef DRVR_ONLY_CECT_NO_DAEMON
+#define DRVR_ONLY_CECT_NO_DAEMON
+#endif
+
 #define CEC_MSG_PRINT
 #define TOGGLE_CEC_HARDWARE_FSM
 
@@ -5222,6 +5226,11 @@ static int __init hdmi_msm_init(void)
 	hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
 	hdmi_msm_state->cec_queue_rd = hdmi_msm_state->cec_queue_start;
 	hdmi_msm_state->cec_queue_full = false;
+	memset(hdmi_msm_state->cec_queue_rd, 0,
+		sizeof(struct hdmi_msm_cec_msg)*CEC_QUEUE_SIZE);
+
+	hdmi_msm_state->cec_enabled = true;
+	hdmi_msm_state->cec_logical_addr = 4;
 #endif
 
 	/*

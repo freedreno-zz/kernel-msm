@@ -19,6 +19,10 @@
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
 
+#ifndef DRVR_ONLY_CECT_NO_DAEMON
+#define DRVR_ONLY_CECT_NO_DAEMON
+#endif
+
 /* The start of the data block collection within the CEA Extension Version 3 */
 #define DBC_START_OFFSET 4
 
