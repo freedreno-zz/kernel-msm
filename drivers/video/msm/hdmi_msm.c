@@ -166,6 +166,141 @@ static boolean msg_recv_complete = TRUE;
 
 #define HDMI_VERSION_2_0 0x02000000
 
+/* Supported CEC key code mapping table. Each element number indicates the key
+ * code defined in CEC and its associated element value is the mapped key code
+ * defined in <input.h> */
+u16 cec_user_control_code[] = {
+	KEY_ENTER,		/* 0x00 Select */
+	KEY_UP,			/* 0x01 Up */
+	KEY_DOWN,		/* 0x02 Down */
+	KEY_LEFT,		/* 0x03 Left */
+	KEY_RIGHT,		/* 0x04 Right */
+	KEY_UNKNOWN,		/* 0x05 Right-up */
+	KEY_UNKNOWN,		/* 0x06 Right-down */
+	KEY_UNKNOWN,		/* 0x07 Left-up */
+	KEY_UNKNOWN,		/* 0x08 Left-down */
+	KEY_MENU,		/* 0x09 Root Menu */
+	KEY_OPTION,		/* 0x0A Setup Menu */
+	KEY_UNKNOWN,		/* 0x0B Contents Menu */
+	KEY_UNKNOWN,		/* 0x0C Favorite Menu */
+	KEY_EXIT,		/* 0x0D Exit */
+	KEY_RESERVED,		/* 0x0E Reserved */
+	KEY_RESERVED,		/* 0x0F Reserved */
+	KEY_UNKNOWN,		/* 0x10 Media Top Menu */
+	KEY_CONTEXT_MENU,	/* 0x11 Media Context-sensitive Menu */
+	KEY_RESERVED,		/* 0x12 Reserved */
+	KEY_RESERVED,		/* 0x13 Reserved */
+	KEY_RESERVED,		/* 0x14 Reserved */
+	KEY_RESERVED,		/* 0x15 Reserved */
+	KEY_RESERVED,		/* 0x16 Reserved */
+	KEY_RESERVED,		/* 0x17 Reserved */
+	KEY_RESERVED,		/* 0x18 Reserved */
+	KEY_RESERVED,		/* 0x19 Reserved */
+	KEY_RESERVED,		/* 0x1A Reserved */
+	KEY_RESERVED,		/* 0x1B Reserved */
+	KEY_RESERVED,		/* 0x1C Reserved */
+	KEY_UNKNOWN,		/* 0x1D Number Entry Mode */
+	KEY_UNKNOWN,		/* 0x1E Number 11 */
+	KEY_UNKNOWN,		/* 0x1F Number 12 */
+	KEY_NUMERIC_0,		/* 0x20 NUMERIC_0 */
+	KEY_NUMERIC_1,		/* 0x21 NUMERIC_1 */
+	KEY_NUMERIC_2,		/* 0x22 NUMERIC_2 */
+	KEY_NUMERIC_3,		/* 0x23 NUMERIC_3 */
+	KEY_NUMERIC_4,		/* 0x24 NUMERIC_4 */
+	KEY_NUMERIC_5,		/* 0x25 NUMERIC_5 */
+	KEY_NUMERIC_6,		/* 0x26 NUMERIC_6 */
+	KEY_NUMERIC_7,		/* 0x27 NUMERIC_7 */
+	KEY_NUMERIC_8,		/* 0x28 NUMERIC_8 */
+	KEY_NUMERIC_9,		/* 0x29 NUMERIC_9 */
+	KEY_DOT,		/* 0x2A Dot */
+	KEY_ENTER,		/* 0x2B Enter */
+	KEY_ESC,		/* 0x2C Clear */
+	KEY_RESERVED,		/* 0x2D Reserved */
+	KEY_RESERVED,		/* 0x2E Reserved */
+	KEY_FAVORITES,		/* 0x2F Next Favorite */
+	KEY_CHANNELUP,		/* 0x30 Channel Up */
+	KEY_CHANNELDOWN,	/* 0x31 Channel Down */
+	KEY_LAST,		/* 0x32 Previous Channel */
+	KEY_SOUND,		/* 0x33 Sound Select */
+	KEY_UNKNOWN,		/* 0x34 Input Select */
+	KEY_INFO,		/* 0x35 Show Information */
+	KEY_HELP,		/* 0x36 Help */
+	KEY_PAGEUP,		/* 0x37 Page Up */
+	KEY_PAGEDOWN,		/* 0x38 Page Down */
+	KEY_RESERVED,		/* 0x39 Reserved */
+	KEY_RESERVED,		/* 0x3A Reserved */
+	KEY_RESERVED,		/* 0x3B Reserved */
+	KEY_RESERVED,		/* 0x3C Reserved */
+	KEY_RESERVED,		/* 0x3D Reserved */
+	KEY_RESERVED,		/* 0x3E Reserved */
+	KEY_RESERVED,		/* 0x3F Reserved */
+	KEY_POWER,		/* 0x40 Power */
+	KEY_VOLUMEUP,		/* 0x41 Volume Up */
+	KEY_VOLUMEDOWN,		/* 0x42 Volume Down */
+	KEY_MUTE,		/* 0x43 Mute */
+	KEY_PLAY,		/* 0x44 Play */
+	KEY_STOP,		/* 0x45 Stop */
+	KEY_PAUSE,		/* 0x46 Pause */
+	KEY_RECORD,		/* 0x47 Record */
+	KEY_REWIND,		/* 0x48 Rewind */
+	KEY_FASTFORWARD,	/* 0x49 Fast Forward */
+	KEY_EJECTCD,		/* 0x4A Eject */
+	KEY_FORWARD,		/* 0x4B Forward */
+	KEY_BACK,		/* 0x4C Backward */
+	KEY_UNKNOWN,		/* 0x4D Stop Record */
+	KEY_UNKNOWN,		/* 0x4E Pause Record */
+	KEY_RESERVED,		/* 0x4F Reserved */
+	KEY_ANGLE,		/* 0x50 Angle */
+	KEY_SUBTITLE,		/* 0x51 Subtitle */
+	KEY_UNKNOWN,		/* 0x52 Video on Demand */
+	KEY_EPG,		/* 0x53 Electronic Program Guide */
+	KEY_UNKNOWN,		/* 0x54 Timer Programming */
+	KEY_UNKNOWN,		/* 0x55 Initial Configuration */
+	KEY_UNKNOWN,		/* 0x56 Select Broadcast Type */
+	KEY_UNKNOWN,		/* 0x57 Select Sound Presentation */
+	KEY_RESERVED,		/* 0x58 Reserved */
+	KEY_RESERVED,		/* 0x59 Reserved */
+	KEY_RESERVED,		/* 0x5A Reserved */
+	KEY_RESERVED,		/* 0x5B Reserved */
+	KEY_RESERVED,		/* 0x5C Reserved */
+	KEY_RESERVED,		/* 0x5D Reserved */
+	KEY_RESERVED,		/* 0x5E Reserved */
+	KEY_RESERVED,		/* 0x5F Reserved */
+	KEY_PLAYPAUSE,		/* 0x60 Play Function */
+	KEY_PLAYPAUSE,		/* 0x61 Pause_Play Function */
+	KEY_RECORD,		/* 0x62 Record Function */
+	KEY_PAUSE,		/* 0x63 Pause Record Function */
+	KEY_STOP,		/* 0x64 Stop Function  */
+	KEY_MUTE,		/* 0x65 Mute Function */
+	KEY_UNKNOWN,		/* 0x66 Restore Volume Function */
+	KEY_UNKNOWN,		/* 0x67 Tune Function */
+	KEY_MEDIA,		/* 0x68 Select Media Function */
+	KEY_UNKNOWN,		/* 0x69 Select A/V Input Function */
+	KEY_UNKNOWN,		/* 0x6A Select Audio Input Function */
+	KEY_UNKNOWN,		/* 0x6B Power Toggle Function */
+	KEY_UNKNOWN,		/* 0x6C Power Off Function */
+	KEY_UNKNOWN,		/* 0x6D Power On Function */
+	KEY_RESERVED,		/* 0x6E Reserved */
+	KEY_RESERVED,		/* 0x6F Reserved */
+	KEY_RESERVED,		/* 0x70 Reserved */
+	KEY_BLUE,		/* 0x71 F1 (Blue) */
+	KEY_RED,		/* 0x72 F2 (Red) */
+	KEY_GREEN,		/* 0x73 F3 (Green )*/
+	KEY_YELLOW,		/* 0x74 F4 (Yellow) */
+	KEY_F5,			/* 0x75 F5 */
+	KEY_UNKNOWN		/* 0x76 Data */
+};
+
+/* This is "Deck control Mode" to "UI Command Code" mapping table. Element 0
+ * is a dummy to fill in an unassigned mode, and must not be used */
+u16 cec_deck_control[] = {
+	0,			/* dummy, must not be used */
+	0x4B,			/* Forward CEC UI Command Code */
+	0x4C,			/* Backward CEC UI Command Code */
+	0x45,			/* Stop CEC UI Command Code */
+	0x4A			/* Eject CEC UI Command Code */
+};
+
 void hdmi_msm_cec_init(void)
 {
 	/*
@@ -390,6 +525,8 @@ void hdmi_msm_cec_msg_recv(void)
 	int i;
 #ifdef DRVR_ONLY_CECT_NO_DAEMON
 	struct hdmi_msm_cec_msg temp_msg;
+	struct input_dev *input;
+	u8 id;
 #endif
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->cec_queue_wr == hdmi_msm_state->cec_queue_rd
@@ -579,13 +716,48 @@ void hdmi_msm_cec_msg_recv(void)
 		temp_msg.frame_size = i + 2;
 		hdmi_msm_cec_msg_send(&temp_msg);
 		break;
+	case 0x42:
+		/* Deck Control */
+		id = hdmi_msm_state->cec_queue_wr->operand[0];
+		input = hdmi_msm_state->input;
+		DEV_INFO("Deck Control received 0x%x\n", id);
+
+		if (input && id && id < ARRAY_SIZE(cec_deck_control)) {
+			id = cec_deck_control[id];
+			input_report_key(input, cec_user_control_code[id], 1);
+			input_sync(input);
+			input_report_key(input, cec_user_control_code[id], 0);
+			input_sync(input);
+			DEV_INFO("Event 0x%x Pressed and Released sent\n",
+					cec_user_control_code[id]);
+		}
+		break;
 	case 0x44:
 		/* User Control Pressed */
-		DEV_INFO("User Control Pressed\n");
+		id = hdmi_msm_state->cec_queue_wr->operand[0];
+		input = hdmi_msm_state->input;
+		DEV_INFO("User Control Pressed 0x%x\n", id);
+
+		if (input && id < ARRAY_SIZE(cec_user_control_code)) {
+			hdmi_msm_state->last_key = cec_user_control_code[id];
+			input_report_key(input, cec_user_control_code[id], 1);
+			input_sync(input);
+			DEV_INFO("Event 0x%x Pressed sent\n",
+					cec_user_control_code[id]);
+		}
 		break;
 	case 0x45:
 		/* User Control Released */
+		input = hdmi_msm_state->input;
 		DEV_INFO("User Control Released\n");
+
+		if (input && hdmi_msm_state->last_key) {
+			input_report_key(input, hdmi_msm_state->last_key, 0);
+			input_sync(input);
+			DEV_INFO("Event 0x%x Released sent\n",
+					hdmi_msm_state->last_key);
+			hdmi_msm_state->last_key = 0;
+		}
 		break;
 	default:
 		DEV_INFO("Recvd an unknown cmd = [%u]\n",
@@ -671,6 +843,60 @@ void hdmi_msm_cec_one_touch_play(void)
 	hdmi_msm_cec_msg_send(&temp_msg);
 
 }
+
+void hdmi_msm_cec_init_input_event(void)
+{
+	int i = 0;
+	int rc = 0;
+
+	/* Initialize CEC input events */
+	hdmi_msm_state->input = input_allocate_device();
+	if (!hdmi_msm_state->input) {
+		DEV_ERR("hdmi input device allocation failed\n");
+		return;
+	}
+
+	hdmi_msm_state->input->name = "HDMI CEC User or Deck Control";
+	hdmi_msm_state->input->phys = "hdmi/input0";
+	hdmi_msm_state->input->id.bustype = BUS_VIRTUAL;
+	hdmi_msm_state->input->id.vendor = 0x05c6;
+	hdmi_msm_state->input->id.product = 0x8334;
+	hdmi_msm_state->input->id.version = 0x01;
+	hdmi_msm_state->input->evbit[0] = BIT_MASK(EV_KEY);
+
+	/* The mapped key code must be one of these key codes. Don't set
+	 * reserved keys */
+	for (i = 0; i < ARRAY_SIZE(cec_user_control_code); i++) {
+		if (cec_user_control_code[i] != KEY_RESERVED)
+			input_set_capability(hdmi_msm_state->input, EV_KEY,
+					cec_user_control_code[i]);
+	}
+
+	rc = input_register_device(hdmi_msm_state->input);
+	if (rc) {
+		DEV_ERR(KERN_ERR "hdmi input device registeration failed\n");
+		input_free_device(hdmi_msm_state->input);
+		hdmi_msm_state->input = NULL;
+		return;
+	}
+}
+
+void hdmi_msm_cec_deinit_input_event(void)
+{
+	if (hdmi_msm_state->input)
+		input_unregister_device(hdmi_msm_state->input);
+	hdmi_msm_state->input = NULL;
+}
+
+#else
+void hdmi_msm_cec_init_input_event(void)
+{
+}
+
+void hdmi_msm_cec_deinit_input_event(void)
+{
+}
+
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 uint32 hdmi_msm_get_io_base(void)
@@ -4835,6 +5061,8 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	hdmi_msm_cec_init_input_event();
+
 	return 0;
 
 error:
@@ -4895,6 +5123,8 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	hdmi_msm_state->hdmi_app_clk = NULL;
 	hdmi_msm_state->hdmi_m_pclk = NULL;
 	hdmi_msm_state->hdmi_s_pclk = NULL;
+
+	hdmi_msm_cec_deinit_input_event();
 
 	kfree(hdmi_msm_state);
 	hdmi_msm_state = NULL;
