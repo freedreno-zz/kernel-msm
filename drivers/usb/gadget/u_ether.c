@@ -853,13 +853,13 @@ static int eth_stop(struct net_device *net)
 static u8 host_ethaddr[ETH_ALEN];
 
 /* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
-static char *dev_addr;
-module_param(dev_addr, charp, S_IRUGO);
+static char *dev_addr = "a6:f3:9f:99:da:18";
+module_param(dev_addr, charp, 0644);
 MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");
 
 /* this address is invisible to ifconfig */
-static char *host_addr;
-module_param(host_addr, charp, S_IRUGO);
+static char *host_addr = "2e:8f:fe:e0:76:22";
+module_param(host_addr, charp, 0644);
 MODULE_PARM_DESC(host_addr, "Host Ethernet Address");
 
 static int get_ether_addr(const char *str, u8 *dev_addr)
