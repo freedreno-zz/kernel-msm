@@ -20296,7 +20296,7 @@ WDI_Status WDI_SendNvBlobReq
  @see
  @return
 */
-WPT_INLINE void
+void
 WDI_DS_AssignDatapathContext (void *pContext, void *pDPContext)
 {
    WDI_ControlBlockType *pCB = (WDI_ControlBlockType *)pContext;
@@ -20314,7 +20314,7 @@ WDI_DS_AssignDatapathContext (void *pContext, void *pDPContext)
  @see
  @return pointer to Datapath context
 */
-WPT_INLINE void *
+void *
 WDI_DS_GetDatapathContext (void *pContext)
 {
    WDI_ControlBlockType *pCB = (WDI_ControlBlockType *)pContext;
@@ -20330,7 +20330,7 @@ WDI_DS_GetDatapathContext (void *pContext)
  @see
  @return void
 */
-WPT_INLINE void
+void
 WDT_AssignTransportDriverContext (void *pContext, void *pDTDriverContext)
 {
    WDI_ControlBlockType *pCB = (WDI_ControlBlockType *)pContext;
@@ -20348,7 +20348,7 @@ WDT_AssignTransportDriverContext (void *pContext, void *pDTDriverContext)
  @see
  @return pointer to datapath context
 */
-WPT_INLINE void *
+void *
 WDT_GetTransportDriverContext (void *pContext)
 {
    WDI_ControlBlockType *pCB = (WDI_ControlBlockType *)pContext;
