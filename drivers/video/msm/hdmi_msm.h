@@ -13,6 +13,10 @@
 #ifndef __HDMI_MSM_H__
 #define __HDMI_MSM_H__
 
+
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
+#include <linux/input.h>
+#endif
 #include <mach/msm_iomap.h>
 #include "external_common.h"
 /* #define PORT_DEBUG */
@@ -91,6 +95,8 @@ struct hdmi_msm_state_type {
 	struct completion cec_line_latch_wait;
 	struct work_struct cec_latch_detect_work;
 
+	struct input_dev *input;
+	u8 last_key;
 #define CEC_QUEUE_SIZE		16
 #define CEC_QUEUE_END	 (hdmi_msm_state->cec_queue_start + CEC_QUEUE_SIZE)
 #define RETRANSMIT_MAX_NUM	5
@@ -130,6 +136,8 @@ void hdmi_msm_cec_write_logical_addr(int addr);
 void hdmi_msm_cec_msg_recv(void);
 void hdmi_msm_cec_one_touch_play(void);
 void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg);
+void hdmi_msm_cec_init_input_event(void);
+void hdmi_msm_cec_deinit_input_event(void);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 void mhl_connect_api(boolean on);
 #endif /* __HDMI_MSM_H__ */
