@@ -757,7 +757,7 @@ static int hdmi_panel_power(int on)
 
 	pr_debug("%s: HDMI Core: %s\n", __func__, (on ? "ON" : "OFF"));
 	rc = hdmi_core_power(on, 1);
-	if (rc)
+	if (!rc)
 		rc = hdmi_cec_power(on);
 
 	pr_debug("%s: HDMI Core: %s Success\n", __func__, (on ? "ON" : "OFF"));
