@@ -894,7 +894,11 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED:
 		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
 		case ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK:
-			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
+			if (payload[0] == ASM_STREAM_CMD_CLOSE) {
+				atomic_set(&ac->cmd_close_state, 0);
+				wake_up(&ac->cmd_wait);
+			} else if (atomic_read(&ac->cmd_state) &&
+				wakeup_flag) {
 				atomic_set(&ac->cmd_state, 0);
 				pr_debug("response payload[1]:%d",
 							payload[1]);
