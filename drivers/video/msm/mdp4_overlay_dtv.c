@@ -409,9 +409,6 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 
 	vctrl = &vsync_ctrl_db[cndx];
 
-	if (!external_common_state->hpd_state)
-		complete_all(&vctrl->vsync_comp);
-
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
 
@@ -489,7 +486,6 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 	vctrl = &vsync_ctrl_db[0];
 
 	if (atomic_read(&vctrl->suspend) > 0 ||
-		!external_common_state->hpd_state ||
 		atomic_read(&vctrl->vsync_resume) == 0) {
 		vctrl->wait_vsync_cnt = 0;
 		vsync_tick = ktime_to_ns(ktime_get());
