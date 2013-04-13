@@ -24,6 +24,7 @@
 #include <sound/q6adm.h>
 #include <sound/msm-dai-q6.h>
 #include <mach/msm_hdmi_audio.h>
+#include <sound/pcm_params.h>
 
 #define HDMI_RX_CA_MAX 0x32
 
@@ -52,7 +53,7 @@ static int msm_dai_q6_hdmi_format_put(struct snd_kcontrol *kcontrol,
 
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
 	int value = ucontrol->value.integer.value[0];
-	dai_data->port_config.hdmi_multi_ch.data_type = value;
+	dai_data->port_config.hdmi_multi_ch_v2.data_type = value;
 	pr_debug("%s: value = %d\n", __func__, value);
 	return 0;
 }
@@ -63,7 +64,7 @@ static int msm_dai_q6_hdmi_format_get(struct snd_kcontrol *kcontrol,
 
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
 	ucontrol->value.integer.value[0] =
-		dai_data->port_config.hdmi_multi_ch.data_type;
+		dai_data->port_config.hdmi_multi_ch_v2.data_type;
 	return 0;
 }
 
@@ -118,10 +119,13 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = FALSE;
 	int sample_rate = 48000;
+	u16 bit_width = 16;
 
+	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
+		bit_width = 24;
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
-	dai_data->port_config.hdmi_multi_ch.reserved = 0;
+	dai_data->port_config.hdmi_multi_ch_v2.bit_width = bit_width;
 
 	switch (dai_data->rate) {
 	case 48000:
@@ -141,21 +145,21 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 		channel_allocation  = 0;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
 			channel_allocation;
 		break;
 	case 6:
 		channel_allocation  = 0x0B;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_6,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
 				channel_allocation;
 		break;
 	case 8:
 		channel_allocation  = 0x1F;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_8,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
 				channel_allocation;
 		break;
 	default:
@@ -163,12 +167,13 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 				dai_data->channels);
 		return -EINVAL;
 	}
-	dev_dbg(dai->dev, "%s() num_ch = %u rate =%u"
+	dev_dbg(dai->dev, "%s() num_ch = %u rate =%u bit-width = %u"
 		" channel_allocation = %u data type = %d\n", __func__,
 		dai_data->channels,
 		dai_data->rate,
-		dai_data->port_config.hdmi_multi_ch.channel_allocation,
-		dai_data->port_config.hdmi_multi_ch.data_type);
+		dai_data->port_config.hdmi_multi_ch_v2.bit_width,
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation,
+		dai_data->port_config.hdmi_multi_ch_v2.data_type);
 
 	return 0;
 }
@@ -206,7 +211,7 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 
 	/* set channel allocation only for lpcm type */
 	if (hdmi_ca.set_ca && !dai_data->port_config.hdmi_multi_ch.data_type)
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
 								hdmi_ca.ca;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
@@ -283,7 +288,8 @@ static struct snd_soc_dai_ops msm_dai_q6_hdmi_ops = {
 static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE),
 		.channels_min = 2,
 		.channels_max = 6,
 		.rate_max =     48000,

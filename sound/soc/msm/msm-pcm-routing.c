@@ -30,6 +30,8 @@
 #include <sound/tlv.h>
 #include "msm-pcm-routing.h"
 #include "qdsp6/q6voice.h"
+#include <sound/asound.h>
+#include <sound/pcm_params.h>
 
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
@@ -38,6 +40,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned long port_sessions; /* track Tx BE ports -> Rx BE */
 	unsigned int  sample_rate;
 	unsigned int  channel;
+	unsigned int  format;
 	bool perf_mode;
 };
 
@@ -402,6 +405,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
 	int i, session_type, path_type, port_type;
 	struct route_payload payload;
 	u32 channels;
+	u16 bit_width = 16;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -436,23 +440,20 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
 
 			channels = msm_bedais[i].channel;
 
+			if (msm_bedais[i].format == SNDRV_PCM_FORMAT_S16_LE)
+				bit_width = 16;
+			else if (msm_bedais[i].format ==
+						SNDRV_PCM_FORMAT_S24_LE)
+				bit_width = 24;
+
 			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
-				((channels == 1) || (channels == 2)) &&
-				msm_bedais[i].perf_mode) {
-				pr_debug("%s configure COPP to lowlatency mode",
-								__func__);
-				adm_multi_ch_copp_open(msm_bedais[i].port_id,
+				(channels > 0))
+				adm_multi_ch_copp_open_v2(msm_bedais[i].port_id,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				DEFAULT_COPP_TOPOLOGY, msm_bedais[i].perf_mode);
-			} else if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
-				(channels > 2))
-				adm_multi_ch_copp_open(msm_bedais[i].port_id,
-				path_type,
-				msm_bedais[i].sample_rate,
-				msm_bedais[i].channel,
-				DEFAULT_COPP_TOPOLOGY, msm_bedais[i].perf_mode);
+				DEFAULT_COPP_TOPOLOGY,
+				msm_bedais[i].perf_mode, bit_width);
 			else
 				adm_open(msm_bedais[i].port_id,
 				path_type,
@@ -556,6 +557,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type;
 	u32 channels;
+	u16 bit_width = 16;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -586,6 +588,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			INVALID_SESSION) {
 
 			channels = msm_bedais[reg].channel;
+			if (msm_bedais[reg].format == SNDRV_PCM_FORMAT_S24_LE)
+				bit_width = 24;
 
 			if (msm_bedais[reg].port_id == PSEUDOPORT_01) {
 				adm_multi_ch_copp_pseudo_open_v3(
@@ -598,22 +602,22 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			} else if ((session_type == SESSION_TYPE_RX) &&
 				((channels == 1) || (channels == 2))
 				&& msm_bedais[reg].perf_mode) {
-				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
+				adm_multi_ch_copp_open_v2(msm_bedais[reg].port_id,
 				path_type,
 				msm_bedais[reg].sample_rate,
 				channels,
 				DEFAULT_COPP_TOPOLOGY,
-				msm_bedais[reg].perf_mode);
+				msm_bedais[reg].perf_mode, bit_width);
 				pr_debug("%s:configure COPP to lowlatency mode",
 								 __func__);
 			} else if ((session_type == SESSION_TYPE_RX)
 					&& (channels > 2))
-				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
+				adm_multi_ch_copp_open_v2(msm_bedais[reg].port_id,
 				path_type,
 				msm_bedais[reg].sample_rate,
 				channels,
 				DEFAULT_COPP_TOPOLOGY,
-				msm_bedais[reg].perf_mode);
+				msm_bedais[reg].perf_mode, bit_width);
 			else
 				adm_open(msm_bedais[reg].port_id,
 				path_type,
@@ -3157,6 +3161,7 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 	mutex_lock(&routing_lock);
 	msm_bedais[be_id].sample_rate = params_rate(params);
 	msm_bedais[be_id].channel = params_channels(params);
+	msm_bedais[be_id].format = params_format(params);
 	mutex_unlock(&routing_lock);
 	return 0;
 }
@@ -3203,6 +3208,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels;
 	bool playback, capture;
+	u16 bit_width = 16;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -3236,25 +3242,23 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 			channels = bedai->channel;
-			if (bedai->port_id == PSEUDOPORT_01) {
+			if (bedai->format == SNDRV_PCM_FORMAT_S24_LE)
+				bit_width = 24;
+			if (bedai->port_id == PSEUDOPORT_01)
 				adm_multi_ch_copp_pseudo_open_v3(bedai->port_id,
 							path_type,
 							bedai->sample_rate,
 							channels > 6 ? 6 :
 							channels,
 							DEFAULT_COPP_TOPOLOGY);
-			} else if ((playback || capture)
-				&& ((channels == 2) || (channels == 1)) &&
-				bedai->perf_mode) {
-				adm_multi_ch_copp_open(bedai->port_id,
+			else if (playback)
+				adm_multi_ch_copp_open_v2(bedai->port_id,
 				path_type,
 				bedai->sample_rate,
 				channels,
-				DEFAULT_COPP_TOPOLOGY, bedai->perf_mode);
-				pr_debug("%s:configure COPP to lowlatency mode",
-								__func__);
-			} else if ((playback || capture)
-				&& (channels > 2))
+				DEFAULT_COPP_TOPOLOGY,
+				bedai->perf_mode, bit_width);
+			else if (capture)
 				adm_multi_ch_copp_open(bedai->port_id,
 				path_type,
 				bedai->sample_rate,

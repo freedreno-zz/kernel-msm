@@ -88,7 +88,7 @@ static struct snd_pcm_hardware msm_compr_hardware_playback = {
 				SNDRV_PCM_INFO_MMAP_VALID |
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
-	.formats =	      SNDRV_PCM_FMTBIT_S16_LE,
+	.formats =	      SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 	.rates =		SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT,
 	.rate_min =	     8000,
 	.rate_max =	     48000,
@@ -1004,6 +1004,8 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct audio_buffer *buf;
 	int dir, ret;
+	short bit_width = 16;
+
 	struct asm_softpause_params softpause = {
 		.enable = SOFT_PAUSE_ENABLE,
 		.period = SOFT_PAUSE_PERIOD,
@@ -1022,6 +1024,8 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	else
 		dir = OUT;
 
+	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
+		bit_width = 24;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		switch (compr->info.codec_param.codec.id) {
@@ -1038,8 +1042,8 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			}
 			break;
 		default:
-			ret = q6asm_open_write(prtd->audio_client,
-					compr->codec);
+			ret = q6asm_open_write_v2(prtd->audio_client,
+					compr->codec, bit_width);
 			if (ret < 0) {
 				pr_err("%s: Session out open failed\n",
 					__func__);
