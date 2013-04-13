@@ -887,6 +887,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READ:
 		case ASM_STREAM_CMD_OPEN_READ_V2_1:
 		case ASM_STREAM_CMD_OPEN_WRITE:
+		case ASM_STREAM_CMD_OPEN_WRITE_V2:
 		case ASM_STREAM_CMD_OPEN_WRITE_V2_1:
 		case ASM_STREAM_CMD_OPEN_READWRITE:
 		case ASM_DATA_CMD_MEDIA_FORMAT_UPDATE:
@@ -1706,6 +1707,92 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_open_write_v2(struct audio_client *ac, uint32_t format,
+					uint16_t bit_width)
+{
+	int rc = 0x00;
+	struct asm_stream_cmd_open_write_v2 open;
+
+	if ((ac == NULL) || (ac->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s: session[%d] wr_format[0x%x], bitwidth[%d]",
+			__func__, ac->session, format, bit_width);
+
+	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V2;
+	open.uMode = STREAM_PRIORITY_HIGH;
+	open.bits_per_sample = bit_width;
+	open.sink_endpoint = ASM_END_POINT_DEVICE_MATRIX;
+
+	open.post_proc_top = get_asm_topology();
+	if (open.post_proc_top == 0)
+		open.post_proc_top = DEFAULT_POPP_TOPOLOGY;
+
+	switch (format) {
+	case FORMAT_LINEAR_PCM:
+		open.format = LINEAR_PCM;
+		break;
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
+		open.format = MULTI_CHANNEL_PCM;
+		break;
+	case FORMAT_MPEG4_AAC:
+		open.format = MPEG4_AAC;
+		break;
+	case FORMAT_MPEG4_MULTI_AAC:
+		open.format = MPEG4_MULTI_AAC;
+		break;
+	case FORMAT_WMA_V9:
+		open.format = WMA_V9;
+		break;
+	case FORMAT_WMA_V10PRO:
+		open.format = WMA_V10PRO;
+		break;
+	case FORMAT_MP3:
+		open.format = MP3;
+		break;
+	case FORMAT_DTS:
+		open.format = DTS;
+		break;
+	case FORMAT_DTS_LBR:
+		open.format = DTS_LBR;
+		break;
+	case FORMAT_AMRWB:
+		open.format = AMRWB_FS;
+		pr_debug("q6asm_open_write FORMAT_AMRWB");
+		break;
+	case FORMAT_AMR_WB_PLUS:
+		open.format = AMR_WB_PLUS;
+		pr_debug("q6asm_open_write FORMAT_AMR_WB_PLUS");
+		break;
+	default:
+		pr_err("%s: Invalid format[%d]\n", __func__, format);
+		goto fail_cmd;
+	}
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+	if (rc < 0) {
+		pr_err("%s: open failed op[0x%x]rc[%d]\n", \
+					__func__, open.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
+			rc);
+		goto fail_cmd;
+	}
+	if (atomic_read(&ac->cmd_response)) {
+		pr_err("%s: format = %x not supported\n", __func__, format);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
 int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,
 			uint32_t wr_format)
@@ -2463,6 +2550,86 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 	fmt.write_cfg.pcm_cfg.sample_rate = rate;
 	fmt.write_cfg.pcm_cfg.is_signed = 1;
 	fmt.write_cfg.pcm_cfg.interleaved = 1;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd open failed\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_media_format_block_pcm_format_support(struct audio_client *ac,
+			uint32_t rate, uint32_t channels, uint16_t bit_width)
+{
+	struct asm_stream_media_format_update fmt;
+	int rc = 0;
+
+	pr_debug("%s:session[%d]rate[%d]ch[%d]bit_width[%d]\n", __func__,
+				ac->session, rate, channels, bit_width);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+
+	fmt.format = LINEAR_PCM;
+	fmt.cfg_size = sizeof(struct asm_pcm_cfg);
+	fmt.write_cfg.multi_ch_pcm_cfg.num_channels = channels;
+	fmt.write_cfg.multi_ch_pcm_cfg.bits_per_sample = bit_width;
+	fmt.write_cfg.multi_ch_pcm_cfg.sample_rate = rate;
+	fmt.write_cfg.multi_ch_pcm_cfg.is_signed = 1;
+	fmt.write_cfg.multi_ch_pcm_cfg.is_interleaved = 1;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s:Comamnd open failed\n", __func__);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_media_format_block_multi_ch_pcm_format_support(
+			struct audio_client *ac, uint32_t rate,
+			uint32_t channels, char *channel_map,
+			uint16_t bit_width)
+{
+	struct asm_stream_media_format_update fmt;
+	u8 *channel_mapping;
+	int rc = 0;
+
+	pr_debug("%s:session[%d]rate[%d]ch[%d]bit_width[%d]\n", __func__,
+				ac->session, rate, channels, bit_width);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
+
+	fmt.format = MULTI_CHANNEL_PCM;
+	fmt.cfg_size = sizeof(struct asm_multi_channel_pcm_fmt_blk);
+	fmt.write_cfg.multi_ch_pcm_cfg.num_channels = channels;
+	fmt.write_cfg.multi_ch_pcm_cfg.bits_per_sample = bit_width;
+	fmt.write_cfg.multi_ch_pcm_cfg.sample_rate = rate;
+	fmt.write_cfg.multi_ch_pcm_cfg.is_signed = 1;
+	fmt.write_cfg.multi_ch_pcm_cfg.is_interleaved = 1;
+	channel_mapping =
+		fmt.write_cfg.multi_ch_pcm_cfg.channel_mapping;
+	memcpy(channel_mapping, channel_map, PCM_FORMAT_MAX_NUM_CHANNEL);
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
 	if (rc < 0) {
