@@ -4240,7 +4240,7 @@ static int tabla_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	return 0;
 }
 
-#define TABLA_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
+#define TABLA_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE)
 static int tabla_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
@@ -4579,6 +4579,36 @@ static int tabla_get_channel_map(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static struct snd_soc_dapm_widget tabla_dapm_aif_in_widgets[] = {
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 1,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX2", "AIF1 Playback", 0, SND_SOC_NOPM, 2,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX3", "AIF1 Playback", 0, SND_SOC_NOPM, 3,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX4", "AIF3 Playback", 0, SND_SOC_NOPM, 4,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX5", "AIF3 Playback", 0, SND_SOC_NOPM, 5,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX6", "AIF2 Playback", 0, SND_SOC_NOPM, 6,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_IN_E("SLIM RX7", "AIF2 Playback", 0, SND_SOC_NOPM, 7,
+				0, tabla_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+};
 
 static int tabla_set_interpolator_rate(struct snd_soc_dai *dai,
 				       u8 rx_fs_rate_reg_val,
@@ -4731,6 +4761,48 @@ static int tabla_set_decimator_rate(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static void tabla_set_rxsb_port_format(struct snd_pcm_hw_params *params,
+						struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct snd_soc_dapm_widget *w = tabla_dapm_aif_in_widgets;
+	u32 port, i;
+	u8 bit_sel;
+	u16 sb_ctl_reg, field_shift;
+
+	switch (params_format(params)) {
+		case SNDRV_PCM_FORMAT_S16_LE:
+			bit_sel = 0x2;
+		break;
+		case SNDRV_PCM_FORMAT_S24_LE:
+			bit_sel = 0x0;
+		break;
+		default:
+			dev_err(codec->dev, "Invalid format\n");
+		return;
+	}
+	for (i = 0; i < ARRAY_SIZE(tabla_dapm_aif_in_widgets); i++) {
+
+		if (strncmp(dai->driver->playback.stream_name, w[i].sname, 13))
+			continue;
+		port = w[i].shift;
+
+		if (port <= 4) {
+			sb_ctl_reg = TABLA_A_CDC_CONN_RX_SB_B1_CTL;
+			field_shift = (port - 1) << 1;
+		} else if (port <= 7) {
+			sb_ctl_reg = TABLA_A_CDC_CONN_RX_SB_B2_CTL;
+			field_shift = (port - 5) << 1;
+		} else { /* should not happen */
+			dev_warn(codec->dev,
+				"bad port ID derived from AIF widget\n");
+			return;
+		}
+		snd_soc_update_bits(codec, sb_ctl_reg, 0x3 << field_shift,
+					bit_sel << field_shift);
+	}
+}
+
 static int tabla_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai)
@@ -4853,15 +4925,7 @@ static int tabla_hw_params(struct snd_pcm_substream *substream,
 			snd_soc_update_bits(codec, TABLA_A_CDC_CLK_RX_I2S_CTL,
 					0x03, (rx_fs_rate_reg_val >> 0x05));
 		} else {
-			switch (params_format(params)) {
-			case SNDRV_PCM_FORMAT_S16_LE:
-				tabla->dai[dai->id].bit_width = 16;
-				break;
-			default:
-				pr_err("%s: Invalid format %d\n", __func__,
-					params_format(params));
-				return -EINVAL;
-			}
+			tabla_set_rxsb_port_format(params, dai);
 			tabla->dai[dai->id].rate = params_rate(params);
 		}
 		break;
@@ -8419,10 +8483,6 @@ static const struct tabla_reg_mask_val tabla_codec_reg_init_val[] = {
 	{TABLA_A_CDC_CONN_TX_SB_B8_CTL, 0x60, 0x40},
 	{TABLA_A_CDC_CONN_TX_SB_B9_CTL, 0x60, 0x40},
 	{TABLA_A_CDC_CONN_TX_SB_B10_CTL, 0x60, 0x40},
-
-	/* Use 16 bit sample size for RX */
-	{TABLA_A_CDC_CONN_RX_SB_B1_CTL, 0xFF, 0xAA},
-	{TABLA_A_CDC_CONN_RX_SB_B2_CTL, 0xFF, 0xAA},
 
 	/*enable HPF filter for TX paths */
 	{TABLA_A_CDC_TX1_MUX_CTL, 0x8, 0x0},
