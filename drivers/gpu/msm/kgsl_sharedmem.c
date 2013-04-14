@@ -546,7 +546,25 @@ void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 
 	int size = memdesc->size;
 
-	if (addr !=  NULL) {
+	if (!addr) {
+		int i;
+		for (i = 0; i < memdesc->sglen; i++) {
+			struct page *p = sg_page(&memdesc->sg[i]);
+			void *ptr = kmap_atomic(p);
+			switch (op) {
+			case KGSL_CACHE_OP_FLUSH:
+				dmac_flush_range(ptr, ptr + PAGE_SIZE);
+				break;
+			case KGSL_CACHE_OP_CLEAN:
+				dmac_clean_range(ptr, ptr + PAGE_SIZE);
+				break;
+			case KGSL_CACHE_OP_INV:
+				dmac_inv_range(ptr, ptr + PAGE_SIZE);
+				break;
+			}
+			kunmap_atomic(ptr);
+		}
+	} else {
 		switch (op) {
 		case KGSL_CACHE_OP_FLUSH:
 			dmac_flush_range(addr, addr + size);
