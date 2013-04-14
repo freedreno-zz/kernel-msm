@@ -106,7 +106,6 @@ static void hdmi_msm_dump_regs(const char *prefix);
 
 static void hdmi_msm_hdcp_enable(void);
 static void hdmi_msm_turn_on(void);
-static int hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
 static boolean hdmi_msm_is_dvi_mode(void);
@@ -1044,7 +1043,6 @@ uint32 hdmi_inp(uint32 offset)
 #endif /* DEBUG */
 
 static void hdmi_msm_turn_on(void);
-static int hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
 static int hdmi_msm_power_on(struct platform_device *pdev);
@@ -4593,6 +4591,12 @@ static void hdmi_msm_hpd_polarity_setup(void)
 	}
 }
 
+#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
+static void hdmi_msm_hpd_off(void)
+{
+	return;
+}
+#else
 static void hdmi_msm_hpd_off(void)
 {
 	int rc = 0;
@@ -4618,6 +4622,7 @@ static void hdmi_msm_hpd_off(void)
 				__func__, rc);
 	hdmi_msm_state->hpd_initialized = FALSE;
 }
+#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 
 static void hdmi_msm_dump_regs(const char *prefix)
 {
@@ -4843,6 +4848,12 @@ EXPORT_SYMBOL(mhl_connect_api);
  * event; so for now leave the HDMI engine running; so that the HPD IRQ is
  * still being processed.
  */
+#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
+static int hdmi_msm_power_off(struct platform_device *pdev)
+{
+	return 0;
+}
+#else
 static int hdmi_msm_power_off(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -4900,6 +4911,7 @@ error:
 
 	return ret;
 }
+#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 
 void hdmi_msm_config_hdcp_feature(void)
 {
