@@ -499,7 +499,7 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 		bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
-		bit_width = 24;
+		bit_width = 32;
 		break;
 	}
 	dai_data->port_config.mi2s.bitwidth = bit_width;
