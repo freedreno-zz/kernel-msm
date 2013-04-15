@@ -376,8 +376,13 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 
 	if (atomic_read(&vctrl->suspend) > 0 ||
 		!external_common_state->hpd_state ||
-		atomic_read(&vctrl->vsync_resume) == 0)
-		return 0;
+		atomic_read(&vctrl->vsync_resume) == 0) {
+		vctrl->wait_vsync_cnt = 0;
+		vsync_tick = ktime_to_ns(ktime_get());
+		ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
+		buf[strlen(buf) + 1] = '\0';
+		return ret;
+	}
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	if (vctrl->wait_vsync_cnt == 0)
