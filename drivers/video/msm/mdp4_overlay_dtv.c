@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -988,16 +988,25 @@ void mdp4_dtv_set_black_screen(void)
 	/*Black color*/
 	uint32 color = 0x00000000;
 	uint32 temp_src_format;
-	int cndx = 0;
+	int commit = 1, cndx = 0;
+	int pipe_num = OVERLAY_PIPE_RGB1;
 	struct vsycn_ctrl *vctrl;
 
 	vctrl = &vsync_ctrl_db[cndx];
-	if (vctrl->base_pipe == NULL || !hdmi_prim_display) {
-		pr_err("dtv_pipe is not configured yet\n");
+
+	if (!hdmi_prim_display)
 		return;
-	}
-	rgb_base = MDP_BASE + MDP4_RGB_BASE;
-	rgb_base += (MDP4_RGB_OFF * vctrl->base_pipe->pipe_num);
+
+	if (vctrl->base_pipe == NULL)
+		commit = 0;
+	else
+		pipe_num = vctrl->base_pipe->pipe_num;
+
+	rgb_base = MDP_BASE;
+	rgb_base += (MDP4_RGB_OFF * (pipe_num + 2));
+
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	mdp_clk_ctrl(1);
 
 	/*
 	* RGB Constant Color
@@ -1010,9 +1019,18 @@ void mdp4_dtv_set_black_screen(void)
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
 	mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
 
-	mdp4_mixer_stage_up(vctrl->base_pipe, 0);
-	mdp4_mixer_stage_commit(vctrl->base_pipe->mixer_num);
+	if (commit) {
+		mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
+		mdp4_mixer_stage_up(vctrl->base_pipe, 0);
+		mdp4_mixer_stage_commit(vctrl->base_pipe->mixer_num);
+	} else {
+		/* MDP_OVERLAY_REG_FLUSH for pipe*/
+		MDP_OUTP(MDP_BASE + 0x18000,
+			BIT(pipe_num + 2) | BIT(MDP4_MIXER1));
+	}
+
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	mdp_clk_ctrl(0);
 }
 
 static void mdp4_dtv_do_blt(struct msm_fb_data_type *mfd, int enable)
