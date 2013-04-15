@@ -620,7 +620,38 @@ static struct gpiomux_setting mxt_int_act_cfg = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
 };
-
+#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
+static struct msm_gpiomux_config apq8064_hdmi_configs[] __initdata = {
+	{
+		.gpio = 69,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_3_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_active_3_cfg,
+		},
+	},
+	{
+		.gpio = 70,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 71,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 72,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+};
+#else
 static struct msm_gpiomux_config apq8064_hdmi_configs[] __initdata = {
 	{
 		.gpio = 69,
@@ -651,7 +682,7 @@ static struct msm_gpiomux_config apq8064_hdmi_configs[] __initdata = {
 		},
 	},
 };
-
+#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 8,			/* GSBI3 I2C QUP SDA */
