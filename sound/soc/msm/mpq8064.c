@@ -1930,7 +1930,9 @@ static int __init msm_audio_init(void)
 {
 	int ret;
 
-	if (socinfo_get_id() != 130) {
+	if ((socinfo_get_id() != 130) &&
+		!machine_is_apq8064_dma() &&
+		!machine_is_mpq8064_dma()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV;
 	}
@@ -1946,7 +1948,7 @@ static int __init msm_audio_init(void)
 		return -ENOMEM;
 	}
 
-	if (machine_is_mpq8064_dma()) {
+	if (machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
 		snd_soc_card_msm.dai_link = msm_dai;
 		snd_soc_card_msm.num_links = ARRAY_SIZE(msm_dai);
 		snd_soc_card_msm.controls = common_msm_controls;
