@@ -5064,8 +5064,9 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	mfd->update_panel_info = hdmi_msm_update_panel_info;
 	mfd->is_panel_ready = hdmi_msm_cable_connected;
 
+	hdmi_msm_pdev = fb_dev;
+
 	if (hdmi_prim_display) {
-		hdmi_msm_pdev = fb_dev;
 		rc = hdmi_msm_hpd_on();
 		if (rc)
 			goto error;

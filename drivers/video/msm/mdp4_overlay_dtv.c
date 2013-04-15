@@ -1022,7 +1022,6 @@ void mdp4_dtv_set_black_screen(void)
 	*/
 	temp_src_format = inpdw(rgb_base + 0x0050);
 	MDP_OUTP(rgb_base + 0x0050, temp_src_format | BIT(22));
-	mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
 
 	if (commit) {
 		mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
