@@ -261,6 +261,8 @@ struct external_common_state_type {
 	int sadb_size;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
+	void (*hdmi_audio_cfg)(uint8 sample_rate, uint8 channel_num,
+			uint8 spkr_alloc, uint8 level_shift, uint8 down_mix);
 #endif
 };
 
