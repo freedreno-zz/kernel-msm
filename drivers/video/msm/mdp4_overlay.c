@@ -2849,6 +2849,9 @@ static int mdp4_calc_pipe_mdp_clk(struct msm_fb_data_type *mfd,
 
 	pipe->req_clk = (u32) rst;
 
+	if (pipe->req_clk < mdp_max_clk)
+		pipe->req_clk = mdp_max_clk;
+
 	pr_debug("%s: required mdp clk %d mixer %d pipe ndx %d\n",
 		 __func__, pipe->req_clk, pipe->mixer_num, pipe->pipe_ndx);
 
