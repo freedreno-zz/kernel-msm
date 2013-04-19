@@ -327,6 +327,10 @@ static int msm_routing_send_device_pp_params(int port_id, int path_type)
 			pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
 			clear_bit(ADM_PP_PARAM_LATENCY_BIT,
 				  &pp_config);
+			adm_set_audio_output_delay(port_id,
+					msm_bedais_pp_params[index].latency,
+					be_is_compr_passthr_mode);
+
 		}
 	}
 	return 0;
@@ -1207,6 +1211,10 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 				ucontrol->value.integer.value[2];
 		set_bit(ADM_PP_PARAM_LATENCY_BIT,
 			&msm_bedais_pp_params[index].pp_params_config);
+		if (be_is_active)
+			adm_set_audio_output_delay(port_id,
+				msm_bedais_pp_params[index].latency,
+				be_is_compr_passthr_mode);
 		break;
 	default:
 		pr_info("%s, device pp param %d not supported\n", __func__,

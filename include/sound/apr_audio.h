@@ -753,6 +753,10 @@ struct asm_pp_params_command {
 #define MBADRC_ENABLE_PARAM_ID 0x00010c07
 #define MBADRC_CONFIG_PARAM_ID 0x00010c08
 
+#define AUDPROC_PARAM_ID_COMPRESSED_LATENCY              0x0001076F
+#define AUDPROC_MODULE_ID_COMPRESSED_LATENCY             0x0001076E
+#define AUDPROC_PARAM_ID_DELAY                           0x00010773
+#define AUDPROC_MODULE_ID_DELAY                          0x00010772
 
 #define ADM_CMD_SET_PARAMS                               0x00010306
 #define ADM_CMD_GET_PARAMS                               0x0001030B
@@ -1923,5 +1927,9 @@ struct srs_SS3D_params {
 
 int srs_ss3d_open(int port_id, int srs_tech_id, void *srs_params);
 /* SRS Studio Sound 3D end */
+
+struct audio_output_delay_param_t {
+	uint32_t delay_us;	/* delay in micro seconds  */
+} __packed;
 
 #endif /*_APR_AUDIO_H_*/

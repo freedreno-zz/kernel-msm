@@ -71,4 +71,6 @@ void adm_set_multi_ch_map(char *channel_map);
 
 void adm_get_multi_ch_map(char *channel_map);
 
+int adm_set_audio_output_delay(int port_id, int delay, bool isCpmpressed);
+
 #endif /* __Q6_ADM_H__ */
