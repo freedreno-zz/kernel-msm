@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -340,7 +340,7 @@ void __init apq8064_init_mmc(void)
 
 	if (apq8064_sdc3_pdata) {
 		if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv() ||
-			machine_is_mpq8064_dma()) {
+			machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
 			apq8064_sdc3_pdata->uhs_caps &= ~(MMC_CAP_UHS_SDR12 |
 				MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_DDR50 |
 				MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104);
@@ -350,7 +350,8 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->is_wpswitch_active_low = false;
 		}
 		if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-			machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()) {
+			machine_is_mpq8064_dtv() || machine_is_mpq8064_dma() ||
+				machine_is_apq8064_dma()) {
 			int rc;
 			struct pm_gpio sd_card_det_init_cfg = {
 				.direction      = PM_GPIO_DIR_IN,
@@ -393,7 +394,7 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->pin_data->pad_data->\
 				drv->on[2].val = GPIO_CFG_10MA;
 		}
-		if (machine_is_mpq8064_dma()) {
+		if (machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
 			int i;
 
                         for (i = 0;

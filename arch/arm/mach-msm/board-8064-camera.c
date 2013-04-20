@@ -729,7 +729,8 @@ void __init apq8064_init_cam(void)
 	 * some other purpose */
 	if (!(machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE2) ||
-		machine_is_mpq8064_dma() || machine_is_mpq8064_dtv()))
+		machine_is_mpq8064_dma() || machine_is_mpq8064_dtv() ||
+		machine_is_apq8064_dma()))
 		msm_gpiomux_install(apq8064_cam_common_configs,
 		ARRAY_SIZE(apq8064_cam_common_configs));
 
