@@ -749,6 +749,19 @@ static void touch_input_report(struct lge_touch_data *ts)
 				ts->ts_data.curr_data[id].tool_type,
 				ts->ts_data.curr_data[id].state != ABS_RELEASE);
 
+		if (id == 0) {
+			input_report_key(ts->input_dev, BTN_TOUCH,
+				ts->ts_data.curr_data[id].state != ABS_RELEASE);
+
+			input_report_abs(ts->input_dev, ABS_X,
+					ts->ts_data.curr_data[id].x_position);
+			input_report_abs(ts->input_dev, ABS_Y,
+					ts->ts_data.curr_data[id].y_position);
+			if (is_pressure)
+				input_report_abs(ts->input_dev, ABS_PRESSURE,
+					ts->ts_data.curr_data[id].pressure);
+		}
+
 		if (ts->ts_data.curr_data[id].state != ABS_RELEASE) {
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
 					ts->ts_data.curr_data[id].x_position);
@@ -1773,6 +1786,20 @@ static int touch_probe(struct i2c_client *client,
 	if (ts->pdata->caps->max_id > MAX_FINGER) {
 		ts->pdata->caps->max_id = MAX_FINGER;
 	}
+
+	/* mouse emulation */
+	input_set_abs_params(ts->input_dev, ABS_X, 0, ts->pdata->caps->x_max,
+			0, 0);
+	input_set_abs_params(ts->input_dev, ABS_Y, 0,
+			ts->pdata->caps->y_button_boundary
+			? ts->pdata->caps->y_button_boundary
+			: ts->pdata->caps->y_max,
+			0, 0);
+	if (ts->pdata->caps->is_pressure_supported)
+		input_set_abs_params(ts->input_dev, ABS_PRESSURE,
+				0, ts->pdata->caps->max_pressure, 0, 0);
+	set_bit(EV_KEY, ts->input_dev->evbit);
+	set_bit(BTN_TOUCH, ts->input_dev->keybit);
 
 	input_mt_init_slots(ts->input_dev, ts->pdata->caps->max_id);
 	input_set_abs_params(ts->input_dev,
