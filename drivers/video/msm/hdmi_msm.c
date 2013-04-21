@@ -34,6 +34,7 @@
 
 #include "msm_fb.h"
 #include "hdmi_msm.h"
+#include "hdcp_tx.h"
 
 /* Supported HDMI Audio channels */
 #define MSM_HDMI_AUDIO_CHANNEL_2		0
@@ -1204,7 +1205,47 @@ static void hdmi_msm_cec_latch_work(struct work_struct *work)
 }
 #endif
 
+/*
+ * Only retries defined times then abort current authenticating process
+ * Send check_topology message to notify any hdcpmanager's client of non-
+ * hdcp authenticated data link so the client can tear down any active secure
+ * playback.
+ * Reduce hdcp link to regular hdmi data link with hdcp disabled so any
+ * un-secure like UI & menu still can be sent over HDMI and display.
+ */
+#define AUTH_RETRIES_TIME (7)
 static void hdcp_deauthenticate(void);
+static int hdmi_msm_if_abort_reauth(void)
+{
+	int ret = 0;
+	uint32 value = 0;
+
+	if (++hdmi_msm_state->auth_retries == AUTH_RETRIES_TIME) {
+		cancel_work_sync(&hdmi_msm_state->hdcp_work);
+		del_timer_sync(&hdmi_msm_state->hdcp_timer);
+
+		/* notify hdcpmanager via uevent */
+		if (hdmi_msm_state->hdcp_tx_ops.check_topology_op)
+			hdmi_msm_state->hdcp_tx_ops.check_topology_op();
+
+		/* disable hdcp and hdmi data link without hdcp */
+		hdcp_deauthenticate();
+
+		/* HDMI_CTRL */
+		value = HDMI_INP_ND(0x0000);
+		HDMI_OUTP(0x0000, value & (~0x00000004));
+
+		mutex_lock(&hdcp_auth_state_mutex);
+		hdmi_msm_state->auth_retries = 0;
+		hdmi_msm_state->reauth = FALSE;
+		mutex_unlock(&hdcp_auth_state_mutex);
+
+		ret = -EFAULT;
+	}
+
+	return ret;
+}
+
 static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
 {
 	if (!hdmi_msm_state->hdcp_enable) {
@@ -1220,6 +1261,11 @@ static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
 	}
 	mutex_unlock(&hdmi_msm_state_mutex);
 
+	if (hdmi_msm_if_abort_reauth()) {
+		DEV_INFO("%s: abort after trying auth for 6 times, use hdmi!\n",
+				__func__);
+		return;
+	}
 	/*
 	 * Reauth=>deauth, hdcp_auth
 	 * hdcp_auth=>turn_on() which calls
@@ -1318,6 +1364,7 @@ int hdmi_msm_process_hdcp_interrupts(void)
 			mutex_lock(&hdcp_auth_state_mutex);
 			hdmi_msm_state->full_auth_done = FALSE;
 			mutex_unlock(&hdcp_auth_state_mutex);
+
 			/* Calling reauth only when authentication
 			 * is sucessful or else we always go into
 			 * the reauth loop. Also, No need to reauthenticate
@@ -2678,7 +2725,7 @@ static void check_and_clear_HDCP_DDC_Failure(void)
 }
 
 
-static int hdcp_authentication_part1(void)
+static int hdcp_authentication_part1(uint8 *bksv)
 {
 	int ret = 0;
 	boolean is_match;
@@ -2688,7 +2735,6 @@ static int hdcp_authentication_part1(void)
 	uint8 bcaps;
 	uint8 aksv[5];
 	uint32 qfprom_aksv_0, qfprom_aksv_1, link0_aksv_0, link0_aksv_1;
-	uint8 bksv[5];
 	uint32 link0_bksv_0, link0_bksv_1;
 	uint8 an[8];
 	uint32 link0_an_0, link0_an_1;
@@ -2751,6 +2797,7 @@ static int hdcp_authentication_part1(void)
 		/* read Bcaps at 0x40 in HDCP Port */
 		ret = hdmi_msm_ddc_read(0x74, 0x40, &bcaps, 1, 5, "Bcaps",
 			TRUE);
+
 		if (ret) {
 			DEV_ERR("%s(%d): Read Bcaps failed", __func__,
 			    __LINE__);
@@ -3112,7 +3159,7 @@ static int hdmi_msm_transfer_v_h(void)
 	return 0;
 }
 
-static int hdcp_authentication_part2(void)
+static int hdcp_authentication_part2(struct HDCP_V2V1_REPEATER_TOPOLOGY *rpt)
 {
 	int ret = 0;
 	uint32 timeout_count;
@@ -3121,10 +3168,11 @@ static int hdcp_authentication_part2(void)
 	uint bstatus;
 	uint8 bcaps;
 	uint32 down_stream_devices;
+	uint32 repeaterCascadeDepth = 0;
 	uint32 ksv_bytes;
 
 	static uint8 buf[0xFF];
-	static uint8 kvs_fifo[5 * 127];
+	uint8 *kvs_fifo = &rpt->ksv_list[0];
 
 	boolean max_devs_exceeded = 0;
 	boolean max_cascade_exceeded = 0;
@@ -3175,6 +3223,9 @@ static int hdcp_authentication_part2(void)
 	/* BSTATUS [6:0] DEVICE_COUNT Number of HDMI device attached to repeater
 	* - see HDCP spec */
 	down_stream_devices = bstatus & 0x7F;
+
+	/* Cascade Depth of attached repeater */
+	repeaterCascadeDepth = (bstatus >> 8) & 0x7;
 
 	if (down_stream_devices == 0x0) {
 		/* There isn't any devices attaced to the Repeater */
@@ -3317,7 +3368,12 @@ static int hdcp_authentication_part2(void)
 		goto error;
 	}
 
-	DEV_INFO("HDCP: authentication part II, successful\n");
+	/* on completing successfully, tranfer topology information */
+	rpt->dev_count = down_stream_devices;
+	rpt->max_cascade_exceeded = max_cascade_exceeded;
+	rpt->max_dev_exceeded = max_devs_exceeded;
+	rpt->depth = repeaterCascadeDepth;
+	DEV_INFO("HDCP: authentication part II successful\n");
 
 hdcp_error:
 error:
@@ -3357,6 +3413,30 @@ error:
 	return ret;
 }
 
+static void hdmi_msm_cache_hdcp_topology(uint32 found_repeater)
+{
+	mutex_lock(&hdmi_msm_state_mutex);
+
+	memcpy((void *)&hdmi_msm_state->cached_tp,
+	(void *)&hdmi_msm_state->cur_tp, sizeof(hdmi_msm_state->cached_tp));
+
+	hdmi_msm_state->cached_tp.ds_type = (found_repeater) ?
+						DS_REPEATER : DS_RECEIVER;
+
+	mutex_unlock(&hdmi_msm_state_mutex);
+
+	DEV_INFO("%s: cached last HDCP auth'ed topology! params_size = %d\n",
+			__func__, sizeof(struct HDCP_V2V1_MSG_TOPOLOGY));
+	DEV_INFO("%s: found_repeater = %d, bksv[0]~bksv[4] %d %d %d %d %d\n",
+			__func__, found_repeater,
+	hdmi_msm_state->cached_tp.topology.recv.bksv[0],
+	hdmi_msm_state->cached_tp.topology.recv.bksv[1],
+	hdmi_msm_state->cached_tp.topology.recv.bksv[2],
+	hdmi_msm_state->cached_tp.topology.recv.bksv[3],
+	hdmi_msm_state->cached_tp.topology.recv.bksv[4]
+	);
+}
+
 static void hdmi_msm_hdcp_enable(void)
 {
 	int ret = 0;
@@ -3384,7 +3464,8 @@ static void hdmi_msm_hdcp_enable(void)
 	HDMI_OUTP(0x0110, 0x0);
 
 	/* PART I Authentication*/
-	ret = hdcp_authentication_part1();
+	ret = hdcp_authentication_part1(
+			hdmi_msm_state->cur_tp.topology.recv.bksv);
 	if (ret)
 		goto error;
 
@@ -3401,7 +3482,8 @@ static void hdmi_msm_hdcp_enable(void)
 	/* if REPEATER (Bit 6), perform Part2 Authentication */
 	if (bcaps & BIT(6)) {
 		found_repeater = 0x1;
-		ret = hdcp_authentication_part2();
+		ret = hdcp_authentication_part2(
+				&hdmi_msm_state->cur_tp.topology.reptor);
 		if (ret)
 			goto error;
 	} else
@@ -3423,6 +3505,7 @@ static void hdmi_msm_hdcp_enable(void)
 	 */
 	hdmi_msm_state->full_auth_done = TRUE;
 	external_common_state->hdcp_active = TRUE;
+	hdmi_msm_state->auth_retries = 0;
 	mutex_unlock(&hdcp_auth_state_mutex);
 
 	if (!hdmi_msm_is_dvi_mode()) {
@@ -3435,6 +3518,17 @@ static void hdmi_msm_hdcp_enable(void)
 		SWITCH_SET_HDMI_AUDIO(1, 0);
 	}
 
+	/*
+	 * HDCP auth'ed successfully,
+	 * 1. cache last topology
+	 * 2. then notify HDCP manager in user space via uevent
+	 * 3.  On next step, HDCP manager will sysfs_write()/sysfs_read() latest
+	 * cached HDCP topology.
+	 */
+	hdmi_msm_cache_hdcp_topology(found_repeater);
+	if (hdmi_msm_state->hdcp_tx_ops.check_topology_op)
+		hdmi_msm_state->hdcp_tx_ops.check_topology_op();
+
 	return;
 
 error:
@@ -3443,6 +3537,7 @@ error:
 			 "authentication  from [%s]\n", __func__);
 		hdcp_deauthenticate();
 		mutex_lock(&hdcp_auth_state_mutex);
+		hdmi_msm_state->auth_retries = 0;
 		hdmi_msm_state->hpd_during_auth = FALSE;
 		mutex_unlock(&hdcp_auth_state_mutex);
 	} else {
@@ -3455,6 +3550,33 @@ error:
 	hdmi_msm_state->hdcp_activating = FALSE;
 	mutex_unlock(&hdmi_msm_state_mutex);
 }
+
+/* Invoked from user thread sysfs_read(...,sys/../hdcpmanager */
+static int hdmi_msm_request_hdcp_topology(void *output)
+{
+	int ret = 0;
+	struct HDCP_V2V1_MSG_TOPOLOGY *tp = output;
+
+	if (hdmi_msm_state->full_auth_done == TRUE) {
+		if (mutex_lock_interruptible(&hdmi_msm_state_mutex)) {
+			ret = -ERESTARTSYS;
+			goto signal_interrupt;
+		}
+
+		*tp = hdmi_msm_state->cached_tp;
+		ret = sizeof(struct HDCP_V2V1_MSG_TOPOLOGY);
+
+		mutex_unlock(&hdmi_msm_state_mutex);
+	} else
+		ret = -EFAULT;
+
+signal_interrupt:
+	return ret;
+}
+
+static struct hdmi_msm_apis hdmi_msm_ops = {
+	.request_topology_op = &hdmi_msm_request_hdcp_topology,
+};
 
 static void hdmi_msm_video_setup(int video_format)
 {
@@ -4880,10 +5002,12 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 		if (hdmi_msm_state->hdcp_enable) {
 			/* Kick off HDCP Authentication */
 			mutex_lock(&hdcp_auth_state_mutex);
+			hdmi_msm_state->auth_retries = 0;
 			hdmi_msm_state->reauth = FALSE;
 			hdmi_msm_state->full_auth_done = FALSE;
 			mutex_unlock(&hdcp_auth_state_mutex);
-			mod_timer(&hdmi_msm_state->hdcp_timer, jiffies + HZ/2);
+			mod_timer(&hdmi_msm_state->hdcp_timer,
+					jiffies + HZ/2);
 		}
 	} else {
 		mutex_unlock(&external_common_state_hpd_mutex);
@@ -5206,6 +5330,9 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->cec_logical_addr = HDMI_CEC_DEFAULT_LOGICAL_ADDR;
 	hdmi_msm_cec_write_logical_addr(hdmi_msm_state->cec_logical_addr);
 
+	/* exchange entry points with hdcp_tx_v1 module */
+	hdcp_tx_init(&hdmi_msm_ops, &hdmi_msm_state->hdcp_tx_ops);
+
 	return 0;
 
 error:
@@ -5255,6 +5382,8 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	hdmi_msm_state->hdmi_io = NULL;
 
 	external_common_state_remove();
+
+	hdcp_tx_deinit();
 
 	if (hdmi_msm_state->hdmi_app_clk)
 		clk_put(hdmi_msm_state->hdmi_app_clk);
