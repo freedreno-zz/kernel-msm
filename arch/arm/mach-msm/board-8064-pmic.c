@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,8 +199,16 @@ static struct pm8xxx_gpio_init pm8921_sglte2_gpios[] __initdata = {
 void __init apq8064_configure_gpios(struct pm8xxx_gpio_init *data, int len)
 {
 	int i, rc;
+	struct pm8xxx_gpio_init apq8064_dma =
+				PM8921_GPIO_OUTPUT_VIN(44, 1, PM_GPIO_VIN_S4);
 
 	for (i = 0; i < len; i++) {
+		if ((data[i].gpio == apq8064_dma.gpio) &&
+					machine_is_apq8064_dma()) {
+			rc = pm8xxx_gpio_config(apq8064_dma.gpio ,
+						&apq8064_dma.config);
+			continue;
+		}
 		rc = pm8xxx_gpio_config(data[i].gpio, &data[i].config);
 		if (rc)
 			pr_err("%s: pm8xxx_gpio_config(%u) failed: rc=%d\n",
@@ -237,11 +245,13 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 	}
 
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd()
-	    || machine_is_mpq8064_dtv() || machine_is_mpq8064_dma())
+		|| machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()
+			|| machine_is_apq8064_dma())
 		apq8064_configure_gpios(pm8921_mpq_gpios,
 					ARRAY_SIZE(pm8921_mpq_gpios));
 
-	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dma())
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dma()
+		|| machine_is_apq8064_dma())
 		apq8064_configure_gpios(pm8921_mpq8064_hrd_gpios,
 					ARRAY_SIZE(pm8921_mpq8064_hrd_gpios));
 
@@ -528,6 +538,7 @@ void __init apq8064_init_pmic(void)
 	if (!machine_is_apq8064_mtp() && !machine_is_apq8064_liquid())
 		apq8064_pm8921_chg_pdata.battery_less_hardware = 1;
 
-	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dma())
-		apq8064_pm8921_chg_pdata.disable_chg_rmvl_wrkarnd = 1;
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dma()
+		|| machine_is_apq8064_dma())
+			apq8064_pm8921_chg_pdata.disable_chg_rmvl_wrkarnd = 1;
 }
