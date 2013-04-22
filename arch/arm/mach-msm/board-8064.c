@@ -2714,6 +2714,7 @@ static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
 static struct platform_device *mpq_devices[] __initdata = {
+	&mpq8064_device_uart_gsbi5,
 	&msm_device_sps_apq8064,
 	&mpq8064_device_qup_i2c_gsbi5,
 #ifdef CONFIG_MSM_ROTATOR
