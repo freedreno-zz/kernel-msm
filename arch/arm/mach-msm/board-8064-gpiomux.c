@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1599,6 +1599,25 @@ static struct msm_gpiomux_config mpq8064_uartdm_configs[] __initdata = {
 		},
 	},
 };
+static struct gpiomux_setting gsbi4_uart_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+static struct msm_gpiomux_config apq8064_gsbi4_uart_configs[] __initdata = {
+	{
+		.gpio      = 10,        /* GSBI4 UART TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4_uart_cfg,
+		},
+	},
+	{
+		.gpio      = 11,        /* GSBI4 UART RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi4_uart_cfg,
+		},
+	},
+};
 
 static struct msm_gpiomux_config mpq8064_gsbi5_uart_configs[] __initdata = {
 	{
@@ -1667,6 +1686,9 @@ void __init apq8064_init_gpiomux(void)
 		msm_gpiomux_install(apq8064_gsbi_configs,
 				ARRAY_SIZE(apq8064_gsbi_configs));
 	}
+	if (machine_is_apq8064_dma())
+		msm_gpiomux_install(apq8064_gsbi4_uart_configs,
+			ARRAY_SIZE(apq8064_gsbi4_uart_configs));
 
 	msm_gpiomux_install(apq8064_slimbus_config,
 			ARRAY_SIZE(apq8064_slimbus_config));
