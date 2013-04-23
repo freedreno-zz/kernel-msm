@@ -149,6 +149,7 @@ void hdmi_msm_phy_status_poll(void);
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 void hdmi_msm_cec_init(void);
 void hdmi_msm_cec_write_logical_addr(int addr);
+int hdmi_msm_cec_read_logical_addr(void);
 void hdmi_msm_cec_msg_recv(void);
 void hdmi_msm_cec_one_touch_play(void);
 void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg);

@@ -592,7 +592,6 @@ static ssize_t hdmi_msm_wta_cec(struct device *dev,
 			hdmi_msm_state->cec_wakeup_enabled = true;
 		else
 			hdmi_msm_state->cec_wakeup_enabled = false;
-		hdmi_msm_state->cec_logical_addr = 4;
 
 		/* flush CEC queue */
 		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
@@ -628,7 +627,7 @@ static ssize_t hdmi_msm_rda_cec_logical_addr(struct device *dev,
 
 	mutex_lock(&hdmi_msm_state_mutex);
 	ret = snprintf(buf, PAGE_SIZE, "%d\n",
-		hdmi_msm_state->cec_logical_addr);
+		hdmi_msm_cec_read_logical_addr());
 	mutex_unlock(&hdmi_msm_state_mutex);
 	return ret;
 }
@@ -637,13 +636,6 @@ static ssize_t hdmi_msm_wta_cec_logical_addr(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 
-#ifdef DRVR_ONLY_CECT_NO_DAEMON
-	/*
-	 * Only for testing
-	 */
-	hdmi_msm_cec_one_touch_play();
-	return 0;
-#else
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	int logical_addr = atoi(buf);
 
@@ -654,10 +646,10 @@ static ssize_t hdmi_msm_wta_cec_logical_addr(struct device *dev,
 	hdmi_msm_state->cec_logical_addr = logical_addr;
 	mutex_unlock(&hdmi_msm_state_mutex);
 
-	hdmi_msm_cec_write_logical_addr(logical_addr);
+	if (hdmi_msm_state->cec_enabled)
+		hdmi_msm_cec_write_logical_addr(logical_addr);
 
 	return ret;
-#endif
 }
 
 static ssize_t hdmi_msm_rda_cec_frame(struct device *dev,
