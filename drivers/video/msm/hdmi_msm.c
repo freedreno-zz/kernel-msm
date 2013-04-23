@@ -166,7 +166,8 @@ static boolean msg_recv_complete = TRUE;
 #define HDMI_CEC_WR_CHECK_CONFIG 0x370
 
 #define HDMI_VERSION_2_0 0x02000000
-#define HDMI_CEC_DEFAULT_LOGICAL_ADDR 15
+#define HDMI_CEC_LOGICAL_ADDR_BROADCAST 15
+#define HDMI_CEC_DEFAULT_LOGICAL_ADDR HDMI_CEC_LOGICAL_ADDR_BROADCAST
 
 /* Supported CEC key code mapping table. Each element number indicates the key
  * code defined in CEC and its associated element value is the mapped key code
@@ -385,10 +386,38 @@ void hdmi_msm_cec_init(void)
 
 void hdmi_msm_cec_write_logical_addr(int addr)
 {
-	/* 0x02A0 CEC_ADDR
-	 *   LOGICAL_ADDR       7:0  NUM
-	 */
-	HDMI_OUTP(0x02A0, addr & 0xFF);
+	/* For the logical addr for broadcast,
+	 * don't need to send polling msg because there
+	 * can be multiple devices with the logical address */
+	if (addr == HDMI_CEC_LOGICAL_ADDR_BROADCAST) {
+		/* 0x02A0 CEC_ADDR
+		 *   LOGICAL_ADDR       7:0  NUM */
+		HDMI_OUTP(0x02A0, addr & 0xFF);
+	}
+	else if (addr != (HDMI_INP(0x02A0) & 0xff)) {
+		struct hdmi_msm_cec_msg msg;
+
+		msg.sender_id = addr;
+		msg.recvr_id = addr;
+		msg.frame_size = 1;
+		msg.retransmit = 0;
+
+		/* Try to send polling message with addr and set hardware only
+		 * if there's no ACK as ACK means addr has already been taken by
+		 * a device */
+		hdmi_msm_cec_msg_send(&msg);
+		if (hdmi_msm_state->cec_frame_wr_status &
+			(CEC_STATUS_WR_ERROR | CEC_STATUS_WR_TMOUT)) {
+			DEV_DBG("Logical address %d selected", addr);
+
+			/* 0x02A0 CEC_ADDR
+			 *   LOGICAL_ADDR       7:0  NUM */
+			HDMI_OUTP(0x02A0, addr & 0xFF);
+		}
+		else {
+			DEV_ERR("Error: Logical addr %d already taken", addr);
+		}
+	}
 }
 
 int hdmi_msm_cec_read_logical_addr(void)
