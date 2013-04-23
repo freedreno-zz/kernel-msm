@@ -464,9 +464,6 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	if (pdev_list_cnt >= MSM_FB_MAX_DEV_LIST)
 		return -ENOMEM;
 
-	if (!mfd->cont_splash_done)
-		cont_splash_clk_ctrl(1);
-
 	mdp_dev = platform_device_alloc("mdp", pdev->id);
 	if (!mdp_dev)
 		return -ENOMEM;
@@ -604,6 +601,9 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		goto mipi_dsi_probe_err;
 
 	pdev_list[pdev_list_cnt++] = pdev;
+
+	if (!mfd->cont_splash_done)
+		cont_splash_clk_ctrl(1);
 
 return 0;
 
