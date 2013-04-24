@@ -55,10 +55,6 @@ static void __mdp_outp(uint32 port, uint32 value)
 static int first_pixel_start_x;
 static int first_pixel_start_y;
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
-static u32 is_overlay_dtv_on;
-#endif
-
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe)
 {
 #ifdef BYPASS4
@@ -188,7 +184,6 @@ void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
 }
 
-#ifndef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
 static void mdp4_dtv_pipe_clean(struct vsync_update *vp)
 {
 	struct mdp4_overlay_pipe *pipe;
@@ -203,7 +198,6 @@ static void mdp4_dtv_pipe_clean(struct vsync_update *vp)
 	}
 	vp->update_cnt = 0;     /* empty queue */
 }
-#endif
 
 static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe);
 static void mdp4_dtv_wait4dmae(int cndx);
@@ -606,64 +600,7 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 
 	return 0;
 }
-#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
-int mdp4_dtv_on(struct platform_device *pdev)
-{
-	struct msm_fb_data_type *mfd;
-	int ret = 0;
-	int cndx = 0;
-	struct vsycn_ctrl *vctrl;
 
-	vctrl = &vsync_ctrl_db[cndx];
-
-	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
-
-	if (!mfd)
-		return -ENODEV;
-
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
-
-	if (is_overlay_dtv_on) {
-		MDP_OUTP(MDP_BASE + DTV_BASE, 1); /* turn on timing generator */
-		return 0;
-	}
-
-	mutex_lock(&mfd->dma->ov_mutex);
-
-	vctrl->dev = mfd->fbi->dev;
-	vctrl->vsync_irq_enabled = 0;
-
-	mdp_footswitch_ctrl(TRUE);
-	/* Mdp clock enable */
-	mdp_clk_ctrl(1);
-
-	mdp4_overlay_panel_mode(MDP4_MIXER1, MDP4_PANEL_DTV);
-
-	/* Allocate dtv_pipe at dtv_on*/
-	if (vctrl->base_pipe == NULL) {
-		if (mdp4_overlay_dtv_set(mfd, NULL)) {
-			pr_warn("%s: dtv_pipe is NULL, dtv_set failed\n",
-				__func__);
-			mutex_unlock(&mfd->dma->ov_mutex);
-			return -EINVAL;
-		}
-	}
-
-	ret = panel_next_on(pdev);
-	if (ret != 0)
-		pr_warn("%s: panel_next_on failed", __func__);
-
-	atomic_set(&vctrl->suspend, 0);
-	is_overlay_dtv_on = true;
-
-	mutex_unlock(&mfd->dma->ov_mutex);
-
-	pr_info("%s:\n", __func__);
-
-	return ret;
-}
-#else
 int mdp4_dtv_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -714,7 +651,6 @@ int mdp4_dtv_on(struct platform_device *pdev)
 
 	return ret;
 }
-#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 
 /* timing generator off */
 static void mdp4_dtv_tg_off(struct vsycn_ctrl *vctrl)
@@ -730,13 +666,6 @@ static void mdp4_dtv_tg_off(struct vsycn_ctrl *vctrl)
 	mdp4_dtv_wait4vsync(0);
 }
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
-int mdp4_dtv_off(struct platform_device *pdev)
-{
-	MDP_OUTP(MDP_BASE + DTV_BASE, 0); /* turn off timing generator */
-	return 0;
-}
-#else
 int mdp4_dtv_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -804,7 +733,6 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	pr_info("%s:\n", __func__);
 	return ret;
 }
-#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 
 static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe)
 {

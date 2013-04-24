@@ -845,15 +845,6 @@ config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	  Support for HDMI CEC Feature
 	  Choose to enable CEC
 
-config FB_MSM_HDMI_MSM_CEC_WAKEUP
-	depends on FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
-	bool "Enable CEC Wake Up"
-	---help---
-	  Support for HDMI CEC Wake Up Feature
-	  CEC is enabled during suspend
-	  Wake up system by CEC command
-	  Choose to enable CEC wake up
-
 config FB_MSM_HDMI_MHL_9244
 	depends on FB_MSM_HDMI_MSM_PANEL
 	bool 'SI_MHL 9244 support'
