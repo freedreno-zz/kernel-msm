@@ -28,6 +28,8 @@
 #define TIMEOUT_MS 1000
 #define AUDIO_RX 0x0
 #define AUDIO_TX 0x1
+#define COMPRESSED_AUDIO_RX 0x2
+#define COMPRESSED_AUDIO_TX 0x3
 
 #define ASM_MAX_SESSION 0x8 /* To do: define in a header */
 #define RESET_COPP_ID 99
@@ -504,6 +506,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			case ADM_CMD_DISCONNECT_AFE_PORT:
 			case ADM_CMD_CONNECT_AFE_PORT_V2:
 			case ADM_CMD_MULTI_CHANNEL_COPP_OPEN_V3:
+			case ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS:
+			case ADM_CMD_MATRIX_MUTE:
 				atomic_set(&this_adm.copp_stat[index], 1);
 				wake_up(&this_adm.wait);
 				break;
@@ -895,6 +899,113 @@ int adm_disconnect_afe_port(int mode, int session_id, int port_id)
 
 fail_cmd:
 
+	return ret;
+}
+
+int adm_send_compressed_device_mute(int port_id, bool mute_on)
+{
+	struct adm_set_compressed_device_mute mute_params;
+	int index, ret = 0;
+
+	pr_debug("%s port_id: %d, mute_on: %d\n", __func__, port_id, mute_on);
+	index = afe_get_port_index(port_id);
+	if (IS_ERR_VALUE(index)) {
+		pr_err("%s: invald port id\n", __func__);
+		return index;
+	}
+	mute_params.command.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mute_params.command.hdr.pkt_size =
+			sizeof(struct adm_set_compressed_device_mute);
+	mute_params.command.hdr.src_svc = APR_SVC_ADM;
+	mute_params.command.hdr.src_domain = APR_DOMAIN_APPS;
+	mute_params.command.hdr.src_port = port_id;
+	mute_params.command.hdr.dest_svc = APR_SVC_ADM;
+	mute_params.command.hdr.dest_domain = APR_DOMAIN_ADSP;
+	mute_params.command.hdr.dest_port =
+					atomic_read(&this_adm.copp_id[index]);
+	mute_params.command.hdr.token = port_id;
+	mute_params.command.hdr.opcode = ADM_CMD_SET_PARAMS;
+	mute_params.command.payload = (u32)NULL;
+	mute_params.command.payload_size =
+					sizeof(struct asm_pp_param_data_hdr) +
+					sizeof(int);
+	mute_params.params.module_id = AUDPROC_MODULE_ID_COMPRESSED_MUTE;
+	mute_params.params.param_id = AUDPROC_PARAM_ID_COMPRESSED_MUTE;
+	mute_params.params.param_size = sizeof(int);
+	mute_params.params.reserved = 0;
+	mute_params.mute_on = mute_on;
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&mute_params);
+	if (ret < 0) {
+		pr_err("%s: send device mute for port %d failed\n", __func__,
+			port_id);
+		return -EINVAL;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait, 1,
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: send device mute for port %d failed\n", __func__,
+			port_id);
+		return -EINVAL;
+	}
+	return ret;
+}
+
+int adm_send_device_mute(int port_id, int session_id, bool mute_on)
+{
+	struct adm_set_device_mute mute_params;
+	int index, ret = 0, copp_id;
+
+	index = afe_get_port_index(port_id);
+	if (IS_ERR_VALUE(index)) {
+		pr_err("%s: invald port id\n", __func__);
+		return index;
+	}
+	copp_id = atomic_read(&this_adm.copp_id[index]);
+	pr_debug("%s copp_id: %d, session_id: %d, mute_on: %d\n", __func__,
+		 copp_id, session_id, mute_on);
+	mute_params.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mute_params.hdr.pkt_size = sizeof(struct adm_set_device_mute);
+	mute_params.hdr.src_svc = APR_SVC_ADM;
+	mute_params.hdr.src_domain = APR_DOMAIN_APPS;
+	mute_params.hdr.src_port = port_id;
+	mute_params.hdr.dest_svc = APR_SVC_ADM;
+	mute_params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	mute_params.hdr.dest_port = copp_id;
+	mute_params.hdr.token = port_id;
+	mute_params.hdr.opcode = ADM_CMD_MATRIX_MUTE;
+
+	mute_params.matrix_id = AUDIO_RX;
+	mute_params.session_id = session_id;
+	mute_params.copp_id = copp_id;
+	mute_params.ch1_mute = mute_on;
+	mute_params.ch2_mute = mute_on;
+	mute_params.ch3_mute = mute_on;
+	mute_params.ch4_mute = mute_on;
+	mute_params.ch5_mute = mute_on;
+	mute_params.ch6_mute = mute_on;
+	mute_params.ch7_mute = mute_on;
+	mute_params.ch8_mute = mute_on;
+	mute_params.ramp_duration = 0;
+	mute_params.reserved = 0;
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&mute_params);
+	if (ret < 0) {
+		pr_err("%s: send device mute for port %d failed\n", __func__,
+			port_id);
+		return -EINVAL;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait, 1,
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: send device mute for port %d failed\n", __func__,
+			port_id);
+		return -EINVAL;
+	}
 	return ret;
 }
 
@@ -1444,6 +1555,157 @@ fail_cmd:
 	return ret;
 }
 
+int adm_multi_ch_copp_open_v3(int port_id, int path, int rate, int channel_mode,
+				int topology, int perfmode, uint16_t bit_width)
+{
+	struct adm_multi_ch_copp_open_command_v2 open;
+	int ret = 0;
+	int index;
+
+	pr_debug("%s: port %d path:%d rate:%d channel :%d\n", __func__,
+				port_id, path, rate, channel_mode);
+
+	port_id = afe_convert_virtual_to_portid(port_id);
+
+	if (afe_validate_port(port_id) < 0) {
+		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
+		return -ENODEV;
+	}
+
+	index = afe_get_port_index(port_id);
+	pr_debug("%s: Port ID %d, index %d\n", __func__, port_id, index);
+
+	if (this_adm.apr == NULL) {
+		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
+						0xFFFFFFFF, &this_adm);
+		if (this_adm.apr == NULL) {
+			pr_err("%s: Unable to register ADM\n", __func__);
+			ret = -ENODEV;
+			return ret;
+		}
+		rtac_set_adm_handle(this_adm.apr);
+	}
+
+	/* Create a COPP if port id are not enabled */
+	if (atomic_read(&this_adm.copp_cnt[index]) == 0) {
+
+		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+
+		open.hdr.pkt_size =
+			sizeof(struct adm_multi_ch_copp_open_command_v2);
+
+		open.hdr.opcode = ADM_CMD_MULTI_CHANNEL_COPP_OPEN_V3;
+		open.hdr.src_svc = APR_SVC_ADM;
+		open.hdr.src_domain = APR_DOMAIN_APPS;
+		open.hdr.src_port = port_id;
+		open.hdr.dest_svc = APR_SVC_ADM;
+		open.hdr.dest_domain = APR_DOMAIN_ADSP;
+		open.hdr.dest_port = port_id;
+		open.hdr.token = port_id;
+		open.mode = path;
+		open.endpoint_id1 = port_id;
+
+		if (this_adm.ec_ref_rx == 0) {
+			open.endpoint_id2 = 0xFFFF;
+		} else if (this_adm.ec_ref_rx && (path != 1)) {
+				open.endpoint_id2 = this_adm.ec_ref_rx;
+				this_adm.ec_ref_rx = 0;
+		}
+		open.topology_id = get_adm_tx_topology();
+		open.channel_config = channel_mode & 0x00FF;
+		open.bit_width = bit_width;
+		open.rate  = rate;
+
+		memset(open.dev_channel_mapping, 0, 8);
+		if (path == ADM_PATH_COMPRESSED_RX) {
+			open.flags = 0;
+			open.topology_id =
+				COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY;
+			open.bit_width = 16;
+		} else if (path == ADM_PATH_PLAYBACK) {
+			open.flags = ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT;
+			if (channel_mode == 1)	{
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
+			} else if (channel_mode == 2) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			} else if (channel_mode == 4) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
+				open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+			} else if (channel_mode == 6) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+				open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+				open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			} else if (channel_mode == 8) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+				open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+				open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+				open.dev_channel_mapping[6] = PCM_CHANNEL_FLC;
+				open.dev_channel_mapping[7] = PCM_CHANNEL_FRC;
+			} else {
+				pr_err("%s invalid num_chan %d\n", __func__,
+						channel_mode);
+				return -EINVAL;
+			}
+		} else {
+			open.flags = ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT;
+			if ((open.topology_id ==
+				VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
+			    (open.topology_id ==
+				VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
+				rate = 16000;
+		}
+
+
+		pr_debug("%s open.endpoint_id1:%d open.endpoint_id2:%d",
+			__func__, open.endpoint_id1, open.endpoint_id2);
+
+		if (open.topology_id  == 0)
+			open.topology_id = topology;
+
+		pr_debug("%s: channel_config=%d port_id=%d\n",
+			__func__, open.channel_config,
+			open.endpoint_id1);
+		pr_debug("%s: rate=%d topology_id=0x%X\n",
+			__func__, open.rate, open.topology_id);
+
+		atomic_set(&this_adm.copp_stat[index], 0);
+
+		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&open);
+		if (ret < 0) {
+			pr_err("%s:ADM enable for port %d failed\n",
+						__func__, port_id);
+			ret = -EINVAL;
+			goto fail_cmd;
+		}
+		/* Wait for the callback with copp id */
+		ret = wait_event_timeout(this_adm.wait,
+			atomic_read(&this_adm.copp_stat[index]),
+			msecs_to_jiffies(TIMEOUT_MS));
+		if (!ret) {
+			pr_err("%s ADM open failed for port %d\n", __func__,
+								port_id);
+			ret = -EINVAL;
+			goto fail_cmd;
+		}
+	}
+	atomic_inc(&this_adm.copp_cnt[index]);
+	return 0;
+
+fail_cmd:
+
+	return ret;
+}
+
 int adm_matrix_map(int session_id, int path, int num_copps,
 			unsigned int *port_id, int copp_id)
 {
@@ -1453,6 +1715,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	int index = afe_get_port_index(copp_id);
 	int copp_cnt;
 
+	pr_debug("%s\n", __func__);
 	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, copp_id);
@@ -1472,7 +1735,10 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	route.hdr.dest_domain = APR_DOMAIN_ADSP;
 	route.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	route.hdr.token = copp_id;
-	route.hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS;
+	if (path == ADM_PATH_COMPRESSED_RX)
+		route.hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS;
+	else
+		route.hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS;
 	route.num_sessions = 1;
 	route.session[0].id = session_id;
 
@@ -1515,12 +1781,15 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		route.session[0].copp_id[i] = 0;
 
 	switch (path) {
-	case 0x1:
+	case ADM_PATH_PLAYBACK:
 		route.path = AUDIO_RX;
 		break;
-	case 0x2:
-	case 0x3:
+	case ADM_PATH_LIVE_REC:
+	case ADM_PATH_NONLIVE_REC:
 		route.path = AUDIO_TX;
+		break;
+	case ADM_PATH_COMPRESSED_RX:
+		route.path = COMPRESSED_AUDIO_RX;
 		break;
 	default:
 		pr_err("%s: Wrong path set[%d]\n", __func__, path);
@@ -1544,6 +1813,9 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+
+	if (path == ADM_PATH_COMPRESSED_RX)
+		return 0;
 
 	for (i = 0; i < num_copps; i++)
 		send_adm_cal(port_id[i], path);

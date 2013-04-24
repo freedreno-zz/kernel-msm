@@ -531,6 +531,7 @@ struct adm_get_copp_handles_command {
 	struct apr_hdr hdr;
 } __attribute__ ((packed));
 
+#define ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS               0x0001033F
 #define ADM_CMD_MATRIX_MAP_ROUTINGS                      0x00010301
 struct adm_routings_session {
 	u16 id;
@@ -667,6 +668,8 @@ struct adm_cmd_memory_unmap_regions{
 
 #define LOWLATENCY_POPP_TOPOLOGY			0x00010C68
 #define LOWLATENCY_COPP_TOPOLOGY			0x00010312
+#define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY		0x0001076B
+#define COMPRESSED_PASSTHROUGH_NULL_TOPOLOGY		0x00010774
 #define PCM_BITS_PER_SAMPLE				16
 
 #define ASM_OPEN_WRITE_PERF_MODE_BIT			(1<<28)
@@ -766,6 +769,31 @@ struct adm_tap_copp_pcm_command {
 	struct apr_hdr hdr;
 } __attribute__ ((packed));
 
+#define ADM_CMD_MATRIX_MUTE                              0x00010318
+struct adm_set_device_mute {
+	struct	apr_hdr hdr;
+	u32	matrix_id;
+	u16	session_id;
+	u16	copp_id;
+	u8	ch1_mute;
+	u8	ch2_mute;
+	u8	ch3_mute;
+	u8	ch4_mute;
+	u8	ch5_mute;
+	u8	ch6_mute;
+	u8	ch7_mute;
+	u8	ch8_mute;
+	u16	ramp_duration;
+	u16	reserved;
+} __packed;
+
+#define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770
+#define AUDPROC_PARAM_ID_COMPRESSED_MUTE                 0x00010771
+struct adm_set_compressed_device_mute {
+	struct	adm_set_params_command command;
+	struct	asm_pp_param_data_hdr params;
+	u32	mute_on;
+} __packed;
 
 /* QDSP6 to Client messages
 */

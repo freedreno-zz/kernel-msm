@@ -391,7 +391,6 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
-	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	struct asm_aac_cfg aac_cfg;
 	struct asm_wma_cfg wma_cfg;
@@ -448,10 +447,6 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		pr_debug("compressd playback, no need to send decoder params");
 		pr_debug("decoder id: %d\n",
 			compr->info.codec_param.codec.id);
-		msm_pcm_routing_reg_psthr_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					1);
 		break;
 	case SND_AUDIOCODEC_WMA:
 		pr_debug("SND_AUDIOCODEC_WMA\n");
@@ -925,6 +920,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 		compr->codec = FORMAT_MP3;
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
+	prtd->audio_client->compr_passthr = false;
 	atomic_set(&prtd->eos, 0);
 
 	prtd->volume = 0x2000; /* unity gain */
@@ -1025,20 +1021,8 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 		q6asm_cmd(prtd->enc_audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
-	switch (compr->info.codec_param.codec.id) {
-	case SND_AUDIOCODEC_AC3_PASS_THROUGH:
-	case SND_AUDIOCODEC_DTS_PASS_THROUGH:
-	case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
-	case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
-		msm_pcm_routing_reg_psthr_stream(
-			soc_prtd->dai_link->be_id,
-			prtd->session_id, substream->stream,
-			0);
-	default:
-		msm_pcm_routing_dereg_phy_stream(
-			soc_prtd->dai_link->be_id,
-			SNDRV_PCM_STREAM_PLAYBACK);
-	}
+	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+					SNDRV_PCM_STREAM_PLAYBACK);
 	if (compr->info.codec_param.codec.transcode_dts) {
 		msm_pcm_routing_dereg_pseudo_stream(MSM_FRONTEND_DAI_PSEUDO,
 			prtd->enc_audio_client->session);
@@ -1190,6 +1174,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
 		case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
+			prtd->audio_client->compr_passthr = true;
 			ret = q6asm_open_write_compressed(prtd->audio_client,
 					compr->codec);
 
@@ -1198,6 +1183,13 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 					__func__);
 				return -ENOMEM;
 			}
+			msm_pcm_routing_reg_phy_compr_stream(
+				soc_prtd->dai_link->be_id,
+				prtd->audio_client->perf_mode,
+				prtd->session_id,
+				substream->stream,
+				prtd->audio_client->compr_passthr);
+
 			break;
 		default:
 			ret = q6asm_open_write_v2(prtd->audio_client,
@@ -1614,15 +1606,15 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		}
 		if (param.session_type == PASSTHROUGH_SESSION) {
 			if (param.operation == DISCONNECT_STREAM)
-				msm_pcm_routing_reg_psthr_stream(
+				msm_pcm_routing_dereg_phy_stream(
 					soc_prtd->dai_link->be_id,
-					prtd->session_id, substream->stream,
-					0);
+					SNDRV_PCM_STREAM_PLAYBACK);
 			else if (param.operation == CONNECT_STREAM)
-				msm_pcm_routing_reg_psthr_stream(
+				msm_pcm_routing_reg_phy_compr_stream(
 					soc_prtd->dai_link->be_id,
+					prtd->audio_client->perf_mode,
 					prtd->session_id, substream->stream,
-					1);
+					prtd->audio_client->compr_passthr);
 		}
 		return 0;
 
