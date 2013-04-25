@@ -3571,6 +3571,8 @@ static void __init apq8064_common_init(void)
 	regulator_suppress_info_printing();
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		configure_apq8064_pm8917_power_grid();
+	if (machine_is_apq8064_dma())
+		configure_apq8064_dma_power_grid();
 	platform_device_register(&apq8064_device_rpm_regulator);
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
 		platform_device_register(&apq8064_pm8921_device_rpm_regulator);
@@ -3739,8 +3741,9 @@ static void __init apq8064_cdp_init(void)
 	apq8064_init_cam();
 #endif
 
-	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
-		platform_device_register(&mpq8064_device_uartdm_gsbi6);
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv() ||
+		machine_is_apq8064_dma()) {
+			platform_device_register(&mpq8064_device_uartdm_gsbi6);
 #ifdef CONFIG_SERIAL_MSM_HS
 		/* GSBI6(2) - UARTDM_RX */
 		mpq8064_gsbi6_uartdm_pdata.wakeup_irq = gpio_to_irq(15);
