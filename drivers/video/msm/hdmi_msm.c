@@ -4595,15 +4595,17 @@ static void hdmi_msm_hpd_polarity_setup(void)
 	}
 }
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
-static void hdmi_msm_hpd_off(void)
-{
-	return;
-}
-#else
 static void hdmi_msm_hpd_off(void)
 {
 	int rc = 0;
+
+	if (hdmi_msm_state->cec_wakeup_enabled) {
+		rc = enable_irq_wake(hdmi_msm_state->irq);
+		if (rc)
+			DEV_INFO("%s: Failed to enable irq wake. Error=%d\n",
+					__func__, rc);
+		return;
+	}
 
 	if (!hdmi_msm_state->hpd_initialized) {
 		DEV_DBG("%s: HPD is already OFF, returning\n", __func__);
@@ -4626,7 +4628,11 @@ static void hdmi_msm_hpd_off(void)
 				__func__, rc);
 	hdmi_msm_state->hpd_initialized = FALSE;
 }
-#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
+
+u32 hdmi_msm_is_cec_wakeup_enabled(void)
+{
+	return hdmi_msm_state->cec_wakeup_enabled;
+}
 
 static void hdmi_msm_dump_regs(const char *prefix)
 {
@@ -4699,6 +4705,8 @@ static int hdmi_msm_hpd_on(void)
 	}
 
 	DEV_DBG("%s: (IRQ, 5V on)\n", __func__);
+	disable_irq_wake(hdmi_msm_state->irq);
+
 	return 0;
 
 error3:
@@ -4844,12 +4852,6 @@ EXPORT_SYMBOL(mhl_connect_api);
  * event; so for now leave the HDMI engine running; so that the HPD IRQ is
  * still being processed.
  */
-#ifdef CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP
-static int hdmi_msm_power_off(struct platform_device *pdev)
-{
-	return 0;
-}
-#else
 static int hdmi_msm_power_off(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -4907,7 +4909,6 @@ error:
 
 	return ret;
 }
-#endif /* CONFIG_FB_MSM_HDMI_MSM_CEC_WAKEUP */
 
 void hdmi_msm_config_hdcp_feature(void)
 {
