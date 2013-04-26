@@ -3175,6 +3175,7 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 		perf_cur->use_ov_blt[1] = 0;
 
 	if (flag) {
+		u32 perf_req_up = false;
 		if (perf_req->mdp_clk_rate > perf_cur->mdp_clk_rate) {
 			mdp_set_core_clk(perf_req->mdp_clk_rate);
 			pr_info("%s mdp clk is changed [%d] from %d to %d\n",
@@ -3184,6 +3185,7 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 				perf_req->mdp_clk_rate);
 			perf_cur->mdp_clk_rate =
 				perf_req->mdp_clk_rate;
+			perf_req_up = true;
 		}
 		if ((perf_req->mdp_ab_bw > perf_cur->mdp_ab_bw) ||
 		    (perf_req->mdp_ib_bw > perf_cur->mdp_ib_bw)) {
@@ -3204,8 +3206,11 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd,
 				perf_req->mdp_ib_bw);
 			perf_cur->mdp_ab_bw = perf_req->mdp_ab_bw;
 			perf_cur->mdp_ib_bw = perf_req->mdp_ib_bw;
+			perf_req_up = true;
 		}
-
+		/* clk and bus need some time to be stable */
+		if (perf_req_up)
+			usleep(100);
 		if ((mfd->panel_info.pdest == DISPLAY_1 &&
 		     perf_req->use_ov_blt[0] && !perf_cur->use_ov_blt[0])) {
 			if (mfd->panel_info.type == LCDC_PANEL ||
