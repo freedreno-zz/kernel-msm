@@ -1715,6 +1715,10 @@ static int get_prop_batt_charge_now(struct pm8921_chg_chip *chip, int *cc_uah)
 	int rc;
 
 	*cc_uah = 0;
+
+	if (chip->battery_less_hardware)
+		return 0;
+
 	rc = pm8921_bms_cc_uah(cc_uah);
 	if (rc)
 		pr_err("unable to get batt fcc rc = %d\n", rc);
