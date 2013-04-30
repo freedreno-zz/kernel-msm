@@ -701,6 +701,9 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 		msm_slim_0_rx_ch_get, msm_slim_0_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_enum[2],
 		msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
+};
+
+static const struct snd_kcontrol_new common_msm_controls[] = {
 	SOC_ENUM_EXT("HDMI_RX Channels", msm_enum[3],
 		msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
 	SOC_ENUM_EXT("SEC RX Rate", msm_enum[4],
@@ -711,6 +714,11 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 					msm_hdmi_rate_put),
 
 };
+
+static struct snd_kcontrol_new mpq_msm_controls[
+			ARRAY_SIZE(tabla_msm_controls) +
+			ARRAY_SIZE(common_msm_controls)];
+
 
 static void *def_tabla_mbhc_cal(void)
 {
@@ -1424,6 +1432,48 @@ static struct snd_soc_ops msm_mi2s_tx_be_ops = {
 	.shutdown = msm_mi2s_shutdown,
 };
 
+static struct snd_soc_dai_link msm_dai_tabla[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SLIMBUS_0_RX,
+		.stream_name = "Slimbus Playback",
+		.cpu_dai_name = "msm-dai-q6.16384",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla_codec",
+		.codec_dai_name = "tabla_rx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+		.init = &msm_audrx_init,
+		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.ops = &msm_be_ops,
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_0_TX,
+		.stream_name = "Slimbus Capture",
+		.cpu_dai_name = "msm-dai-q6.16385",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tabla_codec",
+		.codec_dai_name = "tabla_tx1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
+		.ops = &msm_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_I2S_RX,
+		.stream_name = "Secondary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.4",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "cs8427-spdif.5-0014",
+		.codec_dai_name = "spdif_rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_hw_params_fixup = msm_be_i2s_hw_params_fixup,
+		.ops = &mpq8064_sec_i2s_rx_be_ops,
+		.ignore_pmdown_time = 1, /* this dainlink has playback support */
+	},
+};
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm_dai[] = {
@@ -1705,45 +1755,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 	},
 	/* Backend DAI Links */
 	{
-		.name = LPASS_BE_SLIMBUS_0_RX,
-		.stream_name = "Slimbus Playback",
-		.cpu_dai_name = "msm-dai-q6.16384",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "tabla_codec",
-		.codec_dai_name	= "tabla_rx1",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
-		.init = &msm_audrx_init,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &msm_be_ops,
-		.ignore_pmdown_time = 1, /* this dainlink has playback support */
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_0_TX,
-		.stream_name = "Slimbus Capture",
-		.cpu_dai_name = "msm-dai-q6.16385",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "tabla_codec",
-		.codec_dai_name	= "tabla_tx1",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &msm_be_ops,
-	},
-	{
-		.name = LPASS_BE_SEC_I2S_RX,
-		.stream_name = "Secondary I2S Playback",
-		.cpu_dai_name = "msm-dai-q6.4",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cs8427-spdif.5-0014",
-		.codec_dai_name = "spdif_rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
-		.be_hw_params_fixup = msm_be_i2s_hw_params_fixup,
-		.ops = &mpq8064_sec_i2s_rx_be_ops,
-		.ignore_pmdown_time = 1, /* this dainlink has playback support */
-	},
-	{
 		.name = LPASS_BE_INT_FM_RX,
 		.stream_name = "Internal FM Playback",
 		.cpu_dai_name = "msm-dai-q6.12292",
@@ -1854,13 +1865,12 @@ static struct snd_soc_dai_link msm_dai[] = {
 	},
 };
 
+static struct snd_soc_dai_link mpq_dai[
+			ARRAY_SIZE(msm_dai) +
+			ARRAY_SIZE(msm_dai_tabla)];
 
 static struct snd_soc_card snd_soc_card_msm = {
 	.name		= "mpq8064-tabla-snd-card",
-	.dai_link	= msm_dai,
-	.num_links	= ARRAY_SIZE(msm_dai),
-	.controls = tabla_msm_controls,
-	.num_controls = ARRAY_SIZE(tabla_msm_controls),
 };
 
 static struct platform_device *msm_snd_device;
@@ -1936,6 +1946,33 @@ static int __init msm_audio_init(void)
 		return -ENOMEM;
 	}
 
+	if (machine_is_mpq8064_dma()) {
+		snd_soc_card_msm.dai_link = msm_dai;
+		snd_soc_card_msm.num_links = ARRAY_SIZE(msm_dai);
+		snd_soc_card_msm.controls = common_msm_controls;
+		snd_soc_card_msm.num_controls =
+			ARRAY_SIZE(common_msm_controls);
+	} else {
+		memcpy(mpq_dai, msm_dai, sizeof(msm_dai));
+		memcpy(mpq_dai + ARRAY_SIZE(msm_dai),
+			msm_dai_tabla, sizeof(msm_dai_tabla));
+		memcpy(mpq_msm_controls, tabla_msm_controls,
+			sizeof(tabla_msm_controls));
+		memcpy(mpq_msm_controls + ARRAY_SIZE(tabla_msm_controls),
+			common_msm_controls, sizeof(common_msm_controls));
+
+		snd_soc_card_msm.dai_link = mpq_dai;
+		snd_soc_card_msm.num_links = ARRAY_SIZE(mpq_dai);
+		snd_soc_card_msm.controls = mpq_msm_controls;
+		snd_soc_card_msm.num_controls =
+			ARRAY_SIZE(mpq_msm_controls);
+		if (msm_configure_headset_mic_gpios()) {
+			pr_err("Fail to configure headset mic gpios\n");
+			msm_headset_gpios_configured = 0;
+		} else
+			msm_headset_gpios_configured = 1;
+	}
+
 	msm_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!msm_snd_device) {
 		pr_err("Platform device allocation failed\n");
@@ -1950,12 +1987,6 @@ static int __init msm_audio_init(void)
 		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
-
-	if (msm_configure_headset_mic_gpios()) {
-		pr_err("%s Fail to configure headset mic gpios\n", __func__);
-		msm_headset_gpios_configured = 0;
-	} else
-		msm_headset_gpios_configured = 1;
 
 	configure_sec_i2s_rx_gpio();
 	configure_mi2s_gpio();
