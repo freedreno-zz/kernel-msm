@@ -3629,10 +3629,12 @@ static void __init apq8064_common_init(void)
 
 	msm_hsic_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;
-	if (machine_is_apq8064_mtp()) {
+	if (machine_is_apq8064_mtp() || machine_is_apq8064_dma()) {
 		msm_hsic_pdata.log2_irq_thresh = 5,
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		device_initialize(&apq8064_device_hsic_host.dev);
+		if (machine_is_apq8064_dma())
+			platform_device_register(&apq8064_device_hsic_host);
 		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_DSDA2) {
 			apq8064_device_ehci_host3.dev.platform_data =
 				&msm_ehci_host_pdata3;
