@@ -256,7 +256,13 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 					ARRAY_SIZE(pm8921_mpq8064_hrd_gpios));
 
 	for (i = 0; i < ARRAY_SIZE(pm8xxx_mpps); i++) {
-		rc = pm8xxx_mpp_config(pm8xxx_mpps[i].mpp,
+		struct pm8xxx_mpp_init apq_dma = PM8921_MPP_INIT
+			(8, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_HIGH);
+		if (pm8xxx_mpps[i].mpp == apq_dma.mpp &&
+				machine_is_apq8064_dma())
+			rc = pm8xxx_mpp_config(apq_dma.mpp, &apq_dma.config);
+		else
+			rc = pm8xxx_mpp_config(pm8xxx_mpps[i].mpp,
 					&pm8xxx_mpps[i].config);
 		if (rc) {
 			pr_err("%s: pm8xxx_mpp_config: rc=%d\n", __func__, rc);
