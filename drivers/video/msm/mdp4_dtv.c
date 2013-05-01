@@ -136,14 +136,16 @@ static int dtv_off_sub(void)
 
 	pr_info("%s\n", __func__);
 
-	if (!hdmi_msm_is_cec_wakeup_enabled())
+	if (!hdmi_msm_is_cec_wakeup_enabled()) {
 		clk_disable_unprepare(hdmi_clk);
+
+		if (dtv_pdata && dtv_pdata->lcdc_power_save)
+			dtv_pdata->lcdc_power_save(0);
+	}
 
 	if (mdp_tv_clk)
 		clk_disable_unprepare(mdp_tv_clk);
 
-	if (dtv_pdata && dtv_pdata->lcdc_power_save)
-		dtv_pdata->lcdc_power_save(0);
 
 	if (dtv_pdata && dtv_pdata->lcdc_gpio_config)
 		ret = dtv_pdata->lcdc_gpio_config(0);
