@@ -33,26 +33,7 @@
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
 
-#define MAX_PCM_SESSIONS	4
-#define INVALID_SESSION		-1
 static struct audio_locks the_locks;
-static struct mutex volume_lock;
-
-struct snd_msm {
-	struct snd_card *card;
-	struct snd_pcm *pcm;
-};
-
-struct snd_msm_volume {
-	int fe_id;
-	struct msm_audio *prtd;
-	unsigned volume;
-};
-static struct snd_msm_volume multi_ch_pcm_audio[MAX_PCM_SESSIONS] = {
-				{INVALID_SESSION, NULL, 0x2000},
-				{INVALID_SESSION, NULL, 0x2000},
-				{INVALID_SESSION, NULL, 0x2000},
-				{INVALID_SESSION, NULL, 0x2000} };
 
 #define PLAYBACK_NUM_PERIODS		8
 #define PLAYBACK_MAX_PERIOD_SIZE	12288
@@ -114,6 +95,21 @@ static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.list = supported_sample_rates,
 	.mask = 0,
 };
+
+static int multi_ch_pcm_set_volume(struct msm_audio *prtd, int volume)
+{
+	int rc = 0;
+	if (prtd) {
+		rc = q6asm_set_volume(prtd->audio_client, volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+		prtd->volume = volume;
+	}
+	return rc;
+}
 
 static void event_handler(uint32_t opcode,
 		uint32_t token, uint32_t *payload, void *priv)
@@ -400,7 +396,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
 	int ret = 0;
-	int index = 0;
 	struct asm_softpause_params softpause = {
 		.enable = SOFT_PAUSE_ENABLE,
 		.period = SOFT_PAUSE_PERIOD,
@@ -495,72 +490,26 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	}
 
 	prtd->dsp_cnt = 0;
+	prtd->volume = 0x2000;
 	prtd->set_channel_map = false;
 	runtime->private_data = prtd;
 	pr_debug("substream->pcm->device = %d\n", substream->pcm->device);
 	pr_debug("soc_prtd->dai_link->be_id = %d\n", soc_prtd->dai_link->be_id);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		mutex_lock(&volume_lock);
-		for (index = 0; index < MAX_PCM_SESSIONS; index++) {
-			if (multi_ch_pcm_audio[index].fe_id == INVALID_SESSION)
-				break;
-		}
-		if (index == MAX_PCM_SESSIONS) {
-			pr_err("Cannot allocate the session, no free sessions");
-			mutex_unlock(&volume_lock);
-			return -EMFILE;
-		}
-		multi_ch_pcm_audio[index].prtd = prtd;
-		multi_ch_pcm_audio[index].fe_id = soc_prtd->dai_link->be_id;
-		mutex_unlock(&volume_lock);
-
-		ret = multi_ch_pcm_set_volume(multi_ch_pcm_audio[index].volume,
-					soc_prtd->dai_link->be_id);
+		ret = multi_ch_pcm_set_volume(prtd, prtd->volume);
 		if (ret < 0)
 			pr_err("%s : Set Volume failed : %d", __func__, ret);
 
-		ret = q6asm_set_softpause(
-				multi_ch_pcm_audio[index].prtd->audio_client,
-				&softpause);
+		ret = q6asm_set_softpause(prtd->audio_client, &softpause);
 		if (ret < 0)
 			pr_err("%s: Send SoftPause Param failed ret=%d\n",
 				__func__, ret);
-		ret = q6asm_set_softvolume(
-				multi_ch_pcm_audio[index].prtd->audio_client,
-				&softvol);
+		ret = q6asm_set_softvolume(prtd->audio_client, &softvol);
 		if (ret < 0)
 			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
 				__func__, ret);
 	}
 	return 0;
-}
-
-int multi_ch_pcm_set_volume(unsigned volume, int fe_id)
-{
-	int rc = 0;
-	int index = 0;
-	if (fe_id == INVALID_SESSION)
-		return -ENODEV;
-	for (index = 0; index < MAX_PCM_SESSIONS; index++) {
-		if (multi_ch_pcm_audio[index].fe_id == fe_id)
-			break;
-	}
-	if (index == MAX_PCM_SESSIONS)
-		return -ENODEV;
-
-	if (multi_ch_pcm_audio[index].prtd &&
-		multi_ch_pcm_audio[index].prtd->audio_client) {
-		pr_err("%s q6asm_set_volume\n", __func__);
-		rc = q6asm_set_volume(
-				multi_ch_pcm_audio[index].prtd->audio_client,
-				volume);
-		if (rc < 0) {
-			pr_err("%s: Send Volume command failed"
-				" rc=%d\n", __func__, rc);
-		}
-	}
-	multi_ch_pcm_audio[index].volume = volume;
-	return rc;
 }
 
 static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
@@ -629,7 +578,6 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 	int dir = 0;
 	int ret = 0;
-	int index = 0;
 
 	pr_debug("%s\n", __func__);
 
@@ -639,24 +587,12 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	prtd->volume = 0x2000;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 	SNDRV_PCM_STREAM_PLAYBACK);
-	mutex_lock(&volume_lock);
-	for (index = 0; index < MAX_PCM_SESSIONS; index++) {
-		if (multi_ch_pcm_audio[index].fe_id ==
-				soc_prtd->dai_link->be_id)
-			break;
-	}
-
-	if (index != MAX_PCM_SESSIONS) {
-		multi_ch_pcm_audio[index].prtd = NULL;
-		multi_ch_pcm_audio[index].fe_id = INVALID_SESSION;
-		multi_ch_pcm_audio[index].volume = 0x2000;
-	}
-	mutex_unlock(&volume_lock);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
@@ -916,48 +852,50 @@ static struct snd_pcm_ops msm_pcm_ops = {
 };
 
 
-static int pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
+static int msm_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int i;
 	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
-	int fe_id = kcontrol->private_value;
-	int index = 0;
+	struct snd_pcm_chmap *chmap = kcontrol->private_data;
+	struct snd_pcm_substream *substream = chmap->pcm->streams[0].substream;
+	struct msm_audio *prtd = substream->runtime->private_data;
 
-	pr_debug("%s fe_id = %d", __func__, fe_id);
-
-	if (fe_id == INVALID_SESSION)
-		return -ENODEV;
-	for (index = 0; index < MAX_PCM_SESSIONS; index++) {
-		if (multi_ch_pcm_audio[index].fe_id == fe_id)
-			break;
-	}
-	if (index == MAX_PCM_SESSIONS)
-		return -ENODEV;
+	pr_debug("%s\n", __func__);
 
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
 		channel_mapping[i] = (char)(ucontrol->value.integer.value[i]);
-	if (multi_ch_pcm_audio[index].prtd) {
-		multi_ch_pcm_audio[index].prtd->set_channel_map = true;
-		memcpy(multi_ch_pcm_audio[index].prtd->channel_map,
-			channel_mapping, PCM_FORMAT_MAX_NUM_CHANNEL);
-	}
 
+	if (prtd) {
+		prtd->set_channel_map = true;
+		memcpy(prtd->channel_map, channel_mapping,
+			PCM_FORMAT_MAX_NUM_CHANNEL);
+	}
 	return 0;
 }
 
-
-static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
+static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_card *card = rtd->card->snd_card;
+	int rc = 0;
+	struct snd_pcm_volume *vol = kcontrol->private_data;
+	struct snd_pcm_substream *substream = vol->pcm->streams[0].substream;
+	struct msm_audio *prtd = substream->runtime->private_data;
+	int volume = ucontrol->value.integer.value[0];
+
+	pr_debug("%s\n", __func__);
+	rc = multi_ch_pcm_set_volume(prtd, volume);
+	return rc;
+}
+
+static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
 	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
 	struct snd_pcm_chmap *chmap_info;
+	struct snd_pcm_volume *volume_info;
 	struct snd_kcontrol *kctl;
 	char device_num[3];
-
 	int i, ret = 0;
-	if (!card->dev->coherent_dma_mask)
-		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	pr_debug("%s, Channel map cntrl add\n", __func__);
 	ret = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
@@ -973,7 +911,35 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
 	pr_debug("%s, Overwriting channel map control name to: %s",
 			 __func__, kctl->id.name);
-	kctl->put = pcm_chmap_ctl_put;
+	kctl->put = msm_pcm_chmap_ctl_put;
+
+	pr_debug("%s, Volume cntrl add\n", __func__);
+	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				NULL, 1,
+				rtd->dai_link->be_id,
+				&volume_info);
+	if (ret < 0)
+		return ret;
+	kctl = volume_info->kctl;
+	snprintf(device_num, sizeof(device_num), "%d", pcm->device);
+	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
+	pr_debug("%s, Overwriting volume control name to: %s",
+			 __func__, kctl->id.name);
+	kctl->put = msm_pcm_volume_ctl_put;
+	return 0;
+}
+
+static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_card *card = rtd->card->snd_card;
+	int ret = 0;
+
+	if (!card->dev->coherent_dma_mask)
+		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ret = msm_pcm_add_controls(rtd);
+	if (ret)
+		pr_err("%s, kctl add failed\n", __func__);
 	return ret;
 }
 
@@ -1011,7 +977,6 @@ static int __init msm_soc_platform_init(void)
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
 	init_waitqueue_head(&the_locks.flush_wait);
-	mutex_init(&volume_lock);
 
 	return platform_driver_register(&msm_pcm_driver);
 }

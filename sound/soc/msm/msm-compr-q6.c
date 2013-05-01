@@ -45,21 +45,8 @@
 					  COMPRE_CAPTURE_HEADER_SIZE) * \
 					  MAX_NUM_FRAMES_PER_BUFFER)
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
-#define MAX_COMPR_SESSIONS		4
-#define INVALID_SESSION			-1
-struct snd_msm {
-	int fe_id;
-	struct msm_audio *prtd;
-	unsigned volume;
-};
-static struct snd_msm compressed_audio[MAX_COMPR_SESSIONS] = {
-					{INVALID_SESSION, NULL, 0x2000},
-					{INVALID_SESSION, NULL, 0x2000},
-					{INVALID_SESSION, NULL, 0x2000},
-					{INVALID_SESSION, NULL, 0x2000} };
 
 static struct audio_locks the_locks;
-static struct mutex volume_lock;
 
 static struct snd_pcm_hardware msm_compr_hardware_capture = {
 	.info =		 (SNDRV_PCM_INFO_MMAP |
@@ -730,14 +717,36 @@ static void populate_codec_list(struct compr_audio *compr,
 	/* Add new codecs here and update num_codecs*/
 }
 
+static int compressed_set_volume(struct msm_audio *prtd, int volume)
+{
+	int rc = 0;
+	struct compr_audio *compr = prtd->substream->runtime->private_data;
+	if (prtd && compr) {
+		switch (compr->info.codec_param.codec.id) {
+		case SND_AUDIOCODEC_AC3_PASS_THROUGH:
+		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
+		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
+		case SND_AUDIOCODEC_PASS_THROUGH:
+			pr_info("%s: called on passthrough handle\n", __func__);
+			return rc;
+		}
+		rc = q6asm_set_volume(prtd->audio_client, volume);
+		if (rc < 0) {
+			pr_err("%s: Send Volume command failed rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+		prtd->volume = volume;
+	}
+	return rc;
+}
+
 static int msm_compr_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct compr_audio *compr;
 	struct msm_audio *prtd;
 	int ret = 0;
-	int index = 0;
 
 	pr_debug("%s\n", __func__);
 	compr = kzalloc(sizeof(struct compr_audio), GFP_KERNEL);
@@ -781,72 +790,16 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 
 	prtd->dsp_cnt = 0;
 	atomic_set(&prtd->pending_buffer, 1);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		compr->codec = FORMAT_MP3;
-		mutex_lock(&volume_lock);
-		for (index = 0; index < MAX_COMPR_SESSIONS; index++) {
-			if (compressed_audio[index].fe_id == INVALID_SESSION)
-				break;
-		}
-		if (index == MAX_COMPR_SESSIONS) {
-			pr_err("Cannot allocate the session, no free sessions");
-			mutex_unlock(&volume_lock);
-			return -EMFILE;
-		}
-		compressed_audio[index].prtd =  &compr->prtd;
-		compressed_audio[index].fe_id =  soc_prtd->dai_link->be_id;
-		mutex_unlock(&volume_lock);
-	}
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
 
+	prtd->volume = 0x2000; /* unity gain */
 	return 0;
 }
 
-int compressed_set_volume(unsigned volume, int fe_id)
-{
-	int rc = 0;
-	struct snd_pcm_substream *substream = NULL;
-	struct compr_audio *compr = NULL;
-	int index = 0;
-	if (fe_id == INVALID_SESSION)
-		return -ENODEV;
-	for (index = 0; index < MAX_COMPR_SESSIONS; index++) {
-		if (compressed_audio[index].fe_id == fe_id)
-			break;
-	}
-	if (index == MAX_COMPR_SESSIONS)
-		return -ENODEV;
-
-	if (compressed_audio[index].prtd)
-		substream = compressed_audio[index].prtd->substream;
-	if (substream)
-		compr = substream->runtime->private_data;
-	if (compr) {
-		switch (compr->info.codec_param.codec.id) {
-		case SND_AUDIOCODEC_AC3_PASS_THROUGH:
-		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
-		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
-		case SND_AUDIOCODEC_PASS_THROUGH:
-			pr_err("%s: called on passthrough handle", __func__);
-			return rc;
-		}
-	} else
-		return rc;
-
-	if (compressed_audio[index].prtd->audio_client) {
-		rc = q6asm_set_volume(
-				compressed_audio[index].prtd->audio_client,
-				volume);
-		if (rc < 0) {
-			pr_err("%s: Send Volume command failed"
-					" rc=%d\n", __func__, rc);
-		}
-	}
-	compressed_audio[index].volume = volume;
-	return rc;
-}
 
 static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 {
@@ -855,7 +808,6 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	int dir = 0;
-	int index = 0;
 
 	pr_debug("%s\n", __func__);
 
@@ -865,19 +817,6 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	if (prtd->enc_audio_client)
 		q6asm_cmd(prtd->enc_audio_client, CMD_CLOSE);
-
-	mutex_lock(&volume_lock);
-	for (index = 0; index < MAX_COMPR_SESSIONS; index++) {
-		if (compressed_audio[index].fe_id == soc_prtd->dai_link->be_id)
-			break;
-	}
-	if (index != MAX_COMPR_SESSIONS) {
-		compressed_audio[index].prtd = NULL;
-		compressed_audio[index].fe_id = INVALID_SESSION;
-		compressed_audio[index].volume = 0x2000;
-	}
-	mutex_unlock(&volume_lock);
-
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 	switch (compr->info.codec_param.codec.id) {
@@ -1055,10 +994,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 				prtd->session_id,
 				substream->stream);
 
-			ret = compressed_set_volume(
-					compressed_audio[
-					soc_prtd->dai_link->be_id].volume,
-					soc_prtd->dai_link->be_id);
+			ret = compressed_set_volume(prtd, prtd->volume);
 			if (ret < 0)
 				pr_err("%s : Set Volume failed : %d",
 					__func__, ret);
@@ -1449,6 +1385,20 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
 }
 
+static int msm_compr_volume_ctl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_pcm_volume *vol = kcontrol->private_data;
+	struct snd_pcm_substream *substream = vol->pcm->streams[0].substream;
+	struct msm_audio *prtd = substream->runtime->private_data;
+	int volume = ucontrol->value.integer.value[0];
+
+	pr_debug("%s\n", __func__);
+	rc = compressed_set_volume(prtd, volume);
+	return rc;
+}
+
 static struct snd_pcm_ops msm_compr_ops = {
 	.open	   = msm_compr_open,
 	.hw_params	= msm_compr_hw_params,
@@ -1461,6 +1411,30 @@ static struct snd_pcm_ops msm_compr_ops = {
 	.restart	= msm_compr_restart,
 };
 
+static int msm_compr_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_volume *volume_info;
+	struct snd_kcontrol *kctl;
+	char device_num[3];
+	int ret = 0;
+
+	pr_debug("%s, Volume cntrl add\n", __func__);
+	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				NULL, 1,
+				rtd->dai_link->be_id,
+				&volume_info);
+	if (ret < 0)
+		return ret;
+	kctl = volume_info->kctl;
+	snprintf(device_num, sizeof(device_num), "%d", pcm->device);
+	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
+	pr_debug("%s, Overwriting volume control name to: %s\n",
+			 __func__, kctl->id.name);
+	kctl->put = msm_compr_volume_ctl_put;
+	return 0;
+}
+
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
@@ -1468,6 +1442,10 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ret = msm_compr_add_controls(rtd);
+	if (ret)
+		pr_err("%s, kctl add failed\n", __func__);
 	return ret;
 }
 
@@ -1505,7 +1483,6 @@ static int __init msm_soc_platform_init(void)
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
 	init_waitqueue_head(&the_locks.flush_wait);
-	mutex_init(&volume_lock);
 
 	return platform_driver_register(&msm_compr_driver);
 }
