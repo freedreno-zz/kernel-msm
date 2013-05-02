@@ -65,6 +65,7 @@ struct pm8921_bms_platform_data {
 	int				disable_flat_portion_ocv;
 	int				ocv_dis_high_soc;
 	int				ocv_dis_low_soc;
+	int				battery_less_hardware;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)

@@ -541,8 +541,10 @@ void __init apq8064_init_pmic(void)
 		apq8064_pm8921_chg_pdata.has_dc_supply = true;
 	}
 
-	if (!machine_is_apq8064_mtp() && !machine_is_apq8064_liquid())
+	if (!machine_is_apq8064_mtp() && !machine_is_apq8064_liquid()) {
 		apq8064_pm8921_chg_pdata.battery_less_hardware = 1;
+		apq8064_pm8921_bms_pdata.battery_less_hardware = 1;
+	}
 
 	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dma()
 		|| machine_is_apq8064_dma())
