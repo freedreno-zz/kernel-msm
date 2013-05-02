@@ -89,6 +89,8 @@
 #include "devices-msm8x60.h"
 #include "smd_private.h"
 #include "sysmon.h"
+#include <linux/wlan_plat.h>
+#include <linux/mutex.h>
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
@@ -2461,6 +2463,68 @@ static struct platform_device *pm8917_common_devices[] __initdata = {
 	&apq8064_device_ext_ts_sw_vreg,
 };
 
+enum WLANBT_STATUS {
+	WLANOFF_BTOFF = 1,
+	WLANOFF_BTON,
+	WLANON_BTOFF,
+	WLANON_BTON
+};
+
+static DEFINE_MUTEX(ath_wlanbt_mutex);
+static int gpio_wlan_sys_rest_en = 8;
+static int ath_wlanbt_status = WLANOFF_BTOFF;
+
+static int ath6kl_power_control(int on)
+{
+	int rc;
+
+	if (on) {
+		rc = gpio_request(gpio_wlan_sys_rest_en, "wlan sys_rst_n");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d (%d)\n",
+				__func__, gpio_wlan_sys_rest_en, rc);
+			return rc;
+		}
+		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 0);
+		msleep(200);
+		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 1);
+		msleep(100);
+	} else {
+		gpio_set_value(gpio_wlan_sys_rest_en, 0);
+		rc = gpio_direction_input(gpio_wlan_sys_rest_en);
+		msleep(100);
+		gpio_free(gpio_wlan_sys_rest_en);
+	}
+	return 0;
+};
+
+static int ath6kl_wlan_power(int on)
+{
+	int ret = 0;
+
+	pr_info("%s, power %s\n", __FUNCTION__, on?"on":"off");
+
+	mutex_lock(&ath_wlanbt_mutex);
+	if (on) {
+		if (ath_wlanbt_status == WLANOFF_BTOFF) {
+			ret = ath6kl_power_control(1);
+			ath_wlanbt_status = WLANON_BTOFF;
+		} else if (ath_wlanbt_status == WLANOFF_BTON)
+			ath_wlanbt_status = WLANON_BTON;
+	} else {
+		if (ath_wlanbt_status == WLANON_BTOFF) {
+			ret = ath6kl_power_control(0);
+			ath_wlanbt_status = WLANOFF_BTOFF;
+		} else if (ath_wlanbt_status == WLANON_BTON)
+			ath_wlanbt_status = WLANOFF_BTON;
+	}
+	mutex_unlock(&ath_wlanbt_mutex);
+	pr_info("%s on= %d, wlan_status= %d\n",
+		__func__, on, ath_wlanbt_status);
+	return ret;
+};
+
+
 static struct platform_device *common_devices[] __initdata = {
 	&msm_device_smd_apq8064,
 	&apq8064_device_otg,
@@ -3715,6 +3779,10 @@ static void __init apq8064_cdp_init(void)
 	if (machine_is_apq8064_mtp() &&
 		SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1)
 			cyttsp_pdata.sleep_gpio = CYTTSP_TS_GPIO_SLEEP_ALT;
+
+	if (machine_is_apq8064_dma())
+		ath6kl_wlan_power(1);
+
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()) {
