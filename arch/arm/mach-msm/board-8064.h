@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,6 +102,7 @@ void __init apq8064_set_display_params(char *prim_panel, char *ext_panel,
 void apq8064_init_gpu(void);
 void apq8064_pm8xxx_gpio_mpp_init(void);
 void __init configure_apq8064_pm8917_power_grid(void);
+void __init configure_apq8064_dma_power_grid(void);
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 void __init apq8064_bt_power_init(void);
@@ -111,7 +112,8 @@ void __init apq8064_bt_power_init(void);
 	(machine_is_mpq8064_hrd() || \
 	 machine_is_mpq8064_dtv() || \
 	 machine_is_mpq8064_cdp() || \
-	 machine_is_mpq8064_dma() \
+	 machine_is_mpq8064_dma() || \
+	 machine_is_apq8064_dma() \
 	)
 
 
