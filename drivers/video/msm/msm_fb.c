@@ -1401,7 +1401,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->yres_virtual = panel_info->yres * mfd->fb_page +
 		((PAGE_SIZE - remainder)/fix->line_length) * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
-	var->reserved[3] = mdp_get_panel_framerate(mfd);
+	var->reserved[3] = (var->reserved[3] & 0xFFFF0000) |
+		mdp_get_panel_framerate(mfd);
 
 		/*
 		 * id field for fb app
@@ -2241,6 +2242,7 @@ static int msm_fb_set_par(struct fb_info *info)
 	struct fb_var_screeninfo *var = &info->var;
 	int old_imgType;
 	int blank = 0;
+	u32 var_vic;
 	msm_fb_pan_idle(mfd);
 	old_imgType = mfd->fb_imgType;
 	switch (var->bits_per_pixel) {
@@ -2272,7 +2274,9 @@ static int msm_fb_set_par(struct fb_info *info)
 		return -EINVAL;
 	}
 
+	var_vic = var->reserved[3] >> 16;
 	if ((mfd->var_pixclock != var->pixclock) ||
+		(var_vic && (var_vic != mfd->var_vic)) ||
 		(mfd->hw_refresh && ((mfd->fb_imgType != old_imgType) ||
 				(mfd->var_pixclock != var->pixclock) ||
 				(mfd->var_xres != var->xres) ||
@@ -2281,6 +2285,7 @@ static int msm_fb_set_par(struct fb_info *info)
 		mfd->var_xres = var->xres;
 		mfd->var_yres = var->yres;
 		mfd->var_pixclock = var->pixclock;
+		mfd->var_vic = var_vic;
 		blank = 1;
 	}
 	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres,
