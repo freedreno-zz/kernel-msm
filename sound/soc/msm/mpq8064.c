@@ -1753,6 +1753,48 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_PSEUDO,
 	},
+	{
+		.name = "MSM8960 Compr4",
+		.stream_name = "COMPR4",
+		.cpu_dai_name   = "MultiMedia9",
+		.platform_name  = "msm-compr-dsp",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+					SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1, /* this dailink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
+	},
+	{
+		.name = "MSM8960 Compr5",
+		.stream_name = "COMPR5",
+		.cpu_dai_name   = "MultiMedia10",
+		.platform_name  = "msm-compr-dsp",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+					SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1, /* this dailink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA10,
+	},
+	{
+		.name = "MSM8960 Compr6",
+		.stream_name = "COMPR6",
+		.cpu_dai_name   = "MultiMedia11",
+		.platform_name  = "msm-compr-dsp",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+					SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1, /* this dailink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA11,
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_INT_FM_RX,
