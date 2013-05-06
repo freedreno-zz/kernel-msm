@@ -675,7 +675,10 @@ void __init apq8064_bt_power_init(void)
 
 #if defined CONFIG_BT_HCIUART_ATH3K
 	pr_debug("%s: Registering AR3002 specific information\n", __func__);
-	gpio_bt_sys_reset_en = PM8921_MPP_PM_TO_SYS(10);
+	if (machine_is_apq8064_dma())
+		gpio_bt_sys_reset_en = QCA6234_BT_RST_N;
+	else
+		gpio_bt_sys_reset_en = PM8921_MPP_PM_TO_SYS(10);
 	if (platform_device_register(&msm_bluesleep_device) < 0)
 		pr_err("%s: Bluesleep registration failed\n", __func__);
 	else
