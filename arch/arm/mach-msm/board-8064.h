@@ -106,6 +106,7 @@ void __init configure_apq8064_dma_power_grid(void);
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 void __init apq8064_bt_power_init(void);
+#define QCA6234_BT_RST_N     23
 #endif
 
 #define PLATFORM_IS_MPQ8064() \
