@@ -1669,8 +1669,8 @@ static void msm_hdmi_init_ddc(void)
 	   [15:0] REFTIMER	Value to set the register in order to generate
 		DDC strobe. This register counts on HDCP application clock */
 	/* Enable reference timer
-	 * 27 micro-seconds */
-	HDMI_OUTP_ND(0x027C, (1 << 16) | (27 << 0));
+	 * 46 micro-seconds */
+	HDMI_OUTP_ND(0x027C, (1 << 16) | (46 << 0));
 }
 
 static int hdmi_msm_ddc_clear_irq(const char *what)
