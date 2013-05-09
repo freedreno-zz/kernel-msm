@@ -587,11 +587,17 @@ static ssize_t hdmi_msm_wta_cec(struct device *dev,
 
 	if (cec != 0) {
 		mutex_lock(&hdmi_msm_state_mutex);
-		hdmi_msm_state->cec_enabled = true;
+
 		if (cec & FLAG_SYSFS_CEC_WAKEUP_EN)
 			hdmi_msm_state->cec_wakeup_enabled = true;
 		else
 			hdmi_msm_state->cec_wakeup_enabled = false;
+		if (hdmi_msm_state->cec_enabled) {
+			mutex_unlock(&hdmi_msm_state_mutex);
+			return ret;
+		}
+
+		hdmi_msm_state->cec_enabled = true;
 
 		/* flush CEC queue */
 		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
@@ -609,8 +615,10 @@ static ssize_t hdmi_msm_wta_cec(struct device *dev,
 		mutex_lock(&hdmi_msm_state_mutex);
 		hdmi_msm_state->cec_enabled = false;
 		hdmi_msm_state->cec_wakeup_enabled = false;
-		hdmi_msm_state->cec_logical_addr = 15;
+		hdmi_msm_state->cec_logical_addr =
+			HDMI_CEC_DEFAULT_LOGICAL_ADDR;
 		mutex_unlock(&hdmi_msm_state_mutex);
+
 		hdmi_msm_cec_write_logical_addr(
 			hdmi_msm_state->cec_logical_addr);
 		/* 0x028C CEC_CTRL */
