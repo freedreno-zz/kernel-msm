@@ -80,9 +80,9 @@ static struct snd_pcm_hardware msm_compr_hardware_playback = {
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =	      SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-	.rates =		SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT,
+	.rates =	SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
 	.rate_min =	     8000,
-	.rate_max =	     48000,
+	.rate_max =	     192000,
 	.channels_min =	 1,
 	.channels_max =	 8,
 	.buffer_bytes_max = PLAYBACK_MIN_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE,
@@ -95,7 +95,8 @@ static struct snd_pcm_hardware msm_compr_hardware_playback = {
 
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
-	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
+	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000,
+	88200, 96000, 176400, 192000
 };
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -443,6 +444,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	case SND_AUDIOCODEC_AC3_PASS_THROUGH:
 	case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 	case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
+	case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
 		pr_debug("compressd playback, no need to send decoder params");
 		pr_debug("decoder id: %d\n",
 			compr->info.codec_param.codec.id);
@@ -814,8 +816,7 @@ static void populate_codec_list(struct compr_audio *compr,
 		struct snd_pcm_runtime *runtime)
 {
 	pr_debug("%s\n", __func__);
-	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 14;
+	compr->info.compr_cap.num_codecs = 15;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
@@ -834,6 +835,7 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[11] = SND_AUDIOCODEC_PCM;
 	compr->info.compr_cap.codecs[12] = SND_AUDIOCODEC_MP2;
 	compr->info.compr_cap.codecs[13] = SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH;
+	compr->info.compr_cap.codecs[14] = SND_AUDIOCODEC_EAC3_PASS_THROUGH;
 	/* Add new codecs here and update num_codecs*/
 }
 
@@ -847,6 +849,7 @@ static int compressed_set_volume(struct msm_audio *prtd, int volume)
 		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
 		case SND_AUDIOCODEC_PASS_THROUGH:
+		case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
 			pr_info("%s: called on passthrough handle\n", __func__);
 			return rc;
 		}
@@ -1026,6 +1029,7 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	case SND_AUDIOCODEC_AC3_PASS_THROUGH:
 	case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 	case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
+	case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
 		msm_pcm_routing_reg_psthr_stream(
 			soc_prtd->dai_link->be_id,
 			prtd->session_id, substream->stream,
@@ -1185,6 +1189,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_AC3_PASS_THROUGH:
 		case SND_AUDIOCODEC_DTS_PASS_THROUGH:
 		case SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH:
+		case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
 			ret = q6asm_open_write_compressed(prtd->audio_client,
 					compr->codec);
 
@@ -1498,6 +1503,10 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_MP2:
 			pr_debug("SND_AUDIOCODEC_MP2\n");
 			compr->codec = FORMAT_MP2;
+			break;
+		case SND_AUDIOCODEC_EAC3_PASS_THROUGH:
+			pr_debug("SND_AUDIOCODEC_EAC3_PASS_THROUGH\n");
+			compr->codec = FORMAT_EAC3;
 			break;
 		default:
 			pr_err("msm_compr_ioctl failed..unknown codec\n");
