@@ -974,6 +974,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 
+		pr_info("%s: bit_width = 16\n", __func__);
 		pr_debug("%s: channel_config=%d port_id=%d rate=%d"
 			"topology_id=0x%X\n", __func__, open.channel_config,\
 			open.endpoint_id1, open.rate,\
@@ -1081,7 +1082,7 @@ int adm_multi_ch_copp_pseudo_open_v3(int port_id, int path,
 		open.endpoint_id1 = port_id;
 		open.endpoint_id2 = 0xFFFF;
 		open.bit_width = 16;
-
+		pr_info("%s: bit_width = %d\n", __func__, open.bit_width);
 		if (path == ADM_PATH_PLAYBACK)
 			open.topology_id = get_adm_rx_topology();
 		else {
@@ -1257,6 +1258,7 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
 
+		pr_info("%s: bit_width = 16\n", __func__);
 		pr_debug("%s: channel_config=%d port_id=%d rate=%d"
 			" topology_id=0x%X\n", __func__, open.channel_config,
 			open.endpoint_id1, open.rate,
@@ -1407,6 +1409,7 @@ int adm_multi_ch_copp_open_v2(int port_id, int path, int rate, int channel_mode,
 		open.bit_width = bit_width;
 		open.rate  = rate;
 
+		pr_info("%s: bit_width = %d\n", __func__, open.bit_width);
 		pr_debug("%s: channel_config=%d port_id=%d\n",
 			__func__, open.channel_config,
 			open.endpoint_id1);

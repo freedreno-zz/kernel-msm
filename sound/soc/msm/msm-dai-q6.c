@@ -220,6 +220,8 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 	dai_data->rate = params_rate(params);
 	dai_data->port_config.mi2s.bitwidth = bit_width;
 	dai_data->bitwidth = bit_width;
+	pr_info("%s:AFE dai id %d bit_width = %d\n", __func__,
+			dai->id, bit_width);
 	if (!mi2s_dai_data->rate_constraint.list) {
 		mi2s_dai_data->rate_constraint.list = &dai_data->rate;
 		mi2s_dai_data->bitwidth_constraint.list = &dai_data->bitwidth;
@@ -504,6 +506,8 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 	}
 	dai_data->port_config.mi2s.bitwidth = bit_width;
 	dai_data->port_config.mi2s.line = 1;
+	pr_info("%s: AFE dai id %d: bitwidth = %d\n",
+			__func__, dai->id, bit_width);
 	return 0;
 }
 
@@ -548,6 +552,8 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->port_config.slim_sch.data_format = 0;
 	dai_data->port_config.slim_sch.num_channels = dai_data->channels;
 	dai_data->port_config.slim_sch.reserved = 0;
+	pr_info("%s: AFE dai id %d: bitwidth = %d\n",
+			__func__, dai->id, bit_width);
 
 	dev_dbg(dai->dev, "%s:slimbus_dev_id[%hu] bit_wd[%hu] format[%hu]\n"
 		"num_channel %hu  slave_ch_mapping[0]  %hu\n"
@@ -618,6 +624,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 		dev_err(dai->dev, "AUX PCM supports only 8kHz and 16kHz sampling rate\n");
 		return -EINVAL;
 	}
+	pr_info("%s: AFE dai id %d bitwidth = 16\n", __func__, dai->id);
 
 	return 0;
 }
@@ -660,6 +667,7 @@ static int msm_dai_q6_sec_auxpcm_hw_params(
 		dev_err(dai->dev, "AUX PCM supports only 8kHz and 16kHz sampling rate\n");
 		return -EINVAL;
 	}
+	pr_info("%s: AFE dai id %d bitwidth = 16\n", __func__, dai->id);
 
 	return 0;
 }
@@ -693,6 +701,8 @@ static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->port_config.rtproxy.lw_mark = 0;
 	dai_data->port_config.rtproxy.hw_mark = 0;
 	dai_data->port_config.rtproxy.rsvd = 0;
+	pr_info("%s: AFE dai id %d: bitwidth = %d\n",
+			__func__, dai->id, bit_width);
 
 	return 0;
 }
@@ -712,6 +722,8 @@ static int msm_dai_q6_pseudo_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->port_config.pseudo.data_format = 0;
 	dai_data->port_config.pseudo.timing_mode = 1;
 	dai_data->port_config.pseudo.reserved = 16;
+	pr_info("%s: AFE dai id %d: bitwidth = %d\n", __func__, dai->id,
+		dai_data->port_config.pseudo.bit_width);
 	return 0;
 }
 

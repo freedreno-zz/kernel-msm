@@ -1101,6 +1101,7 @@ int q6asm_open_transcode_loopback(struct audio_client *ac, uint32_t channels)
 	open.sink_endpoint_type = 0;
 	open.bits_per_sample = 16;
 	open.reserved = 0;
+	pr_info("%s, bitwidth = %d\n", __func__, open.bits_per_sample);
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
 	if (rc < 0) {
@@ -1478,6 +1479,7 @@ int q6asm_open_read_v2_1(struct audio_client *ac,
 	open.uMode = ASM_OPEN_READ_PERF_MODE_BIT;
 	open.bits_per_sample = PCM_BITS_PER_SAMPLE;
 	open.reserved = 0;
+	pr_info("%s: bitwidth = %d", __func__, open.bits_per_sample);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
 	if (rc < 0) {
 		pr_err("open failed op[0x%x]rc[%d]\n", \
@@ -1717,7 +1719,7 @@ int q6asm_open_write_v2(struct audio_client *ac, uint32_t format,
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
-	pr_debug("%s: session[%d] wr_format[0x%x], bitwidth[%d]",
+	pr_info("%s: session[%d] wr_format[0x%x], bitwidth[%d]",
 			__func__, ac->session, format, bit_width);
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
