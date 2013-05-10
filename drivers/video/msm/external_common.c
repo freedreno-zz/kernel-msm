@@ -347,6 +347,14 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_common_rda_edid_raw_data(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	memcpy(buf, external_common_state->edid_buf,
+		sizeof(external_common_state->edid_buf));
+	return sizeof(external_common_state->edid_buf);
+}
+
 static ssize_t hdmi_common_rda_edid_physical_address(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -918,6 +926,7 @@ static DEVICE_ATTR(connected, S_IRUGO, external_common_rda_connected, NULL);
 static DEVICE_ATTR(hdmi_mode, S_IRUGO, external_common_rda_hdmi_mode, NULL);
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 static DEVICE_ATTR(edid_modes, S_IRUGO, hdmi_common_rda_edid_modes, NULL);
+static DEVICE_ATTR(edid_raw_data, S_IRUGO, hdmi_common_rda_edid_raw_data, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUGO, hdmi_common_rda_hpd,
 	hdmi_common_wta_hpd);
 static DEVICE_ATTR(hdcp, S_IRUGO, hdmi_common_rda_hdcp, NULL);
@@ -953,6 +962,7 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_hdmi_mode.attr,
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 	&dev_attr_edid_modes.attr,
+	&dev_attr_edid_raw_data.attr,
 	&dev_attr_hdcp.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_pa.attr,
@@ -2035,7 +2045,7 @@ int hdmi_common_read_edid(void)
 	uint32 i = 1;
 	char vendor_id[5];
 	/* EDID_BLOCK_SIZE[0x80] Each page size in the EDID ROM */
-	uint8 edid_buf[0x80 * 4];
+	uint8 *edid_buf = external_common_state->edid_buf;
 
 	external_common_state->pt_scan_info = 0;
 	external_common_state->it_scan_info = 0;
@@ -2044,7 +2054,7 @@ int hdmi_common_read_edid(void)
 	external_common_state->present_3d = 0;
 	memset(&external_common_state->disp_mode_list, 0,
 		sizeof(external_common_state->disp_mode_list));
-	memset(edid_buf, 0, sizeof(edid_buf));
+	memset(edid_buf, 0, sizeof(external_common_state->edid_buf));
 	memset(external_common_state->audio_data_block, 0,
 		sizeof(external_common_state->audio_data_block));
 	memset(external_common_state->spkr_alloc_data_block, 0,
@@ -2107,7 +2117,7 @@ int hdmi_common_read_edid(void)
 		for (i = 1; i <= num_og_cea_blocks; i++) {
 			if (!(i % 2)) {
 					status = hdmi_common_read_edid_block(i,
-								edid_buf+0x00);
+							edid_buf + (0x80 * i));
 					if (status) {
 						DEV_ERR("%s: ddc read block(%d)"
 						"failed: %d\n", __func__, i,
@@ -2116,7 +2126,7 @@ int hdmi_common_read_edid(void)
 					}
 			} else {
 				status = hdmi_common_read_edid_block(i,
-							edid_buf+0x80);
+							edid_buf + (0x80 * i));
 				if (status) {
 					DEV_ERR("%s: ddc read block(%d)"
 					"failed:%d\n", __func__, i,
