@@ -1008,11 +1008,10 @@ int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 	if (pipe != NULL && pipe->mixer_stage == MDP4_MIXER_STAGE_BASE &&
 			pipe->pipe_type == OVERLAY_TYPE_RGB)
 		vctrl->base_pipe = pipe; /* keep it */
-	else if (!hdmi_prim_display && mdp4_overlay_borderfill_supported())
+	else if (mdp4_overlay_borderfill_supported())
 		mdp4_overlay_dtv_alloc_pipe(mfd, OVERLAY_TYPE_BF, vctrl);
 	else
 		mdp4_overlay_dtv_alloc_pipe(mfd, OVERLAY_TYPE_RGB, vctrl);
-
 
 	if (vctrl->base_pipe == NULL)
 		return -ENODEV;

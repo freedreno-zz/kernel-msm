@@ -2386,7 +2386,8 @@ struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, int mixer)
 
 	for (i = 0; i < OVERLAY_PIPE_MAX; i++) {
 		pipe = &ctrl->plist[i];
-		if ((pipe->pipe_used == 0) && ((pipe->pipe_type == ptype) ||
+		if (((pipe->pipe_used == 0) || (ptype == OVERLAY_TYPE_BF)) &&
+			((pipe->pipe_type == ptype) ||
 		    (ptype == OVERLAY_TYPE_RGB &&
 		     pipe->pipe_type == OVERLAY_TYPE_VIDEO))) {
 			if (ptype == OVERLAY_TYPE_BF &&
@@ -2638,7 +2639,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	 * zorder 2 == stage 2 == 4
 	 */
 	if (req->id == MSMFB_NEW_REQUEST) {  /* new request */
-		if (mdp4_overlay_pipe_staged(pipe)) {
+		if ((ptype != OVERLAY_TYPE_BF) &&
+			mdp4_overlay_pipe_staged(pipe)) {
 			pr_err("%s: ndx=%d still staged\n", __func__,
 						pipe->pipe_ndx);
 			return -EPERM;
@@ -2650,7 +2652,11 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 
 	}
 
-	pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE0;
+	if (ptype == OVERLAY_TYPE_BF)
+		pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE_BASE;
+	else
+		pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE0;
+
 	pipe->src_width = req->src.width & 0x1fff;	/* source img width */
 	pipe->src_height = req->src.height & 0x1fff;	/* source img height */
 	pipe->src_h = req->src_rect.h & 0x07ff;
