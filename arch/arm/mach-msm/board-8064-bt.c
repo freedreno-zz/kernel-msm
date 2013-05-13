@@ -553,17 +553,81 @@ static struct i2c_board_info bahama_devices[] = {
 },
 };
 
+struct regulator *vreg_s4;
+struct regulator *vreg_gpio_8;
+
+static int bt_vreg_disable(struct regulator *vreg)
+{
+	int rc;
+
+	rc = regulator_disable(vreg);
+	if (rc < 0) {
+		pr_err("%s: Failed to disable reg. %p with %d\n", __func__, vreg
+			, rc);
+		return rc;
+	}
+	regulator_put(vreg);
+	vreg = NULL;
+	return rc;
+}
+
 static int atheros_bluetooth_power(int on)
 {
 	int rc = 0;
 
 	if (on) {
 		pr_debug("%s: Powering up BT module on On AR3002\n", __func__);
+		/* Voting for 1.8V s4 regulator */
+		pr_debug("%s: Voting for the 1.8V s4 regulator\n", __func__);
+		vreg_s4 = regulator_get(&msm_bluesleep_device.dev, "8921_s4");
+		if (IS_ERR(vreg_s4)) {
+			rc = PTR_ERR(vreg_s4);
+			pr_err("%s: Failed to get s4 regulator: %d\n", __func__,
+				rc);
+			goto out;
+		}
+		if (regulator_count_voltages(vreg_s4) > 0) {
+			pr_debug("%s: Setting volt. levels for s4 regulator\n",
+				 __func__);
+			rc = regulator_set_voltage(vreg_s4, 1800000, 1800000);
+			if (rc) {
+				pr_err("%s: Failed to set volt. for s4 regulator: %d\n",
+					__func__, rc);
+				goto free_vreg_s4;
+			}
+			pr_debug("%s: Enabling the s4 regulator\n", __func__);
+			rc = regulator_enable(vreg_s4);
+			if (rc) {
+				pr_err("%s: Failed to enable s4 regulator : %d\n",
+					__func__, rc);
+				goto free_vreg_s4;
+			}
+		}
+
+		/* Voting for the ATH_CHIP_PWD_L GPIO line */
+		pr_debug("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
+		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_en");
+		if (IS_ERR(vreg_gpio_8)) {
+			rc = PTR_ERR(vreg_gpio_8);
+			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d\n",
+				__func__, rc);
+			goto free_vreg_s4;
+		}
+		pr_debug("%s: Enabling ath_pwd_l gpio-regulator\n", __func__);
+		rc = regulator_enable(vreg_gpio_8);
+		if (rc) {
+			pr_err("%s: Failed to enable ath_pwd_l gpio-regulator: %d\n",
+				 __func__, rc);
+			goto free_vreg_gpio_8;
+		}
+		pr_debug("%s: Brining BT out of reset\n", __func__);
+		pr_debug("%s: Configuring BT_SYS_RST_EN GPIO%d\n", __func__,
+			gpio_bt_sys_reset_en);
 		rc = gpio_request(gpio_bt_sys_reset_en, "bt sys_rst_n");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d (%d)\n",
 				__func__, gpio_bt_sys_reset_en, rc);
-			goto out;
+			goto free_vreg_gpio_8;
 		}
 		rc = gpio_direction_output(gpio_bt_sys_reset_en, 0);
 		if (rc) {
@@ -571,15 +635,15 @@ static int atheros_bluetooth_power(int on)
 			goto free_gpio;
 		}
 		msleep(100);
-		pr_debug("%s: Configuring BT_SYS_RST_EN GPIO%d\n", __func__,
-			gpio_bt_sys_reset_en);
 		gpio_direction_output(gpio_bt_sys_reset_en, 1);
 		msleep(100);
 		/*setup BT PCM lines*/
 		pr_debug("%s: Configuring PCM lines.\n", __func__);
 		rc = config_pcm(BT_PCM_ON);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("%s: config_pcm , rc = %d\n", __func__, rc);
+			goto free_gpio;
+		}
 		goto out;
 	} else {
 		pr_debug("%s: Powering down BT module on AR3002\n", __func__);
@@ -594,6 +658,10 @@ static int atheros_bluetooth_power(int on)
 	}
 free_gpio:
 	gpio_free(gpio_bt_sys_reset_en);
+free_vreg_gpio_8:
+	bt_vreg_disable(vreg_gpio_8);
+free_vreg_s4:
+	bt_vreg_disable(vreg_s4);
 out:
 	return rc;
 }

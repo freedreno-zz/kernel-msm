@@ -2448,6 +2448,16 @@ static struct platform_device apq8064_device_ext_ts_sw_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device
+apq8064_device_bt_wifi_reset_enable __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= ATH_CHIP_PWD_L,
+	.dev	= {
+		.platform_data =
+		&apq8064_gpio_regulator_pdata[GPIO_VREG_ID_BT_WIFI],
+	},
+};
+
 static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= 0,
@@ -2843,6 +2853,10 @@ static struct platform_device *mpq8064_hrd_rev2_devices[] __initdata = {
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 	.max_clock_speed = 1100000,
+};
+
+static struct platform_device *ath_chip_pwd[] __initdata = {
+	&apq8064_device_bt_wifi_reset_enable,
 };
 
 #define KS8851_IRQ_GPIO		43
@@ -3877,6 +3891,9 @@ static void __init apq8064_cdp_init(void)
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 	if (machine_is_mpq8064_hrd() || machine_is_apq8064_dma())
 		apq8064_bt_power_init();
+		printk(KERN_INFO "%s: Confg BT-WiFi reset line as volt. reg.\n",
+			 __func__);
+		platform_add_devices(ath_chip_pwd, ARRAY_SIZE(ath_chip_pwd));
 #endif
 
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())

@@ -330,6 +330,11 @@ VREG_CONSUMERS(BOOST) = {
 	REGULATOR_SUPPLY("hdmi_mvs",		"hdmi_msm.0"),
 };
 
+VREG_CONSUMERS(BT_WIFI) = {
+	REGULATOR_SUPPLY("bt_en",		"bluesleep"),
+	/* Add regulator supply entry for WLAN */
+};
+
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
 			 _system_uA, _enable_time, _reg_id) \
@@ -567,6 +572,8 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 		  PM8921_GPIO_PM_TO_SYS(23), "ext_3p3v"),
 	GPIO_VREG(EXT_MPP8, "ext_mpp8", "ext_mpp8_en",
 			PM8921_MPP_PM_TO_SYS(8), NULL),
+	GPIO_VREG(BT_WIFI, "bt_wifi_en", "gpio_8_vreg", ATH_CHIP_PWD_L,
+			NULL),
 };
 
 struct gpio_regulator_platform_data
