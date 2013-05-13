@@ -42,6 +42,9 @@ uint32 hdmi_inp(uint32 offset);
 #endif
 
 
+#define HDMI_CEC_LOGICAL_ADDR_BROADCAST	15
+#define HDMI_CEC_DEFAULT_LOGICAL_ADDR	HDMI_CEC_LOGICAL_ADDR_BROADCAST
+
 /*
  * Ref. HDMI 1.4a
  * Supplement-1 CEC Section 6, 7
@@ -87,6 +90,8 @@ struct hdmi_msm_state_type {
 
 	struct hdmi_msm_audio_config hdmi_audio;
 	u32 cec_wakeup_enabled;
+	boolean irq_wakeup_enabled;
+	boolean cec_initialized;
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	boolean cec_enabled;

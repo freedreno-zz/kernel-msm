@@ -166,8 +166,6 @@ static boolean msg_recv_complete = TRUE;
 #define HDMI_CEC_WR_CHECK_CONFIG 0x370
 
 #define HDMI_VERSION_2_0 0x02000000
-#define HDMI_CEC_LOGICAL_ADDR_BROADCAST 15
-#define HDMI_CEC_DEFAULT_LOGICAL_ADDR HDMI_CEC_LOGICAL_ADDR_BROADCAST
 
 /* Supported CEC key code mapping table. Each element number indicates the key
  * code defined in CEC and its associated element value is the mapped key code
@@ -382,6 +380,8 @@ void hdmi_msm_cec_init(void)
 
 	/* 0x028C CEC_CTRL */
 	HDMI_OUTP(0x028C, HDMI_MSM_CEC_CTRL_ENABLE);
+
+	hdmi_msm_state->cec_initialized = true;
 }
 
 void hdmi_msm_cec_write_logical_addr(int addr)
@@ -4572,9 +4572,15 @@ static void hdmi_msm_turn_on(void)
 	}
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
-	/* re-initialize CEC if enabled */
+	/* re-initialize CEC if enabled with wakeup feature disabled because
+	 * CEC block is transitioning from off to on */
 	mutex_lock(&hdmi_msm_state_mutex);
-	if (hdmi_msm_state->cec_enabled == true) {
+	if (hdmi_msm_state->cec_enabled && !hdmi_msm_state->cec_initialized) {
+		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
+		hdmi_msm_state->cec_queue_rd = hdmi_msm_state->cec_queue_start;
+		hdmi_msm_state->cec_queue_full = false;
+		hdmi_msm_state->cec_logical_addr =
+			HDMI_CEC_DEFAULT_LOGICAL_ADDR;
 		hdmi_msm_cec_init();
 		hdmi_msm_cec_write_logical_addr(
 			hdmi_msm_state->cec_logical_addr);
@@ -4636,10 +4642,14 @@ static void hdmi_msm_hpd_off(void)
 	int rc = 0;
 
 	if (hdmi_msm_state->cec_wakeup_enabled) {
-		rc = enable_irq_wake(hdmi_msm_state->irq);
-		if (rc)
-			DEV_INFO("%s: Failed to enable irq wake. Error=%d\n",
-					__func__, rc);
+		if (!hdmi_msm_state->irq_wakeup_enabled) {
+			rc = enable_irq_wake(hdmi_msm_state->irq);
+			if (rc)
+				DEV_INFO("%s: Failed to enable irq wake",
+					__func__);
+			else
+				hdmi_msm_state->irq_wakeup_enabled = true;
+		}
 		return;
 	}
 
@@ -4662,7 +4672,9 @@ static void hdmi_msm_hpd_off(void)
 	if (rc != 0)
 		DEV_INFO("%s: Failed to disable GPIOs. Error=%d\n",
 				__func__, rc);
+
 	hdmi_msm_state->hpd_initialized = FALSE;
+	hdmi_msm_state->cec_initialized = FALSE;
 }
 
 u32 hdmi_msm_is_cec_wakeup_enabled(void)
@@ -4741,7 +4753,11 @@ static int hdmi_msm_hpd_on(void)
 	}
 
 	DEV_DBG("%s: (IRQ, 5V on)\n", __func__);
-	disable_irq_wake(hdmi_msm_state->irq);
+
+	if (hdmi_msm_state->irq_wakeup_enabled) {
+		disable_irq_wake(hdmi_msm_state->irq);
+		hdmi_msm_state->irq_wakeup_enabled = false;
+	}
 
 	return 0;
 
@@ -5322,7 +5338,6 @@ static int __init hdmi_msm_init(void)
 		sizeof(struct hdmi_msm_cec_msg)*CEC_QUEUE_SIZE);
 
 	hdmi_msm_state->cec_enabled = true;
-	hdmi_msm_state->cec_logical_addr = 4;
 #endif
 
 	/*
