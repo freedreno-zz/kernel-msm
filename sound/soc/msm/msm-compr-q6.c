@@ -119,6 +119,8 @@ static void compr_event_handler(uint32_t opcode,
 	int i = 0;
 	int time_stamp_flag = 0;
 	int buffer_length = 0;
+	struct audio_port_data *port;
+	int dsp_buf = 0;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
@@ -139,6 +141,14 @@ static void compr_event_handler(uint32_t opcode,
 			break;
 		} else
 			atomic_set(&prtd->pending_buffer, 0);
+		if (!prtd->mmap_flag) {
+			if (atomic_read(&prtd->eos) &&
+			    (atomic_read(&prtd->out_count) ==
+				runtime->periods)) {
+				q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+			}
+			break;
+		}
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
 			atomic_set(&prtd->pending_buffer, 1);
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
@@ -273,54 +283,92 @@ static void compr_event_handler(uint32_t opcode,
 	}
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
-		case ASM_SESSION_CMD_RUN: {
+		case ASM_SESSION_CMD_RUN:
 			if (substream->stream
 				!= SNDRV_PCM_STREAM_PLAYBACK) {
 				atomic_set(&prtd->start, 1);
 				break;
 			}
-			if (!atomic_read(&prtd->pending_buffer))
-				break;
-			pr_debug("%s:writing %d bytes"
-				" of buffer[%d] to dsp\n",
-				__func__, prtd->pcm_count, prtd->out_head);
-			buf = prtd->audio_client->port[IN].buf;
-			pr_debug("%s:writing buffer[%d] from 0x%08x\n",
-				__func__, prtd->out_head,
-				((unsigned int)buf[0].phys
-				+ (prtd->out_head * prtd->pcm_count)));
-			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
-				time_stamp_flag = SET_TIMESTAMP;
-			else
-				time_stamp_flag = NO_TIMESTAMP;
-			memcpy(&output_meta_data, (char *)(buf->data +
-				prtd->out_head * prtd->pcm_count),
-				COMPRE_OUTPUT_METADATA_SIZE);
-			buffer_length = output_meta_data.frame_size;
-			pr_debug("meta_data_length: %d, frame_length: %d\n",
-				 output_meta_data.meta_data_length,
-				 output_meta_data.frame_size);
-			pr_debug("timestamp_msw: %d, timestamp_lsw: %d\n",
-				 output_meta_data.timestamp_msw,
-				 output_meta_data.timestamp_lsw);
-			param.paddr = (unsigned long)buf[prtd->out_head].phys
+			if (prtd->mmap_flag) {
+				if (!atomic_read(&prtd->pending_buffer))
+					break;
+				pr_debug("%s:writing %d bytes of buffer[%d] to dsp\n",
+					__func__, prtd->pcm_count,
+					prtd->out_head);
+				buf = prtd->audio_client->port[IN].buf;
+				pr_debug("%s:writing buffer[%d] from 0x%08x\n",
+					__func__, prtd->out_head,
+					((unsigned int)buf[0].phys
+					+ (prtd->out_head * prtd->pcm_count)));
+				if (runtime->tstamp_mode ==
+					SNDRV_PCM_TSTAMP_ENABLE)
+					time_stamp_flag = SET_TIMESTAMP;
+				else
+					time_stamp_flag = NO_TIMESTAMP;
+				memcpy(&output_meta_data,
+					(char *)(buf->data +
+					prtd->out_head * prtd->pcm_count),
+					COMPRE_OUTPUT_METADATA_SIZE);
+				buffer_length =
+					output_meta_data.frame_size;
+				pr_debug("meta_data_length: %d, frame_length: %d\n",
+					 output_meta_data.meta_data_length,
+					 output_meta_data.frame_size);
+				pr_debug("timestamp_msw: %d, timestamp_lsw: %d\n",
+					 output_meta_data.timestamp_msw,
+					 output_meta_data.timestamp_lsw);
+				param.paddr =
+					(unsigned long)buf[prtd->out_head].phys
 					+ output_meta_data.meta_data_length;
-			param.len = buffer_length;
-			param.msw_ts = output_meta_data.timestamp_msw;
-			param.lsw_ts = output_meta_data.timestamp_lsw;
-			param.flags = time_stamp_flag;
-			param.uid =  (unsigned long)buf[prtd->out_head].phys
+				param.len = buffer_length;
+				param.msw_ts = output_meta_data.timestamp_msw;
+				param.lsw_ts = output_meta_data.timestamp_lsw;
+				param.flags = time_stamp_flag;
+				param.uid =
+					(unsigned long)buf[prtd->out_head].phys
 					+ output_meta_data.meta_data_length;
-			if (q6asm_async_write(prtd->audio_client,
-						&param) < 0)
-				pr_err("%s:q6asm_async_write failed\n",
-					__func__);
-			else
-				prtd->out_head =
-					(prtd->out_head + 1)
-					& (runtime->periods - 1);
-			atomic_set(&prtd->pending_buffer, 0);
-		}
+				if (q6asm_async_write(prtd->audio_client,
+							&param) < 0)
+					pr_err("%s:q6asm_async_write failed\n",
+						__func__);
+				else
+					prtd->out_head =
+						(prtd->out_head + 1)
+						& (runtime->periods - 1);
+				atomic_set(&prtd->pending_buffer, 0);
+			} else {
+				while (atomic_read(&prtd->out_needed)) {
+					pr_debug("%s:writing %d bytes of buffer to dsp\n",
+						__func__, prtd->pcm_count);
+					if (runtime->tstamp_mode ==
+						SNDRV_PCM_TSTAMP_ENABLE)
+						time_stamp_flag = SET_TIMESTAMP;
+					else
+						time_stamp_flag = NO_TIMESTAMP;
+					port = &(prtd->audio_client->port[IN]);
+					dsp_buf = port->dsp_buf;
+					buf = &port->buf[dsp_buf];
+					memcpy(&output_meta_data,
+						(char *)buf->data,
+						COMPRE_OUTPUT_METADATA_SIZE);
+					buffer_length =
+						output_meta_data.frame_size;
+					memmove((char *)buf->data,
+						(char *)buf->data +
+						COMPRE_OUTPUT_METADATA_SIZE,
+						buffer_length);
+					pr_debug("frame length: %d\n",
+						buffer_length);
+					q6asm_write_nolock(prtd->audio_client,
+						buffer_length,
+						output_meta_data.timestamp_msw,
+						output_meta_data.timestamp_lsw,
+						time_stamp_flag);
+					atomic_dec(&prtd->out_needed);
+					wake_up(&the_locks.write_wait);
+				}
+				atomic_set(&prtd->start, 1);
+			}
 			break;
 		case ASM_STREAM_CMD_FLUSH:
 			pr_debug("ASM_STREAM_CMD_FLUSH\n");
@@ -351,6 +399,15 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	int ret, i;
 	short bit_width = 16;
 
+	if ((substream->stream == SNDRV_PCM_STREAM_CAPTURE) ||
+		((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+		 (prtd->mmap_flag))) {
+		ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
+		if (ret < 0) {
+			pr_err("%s: Set IO mode failed\n", __func__);
+			return ret;
+		}
+	}
 	pr_debug("compressed stream prepare\n");
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
@@ -727,7 +784,10 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 		if (prtd->enc_audio_client)
 			q6asm_run_nowait(prtd->enc_audio_client, 0, 0, 0);
-		atomic_set(&prtd->start, 1);
+		if ((substream->stream == SNDRV_PCM_STREAM_CAPTURE) ||
+			((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+			 (prtd->mmap_flag)))
+			atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		atomic_set(&prtd->start, 0);
@@ -841,12 +901,20 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 			SNDRV_PCM_HW_PARAM_RATE,
 			&constraints_sample_rates);
 	if (ret < 0)
-		pr_info("snd_pcm_hw_constraint_list failed\n");
+		pr_err("snd_pcm_hw_constraint_list failed\n");
 	/* Ensure that buffer size is a multiple of period size */
-	ret = snd_pcm_hw_constraint_integer(runtime,
-			    SNDRV_PCM_HW_PARAM_PERIODS);
+	ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+			PLAYBACK_MIN_NUM_PERIODS * PLAYBACK_MIN_PERIOD_SIZE,
+			PLAYBACK_MIN_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE);
 	if (ret < 0)
-		pr_info("snd_pcm_hw_constraint_integer failed\n");
+		pr_err("snd_pcm_hw_constraint buffer size failed\n");
+	ret = snd_pcm_hw_constraint_minmax(runtime,
+			    SNDRV_PCM_HW_PARAM_PERIODS,
+			    PLAYBACK_MIN_NUM_PERIODS,
+			    PLAYBACK_MAX_NUM_PERIODS);
+	if (ret < 0)
+		pr_info("snd_pcm_hw_constraint period cnt failed\n");
 
 	prtd->dsp_cnt = 0;
 	atomic_set(&prtd->pending_buffer, 1);
@@ -860,6 +928,81 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+
+static int msm_compr_playback_copy(struct snd_pcm_substream *substream, int a,
+	snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
+{
+	int ret = 0;
+	int fbytes = 0;
+	int xfer = 0;
+	char *bufptr = NULL;
+	void *data = NULL;
+	uint32_t idx = 0;
+	uint32_t size = 0;
+
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+	struct output_meta_data_st output_meta_data;
+	int time_stamp_flag = 0;
+	int buffer_length = 0;
+
+	fbytes = frames_to_bytes(runtime, frames);
+	pr_debug("%s: prtd->out_count = %d\n",
+		__func__, atomic_read(&prtd->out_count));
+	ret = wait_event_timeout(the_locks.write_wait,
+		(atomic_read(&prtd->out_count)), 5 * HZ);
+	if (ret < 0) {
+		pr_err("%s: wait_event_timeout failed\n", __func__);
+		goto fail;
+	}
+
+	if (!atomic_read(&prtd->out_count)) {
+		pr_err("%s: pcm stopped out_count 0\n", __func__);
+		return 0;
+	}
+
+	data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size, &idx);
+	bufptr = data;
+	if (bufptr) {
+		pr_debug("%s:fbytes =%d: xfer=%d size=%d\n",
+			__func__, fbytes, xfer, size);
+		xfer = fbytes;
+		if (copy_from_user(bufptr, buf, xfer)) {
+			ret = -EFAULT;
+			goto fail;
+		}
+		buf += xfer;
+		fbytes -= xfer;
+		pr_debug("%s:fbytes = %d: xfer=%d\n", __func__, fbytes, xfer);
+		if (atomic_read(&prtd->start)) {
+			pr_debug("%s:writing %d bytes of buffer to dsp\n",
+				__func__, xfer);
+			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
+				time_stamp_flag = SET_TIMESTAMP;
+			else
+				time_stamp_flag = NO_TIMESTAMP;
+			memcpy(&output_meta_data, (char *)bufptr,
+				COMPRE_OUTPUT_METADATA_SIZE);
+			buffer_length = output_meta_data.frame_size;
+			memmove((char *)bufptr, (char *)bufptr +
+				COMPRE_OUTPUT_METADATA_SIZE,
+				buffer_length);
+			ret = q6asm_write(prtd->audio_client, buffer_length,
+				output_meta_data.timestamp_msw,
+				output_meta_data.timestamp_lsw,
+				time_stamp_flag);
+			if (ret < 0) {
+				ret = -EFAULT;
+				goto fail;
+			}
+		} else {
+			atomic_inc(&prtd->out_needed);
+		}
+		atomic_dec(&prtd->out_count);
+	}
+fail:
+	return  ret;
+}
 
 static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 {
@@ -941,6 +1084,17 @@ static int msm_compr_close(struct snd_pcm_substream *substream)
 		ret = msm_compr_capture_close(substream);
 	return ret;
 }
+
+static int msm_compr_copy(struct snd_pcm_substream *substream, int a,
+	snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
+{
+	int ret = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		ret = msm_compr_playback_copy(substream, a, hwoff, buf, frames);
+	return ret;
+}
+
 static int msm_compr_prepare(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -1144,21 +1298,23 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			return -ENOMEM;
 		}
 	}
-
-	ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
-	if (ret < 0) {
-		pr_err("%s: Set IO mode failed\n", __func__);
-		return -ENOMEM;
-	}
 	/* Modifying kernel hardware params based on userspace config */
 	if (params_periods(params) > 0 &&
-		(params_periods(params) != runtime->hw.periods_max)) {
+		(params_periods(params) <= runtime->hw.periods_max)) {
 		runtime->hw.periods_max = params_periods(params);
+	} else {
+		pr_err("Audio Start: period max out of bounds\n");
+		return -EINVAL;
 	}
 	if (params_period_bytes(params) > 0 &&
-		(params_period_bytes(params) != runtime->hw.period_bytes_min)) {
+		(params_period_bytes(params) >= runtime->hw.period_bytes_min)) {
 		runtime->hw.period_bytes_min = params_period_bytes(params);
+	} else {
+		pr_err("Audio Start: period bytes min out of bounds\n");
+		return -EINVAL;
 	}
+	pr_debug("%s, periods_max: %d, period_bytes_min: %d\n", __func__,
+		runtime->hw.periods_max, runtime->hw.period_bytes_min);
 	runtime->hw.buffer_bytes_max =
 			runtime->hw.period_bytes_min * runtime->hw.periods_max;
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
@@ -1380,27 +1536,49 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		break;
 	case SNDRV_COMPRESS_DRAIN:
 		pr_debug("%s: SNDRV_COMPRESS_DRAIN\n", __func__);
-		if (atomic_read(&prtd->pending_buffer)) {
-			pr_debug("%s: no pending writes, drain would block\n",
-			__func__);
-			return -EWOULDBLOCK;
+		if (prtd->mmap_flag) {
+			if (atomic_read(&prtd->pending_buffer)) {
+				pr_debug("%s: no pending writes, drain would block\n",
+				__func__);
+				return -EWOULDBLOCK;
+			}
+
+			atomic_set(&prtd->eos, 1);
+			atomic_set(&prtd->pending_buffer, 0);
+			prtd->cmd_ack = 0;
+			q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+			/* Wait indefinitely for  DRAIN.
+			   Flush can also signal this*/
+			rc = wait_event_interruptible(the_locks.eos_wait,
+				(prtd->cmd_ack || prtd->cmd_interrupt));
+			if (rc < 0)
+				pr_err("EOS cmd interrupted\n");
+			pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait\n",
+				__func__);
+
+			if (prtd->cmd_interrupt)
+				rc = -EINTR;
+
+			prtd->cmd_interrupt = 0;
+		} else {
+			if (!atomic_read(&prtd->start))
+				return 0;
+			atomic_set(&prtd->eos, 1);
+			if (atomic_read(&prtd->out_count) == runtime->periods)
+				q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+			prtd->cmd_ack = 0;
+			q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+			rc = wait_event_interruptible(
+				the_locks.eos_wait, (prtd->cmd_ack ||
+				 prtd->cmd_interrupt));
+			if (rc < 0)
+				pr_err("EOS cmd interrupted\n");
+			pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait\n",
+				__func__);
+			if (prtd->cmd_interrupt)
+				rc = -EINTR;
+			prtd->cmd_interrupt = 0;
 		}
-
-		atomic_set(&prtd->eos, 1);
-		atomic_set(&prtd->pending_buffer, 0);
-		prtd->cmd_ack = 0;
-		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
-		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
-		rc = wait_event_interruptible(the_locks.eos_wait,
-			(prtd->cmd_ack || prtd->cmd_interrupt));
-		if (rc < 0)
-			pr_err("EOS cmd interrupted\n");
-		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait\n", __func__);
-
-		if (prtd->cmd_interrupt)
-			rc = -EINTR;
-
-		prtd->cmd_interrupt = 0;
 		return rc;
 	case SNDRV_COMPRESS_SET_ROUTING:
 		pr_debug("SNDRV_COMPRESS_SET_ROUTING: ");
@@ -1481,6 +1659,7 @@ static int msm_compr_volume_ctl_put(struct snd_kcontrol *kcontrol,
 
 static struct snd_pcm_ops msm_compr_ops = {
 	.open	   = msm_compr_open,
+	.copy	   = msm_compr_copy,
 	.hw_params	= msm_compr_hw_params,
 	.close	  = msm_compr_close,
 	.ioctl	  = msm_compr_ioctl,
