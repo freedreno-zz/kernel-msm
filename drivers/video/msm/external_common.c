@@ -2165,8 +2165,14 @@ int hdmi_common_read_edid(void)
 		num_og_cea_blocks, cea_extension_ver, vendor_id, ieee_reg_id,
 		edid_buf[0x80]);
 
-	hdmi_edid_get_display_mode(edid_buf,
-		&external_common_state->disp_mode_list, num_og_cea_blocks);
+	if (hdmi_prim_display && hdmi_prim_resolution) {
+		external_common_state->disp_mode_list.num_of_elements = 1;
+		external_common_state->disp_mode_list.disp_mode_list[0] =
+			hdmi_prim_resolution - 1;
+	} else {
+		hdmi_edid_get_display_mode(edid_buf,
+		    &external_common_state->disp_mode_list, num_og_cea_blocks);
+	}
 
 	return 0;
 
@@ -2187,15 +2193,18 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 	uint32_t userformat = 0;
 	userformat = var->reserved[3] >> 16;
 
-	if (userformat) {
-		format = userformat-1;
-		DEV_DBG("reserved format is %d\n", format);
-	} else if (hdmi_prim_resolution) {
+	if (hdmi_prim_resolution) {
 		format = hdmi_prim_resolution - 1;
+		DEV_INFO("%s: selecting resolution from fastboot param %d\n",
+			__func__, hdmi_prim_resolution);
+	} else if (userformat) {
+		format = userformat;
+		DEV_INFO("%s: selecting resolution from reserved format %d\n",
+			__func__, format);
 	} else {
-		DEV_DBG("detecting resolution from %dx%d use top 2 bytes of"
-			" var->reserved[3] to specify mode", mfd->var_xres,
-			mfd->var_yres);
+		DEV_INFO("%s: selecting resolution from %dx%d, framerate %d\n",
+			__func__, mfd->var_xres, mfd->var_yres,
+			mfd->var_frame_rate);
 		switch (mfd->var_xres) {
 		default:
 		case  640:
