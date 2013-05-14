@@ -226,6 +226,7 @@ struct hdmi_disp_mode_list_type {
  */
 #define MAX_AUDIO_DATA_BLOCK_SIZE	30
 #define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
+#define MAX_EDID_BLOCK_SIZE (0x80 * 5)
 
 struct external_common_state_type {
 	boolean hpd_state;
@@ -259,6 +260,7 @@ struct external_common_state_type {
 	int adb_size;
 	uint8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
 	int sadb_size;
+	uint8 edid_buf[MAX_EDID_BLOCK_SIZE];
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 	void (*hdmi_audio_cfg)(uint8 sample_rate, uint8 channel_num,
