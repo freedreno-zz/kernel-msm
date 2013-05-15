@@ -2604,7 +2604,6 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		pr_err("%s: mdp4_overlay_format2type!\n", __func__);
 		return ptype;
 	}
-
 	if (req->flags & MDP_OV_PIPE_SHARE)
 		ptype = OVERLAY_TYPE_VIDEO; /* VG pipe supports both RGB+YUV */
 
@@ -2625,6 +2624,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	}
 
 	pipe->src_format = req->src.format;
+	pipe->src_type = mdp4_overlay_format2type(req->src.format);
 	ret = mdp4_overlay_format2pipe(pipe);
 
 	if (ret < 0) {
@@ -3484,6 +3484,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		mdp4_overlay_pipe_free(pipe, 0);
 		pr_err("%s: blt mode should not be enabled\n", __func__);
 	}
+
 	mutex_unlock(&mfd->dma->ov_mutex);
 
 	return ret;
@@ -3569,6 +3570,8 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	}
 
 	mdp4_stat.overlay_unset[pipe->mixer_num]++;
+	if (pipe->pipe_ndx == mfd->frc_pipe_ndx)
+		mfd->frc_pipe_ndx = 0;
 
 	if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
 		mfd->sec_active = FALSE;
@@ -3610,6 +3613,9 @@ int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
 		cmd = 1;
 	else
 		cmd = 0;
+
+	if (mfd->frc_pipe_ndx && (!cmd))
+		return 0;
 
 	if (!hdmi_prim_display && info->node == 0) {
 		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
@@ -3695,6 +3701,155 @@ void mdp4_overlay_vsync_commit(struct mdp4_overlay_pipe *pipe)
 	mdp4_mixer_stage_up(pipe, 0);
 }
 
+static u32 mdp4_overlay_get_vsync_cnt(struct msm_fb_data_type *mfd)
+{
+	if (hdmi_prim_display || mfd->index == 0)
+		return mdp4_dtv_get_vsync_cnt();
+	else
+		return 0;
+}
+
+static u32 mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
+	u32 timeout, u32 expect_vsync)
+{
+	u32 cur_vsync_cnt;
+	if (hdmi_prim_display || mfd->index == 0)
+		cur_vsync_cnt = mdp4_dtv_wait_expect_vsync(timeout,
+			expect_vsync);
+	else
+		cur_vsync_cnt = 0;
+	return cur_vsync_cnt;
+}
+
+void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
+{
+	struct mdp4_overlay_pipe *pipe;
+	u32 cur_vsync_cnt, expect_vsync_cnt = 0, time_out;
+	struct msmfb_frc_data *cur_frc;
+	struct msmfb_frc_data *last_frc;
+	u32 display_fps, fps_ratio = 0, cadence_id;
+	u32 frame_rate, cur_repeat = 2;
+	int ts_diff, fc_diff, vsync_diff = 0;
+
+	if ((!mfd->frc_pipe_ndx) || (mfd->frc_pipe_ndx >= OVERLAY_PIPE_MAX))
+		return;
+	pipe = &ctrl->plist[mfd->frc_pipe_ndx - 1];
+	if (!pipe || !pipe->frc_data_play)
+		return;
+
+	pipe->frc_data_play = false;
+
+	cur_frc = &pipe->cur_frc_data;
+	last_frc = &pipe->last_frc_data;
+
+	/* repeat frame */
+	if ((cur_frc->frame_cnt || pipe->frc_last_vsync_cnt) &&
+		cur_frc->frame_cnt == last_frc->frame_cnt)
+		return;
+
+	cur_vsync_cnt = mdp4_overlay_get_vsync_cnt(mfd);
+
+	/* first frame */
+	if (!cur_frc->frame_cnt && !cur_frc->frame_rate) {
+		cur_repeat = 3;
+		pipe->frc_last_vsync_cnt = cur_vsync_cnt - 1;
+		goto frc_update;
+	}
+
+	display_fps = mfd->disp_frame_rate;
+	if (!display_fps) {
+		display_fps = mdp_get_panel_framerate(mfd);
+		mfd->disp_frame_rate = display_fps;
+	}
+
+	if (!cur_frc->frame_rate) {
+		/* calculate frame rate */
+		if ((cur_frc->timestamp > last_frc->timestamp) &&
+			(cur_frc->frame_cnt > last_frc->frame_cnt)) {
+			ts_diff = cur_frc->timestamp - last_frc->timestamp;
+			fc_diff = cur_frc->frame_cnt - last_frc->frame_cnt;
+			if ((pipe->min_ts_diff == 0) ||
+				(ts_diff < pipe->min_ts_diff))
+				pipe->min_ts_diff = ts_diff;
+			if (pipe->min_ts_diff > 300)
+				fps_ratio = display_fps * ts_diff / fc_diff;
+		} else {
+			pr_mem("%s: wrong timestamp cur=%d, last=%d",
+				__func__, cur_frc->timestamp,
+				last_frc->timestamp);
+			goto frc_update_done;
+		}
+	} else {
+		frame_rate = cur_frc->frame_rate;
+		fps_ratio = display_fps * 1000000 / frame_rate;
+	}
+
+	if (!mfd->disp_frame_period)
+		mfd->disp_frame_period = 1000000 / display_fps;
+
+	if (!cur_frc->frame_rate ||
+		cur_frc->frame_rate != pipe->frame_rate) {
+		if (fps_ratio > FRC_CADENCE_23_RATIO_LOW &&
+			fps_ratio < FRC_CADENCE_23_RATIO_HIGH)
+			cadence_id = FRC_CADENCE_23;
+		else if (fps_ratio > FRC_CADENCE_22_RATIO_LOW &&
+			fps_ratio < FRC_CADENCE_22_RATIO_HIGH)
+			cadence_id = FRC_CADENCE_22;
+		else
+			cadence_id = FRC_CADENCE_NONE;
+		pipe->frame_rate = cur_frc->frame_rate;
+	} else {
+		cadence_id = pipe->frc_cadence;
+	}
+
+	if ((cadence_id != FRC_CADENCE_NONE) &&
+		(cadence_id != pipe->frc_cadence)) {
+		pipe->frc_cadence = cadence_id;
+		if (cur_frc->frame_cnt == 0) {
+			pipe->frc_last_repeat = 2;
+			pipe->frc_last_vsync_cnt = cur_vsync_cnt - 1;
+		}
+		pr_mem("frc_start: cadence=%d frame_rate=%d, fps_ratio=%d,",
+			cadence_id, pipe->frame_rate, fps_ratio);
+		pr_mem("%s: timestamp cur=%d, last=%d",
+			__func__, cur_frc->timestamp,
+			last_frc->timestamp);
+	}
+	if (cadence_id == FRC_CADENCE_23) {
+		if (pipe->frc_last_repeat >= 3)
+			cur_repeat = 2;
+		else
+			cur_repeat = 3;
+	} else if (cadence_id == FRC_CADENCE_22) {
+		cur_repeat = 2;
+	} else {
+		cur_repeat = 1;
+		pipe->frc_last_vsync_cnt = cur_vsync_cnt - 1;
+	}
+
+frc_update:
+
+	expect_vsync_cnt = cur_repeat + pipe->frc_last_vsync_cnt;
+	vsync_diff = expect_vsync_cnt - cur_vsync_cnt;
+
+	if (vsync_diff > FRC_MAX_WAIT_VSYNC_CYCLE)
+		vsync_diff = FRC_MAX_WAIT_VSYNC_CYCLE;
+	if (vsync_diff > 0) {
+		time_out = mfd->disp_frame_period * (vsync_diff + 1);
+		cur_vsync_cnt = mdp4_wait_expect_vsync(mfd,
+			time_out, expect_vsync_cnt);
+	}
+
+	pr_mem("frc: vsync_cnt=%d frame_cnt=%d expec_vsync=%d adjust=%d",
+		cur_vsync_cnt, cur_frc->frame_cnt,
+		expect_vsync_cnt, vsync_diff);
+	cur_repeat = cur_vsync_cnt - pipe->frc_last_vsync_cnt;
+frc_update_done:
+	pipe->frc_last_repeat = cur_repeat;
+	pipe->frc_last_vsync_cnt = cur_vsync_cnt;
+	*last_frc = *cur_frc;
+}
+
 int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -3723,6 +3878,20 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 	}
 
 	mutex_lock(&mfd->dma->ov_mutex);
+
+	if (req->frc_data.enable &&
+		(mfd->frc_pipe_ndx == 0) &&
+		(mfd->frc_pipe_ndx != pipe->pipe_ndx) &&
+		(pipe->src_type == OVERLAY_TYPE_VIDEO) &&
+		(pipe->dst_w > (mfd->var_xres >> 1)) &&
+		(pipe->dst_h > (mfd->var_yres >> 1))) {
+		mfd->frc_pipe_ndx = pipe->pipe_ndx;
+		memset(&pipe->last_frc_data, 0, sizeof(struct msmfb_frc_data));
+	}
+	if (pipe->pipe_ndx == mfd->frc_pipe_ndx) {
+		pipe->cur_frc_data = req->frc_data;
+		pipe->frc_data_play = true;
+	}
 
 	img = &req->data;
 	get_img(img, info, pipe, 0, &start, &len, &pipe->srcp0_file,
@@ -4121,10 +4290,11 @@ done:
 	mutex_unlock(&mfd->dma->ov_mutex);
 	return err;
 }
-int mdp4_overlay_reset()
+int mdp4_overlay_reset(struct msm_fb_data_type *mfd)
 {
 	memset(&perf_request, 0, sizeof(perf_request));
 	memset(&perf_current, 0, sizeof(perf_current));
+	mfd->frc_pipe_ndx = 0;
 	return 0;
 }
 
