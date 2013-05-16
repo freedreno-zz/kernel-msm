@@ -365,6 +365,7 @@ struct mdp4_overlay_pipe {
 	uint32 rotated_90; /* has been rotated 90 degree */
 	uint32 bpp;	/* byte per pixel */
 	uint32 alpha_enable;/*  source has alpha */
+	uint32 is_csc_dirty;
 	/*
 	 * number of bits for source component,
 	 * 0 = 1 bit, 1 = 2 bits, 2 = 6 bits, 3 = 8 bits

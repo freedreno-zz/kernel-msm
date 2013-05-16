@@ -4610,6 +4610,7 @@ static void hdmi_msm_avi_info_frame(void)
 	int i;
 	int mode = 0;
 	boolean use_ce_scan_info = TRUE;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 
 	switch (external_common_state->video_resolution) {
 	case HDMI_VFRMT_720x480p60_4_3:
@@ -4724,6 +4725,12 @@ static void hdmi_msm_avi_info_frame(void)
 	aviInfoFrame[4]  = hdmi_msm_avi_iframe_lut[1][mode];
 	/* Data Byte 03: ITC EC2 EC1 EC0 Q1 Q0 SC1 SC0 */
 	aviInfoFrame[5]  = hdmi_msm_avi_iframe_lut[2][mode];
+
+	/* Limited Range: Q1 = 0 Q0 = 0, Full Range: Q1 = 0 Q0 = 1*/
+	aviInfoFrame[5] &= ~(0x3 << 2);
+	if (!mfd->use_csc_limited)
+		aviInfoFrame[5] |= BIT(2);
+
 	/* Data Byte 04: 0 VIC6 VIC5 VIC4 VIC3 VIC2 VIC1 VIC0 */
 	aviInfoFrame[6]  = hdmi_msm_avi_iframe_lut[3][mode];
 	/* Data Byte 05: 0 0 0 0 PR3 PR2 PR1 PR0 */

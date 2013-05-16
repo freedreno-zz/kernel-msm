@@ -231,6 +231,7 @@ struct msm_fb_data_type {
 	uint32 vfmt_lk;
 	int do_hdmi_reset;
 	uint32 set_default_res;
+	bool use_csc_limited;
 };
 struct msm_fb_backup_type {
 	struct fb_info info;

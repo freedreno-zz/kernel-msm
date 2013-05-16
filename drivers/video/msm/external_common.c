@@ -1713,6 +1713,7 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 				/*
 				 * Check if the sink specifies underscan
 				 * support for:
+				 * BIT 6: Quantization Support
 				 * BIT 5: preferred video format
 				 * BIT 3: IT video format
 				 * BIT 1: CE video format
@@ -1723,11 +1724,13 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 							(BIT(3) | BIT(2))) >> 2;
 				external_common_state->ce_scan_info = etag[2] &
 							(BIT(1) | BIT(0));
-				DEV_DBG("EDID: Scan Information (pt|it|ce): "
-					"(%d|%d|%d)",
+				external_common_state->quantization_support =
+						((etag[2] & BIT(6)) >> 6);
+				DEV_DBG("ScanInfo(pt|it|ce|qs):(%d|%d|%d|%d)",
 					external_common_state->pt_scan_info,
 					external_common_state->it_scan_info,
-					external_common_state->ce_scan_info);
+					external_common_state->ce_scan_info,
+				external_common_state->quantization_support);
 				break;
 			default:
 				DEV_DBG("EDID: Extend Tag Code %d not"
@@ -2402,6 +2405,7 @@ int hdmi_common_read_edid(void)
 	external_common_state->pt_scan_info = 0;
 	external_common_state->it_scan_info = 0;
 	external_common_state->ce_scan_info = 0;
+	external_common_state->quantization_support = 0;
 	external_common_state->preferred_video_format = 0;
 	external_common_state->present_3d = 0;
 	memset(&external_common_state->disp_mode_list, 0,

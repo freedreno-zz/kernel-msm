@@ -206,6 +206,7 @@ static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe);
 static void mdp4_dtv_wait4dmae(int cndx);
 static void mdp4_dtv_wait4ov(int cndx);
 static void mdp4_dtv_wait4dmae_done(int cndx);
+static int mdp4_dtv_csc_init(struct msm_fb_data_type *mfd);
 
 static void mdp4_dtv_wait4dmae_done(int cndx)
 {
@@ -584,6 +585,7 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	if (hdmi_prim_display) {
 		if (is_mdp4_hw_reset()) {
+			mdp4_dtv_csc_init(mfd);
 			mdp4_hw_init(mfd->cont_splash_done);
 			outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 		}
@@ -1293,4 +1295,40 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	mdp4_dtv_pipe_commit(0, 1, NULL);
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
+}
+
+static int mdp4_dtv_csc_init(struct msm_fb_data_type *mfd)
+{
+	struct fb_info *fbi;
+	struct fb_var_screeninfo *var;
+	int i = 0;
+	struct mdp_csc_cfg *cscdata = NULL;
+
+	if (!mfd)
+		return -ENODEV;
+
+	fbi = mfd->fbi;
+	var = &fbi->var;
+
+	mfd->use_csc_limited = true;
+	cscdata = &csc_cfg_rgb2srgb_limited;
+
+	if (((var->xres == 640) && (var->yres == 480)) ||
+	(external_common_state->quantization_support)) {
+		mfd->use_csc_limited = false;
+		cscdata = &csc_cfg_rgb2srgb_full;
+	}
+
+	for (i = 0; i < CSC_MAX_BLOCKS; i++) {
+		if (csc_cfg_matrix[i].block == MDP_BLOCK_OVERLAY_1) {
+			memcpy(&csc_cfg_matrix[i].csc_data, cscdata,
+			sizeof(struct mdp_csc_cfg));
+			break;
+		}
+	}
+
+	pr_debug("%s use_csc_limited: %d quant: %d ",
+		__func__, mfd->use_csc_limited,
+		external_common_state->quantization_support);
+	return 0;
 }
