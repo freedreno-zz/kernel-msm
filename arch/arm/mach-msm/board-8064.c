@@ -3902,4 +3902,5 @@ MACHINE_START(APQ8064_DMA, "QCT APQ8064 DMA")
 	.init_machine = apq8064_cdp_init,
 	.init_early = apq8064_allocate_memory_regions,
 	.init_very_early = apq8064_early_reserve,
+	.restart = msm_restart,
 MACHINE_END
