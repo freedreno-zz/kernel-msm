@@ -2286,13 +2286,14 @@ static int msm_fb_set_par(struct fb_info *info)
 		mfd->var_yres = var->yres;
 		mfd->var_pixclock = var->pixclock;
 		mfd->var_vic = var_vic;
+
+		if (mfd->update_panel_info)
+			mfd->update_panel_info(mfd);
+
 		blank = 1;
 	}
 	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres,
 						       var->bits_per_pixel/8);
-
-	if (mfd->update_panel_info)
-		mfd->update_panel_info(mfd);
 
 	if ((mfd->panel_info.type == DTV_PANEL) && !mfd->panel_power_on) {
 		msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
