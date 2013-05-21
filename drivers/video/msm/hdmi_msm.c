@@ -3995,25 +3995,29 @@ static void hdmi_msm_audio_setup(void)
 	DEV_INFO("HDMI Audio: Enabled\n");
 }
 
-static int hdmi_msm_audio_off(void)
+static int hdmi_msm_audio_off(boolean check)
 {
 	uint32 audio_cfg;
 	int i, timeout_val = 50;
 
-	for (i = 0; (i < timeout_val) &&
-		((audio_cfg = HDMI_INP_ND(0x01D0)) & BIT(0)); i++) {
-		DEV_DBG("%s: %d times: AUDIO CFG is %08xi\n", __func__,
-				i+1, audio_cfg);
-		if (!((i+1) % 10)) {
-			DEV_ERR("%s: audio still on after %d sec. try again\n",
+	if (check) {
+		for (i = 0; (i < timeout_val) &&
+		     ((audio_cfg = HDMI_INP_ND(0x01D0)) & BIT(0)); i++) {
+			DEV_DBG("%s: %d times: AUDIO CFG is %08xi\n", __func__,
+				i + 1, audio_cfg);
+			if (!((i + 1) % 10)) {
+				DEV_ERR(
+				"%s: audio still on after %d sec. try again\n",
 				__func__, (i+1)/10);
-			SWITCH_SET_HDMI_AUDIO(0, 1);
+				SWITCH_SET_HDMI_AUDIO(0, 1);
+			}
+			msleep(100);
 		}
-		msleep(100);
-	}
 
-	if (i == timeout_val)
-		DEV_ERR("%s: Error: cannot turn off audio engine\n", __func__);
+		if (i == timeout_val)
+			DEV_ERR("%s: Error: cannot turn off audio engine\n",
+				__func__);
+	}
 
 	hdmi_msm_audio_info_setup(FALSE, 0, 0, 0, FALSE);
 	hdmi_msm_audio_acr_setup(FALSE, 0, 0, 0);
@@ -4034,8 +4038,7 @@ void hdmi_msm_audio_reconfig(uint8 sample_rate, uint8 channel_num,
 	}
 
 	if (!hdmi_msm_is_dvi_mode()) {
-		SWITCH_SET_HDMI_AUDIO(0, 0);
-		hdmi_msm_audio_off();
+		hdmi_msm_audio_off(0);
 
 		hdmi_msm_state->hdmi_audio.sample_rate = sample_rate;
 		hdmi_msm_state->hdmi_audio.channel_num = channel_num;
@@ -4044,7 +4047,6 @@ void hdmi_msm_audio_reconfig(uint8 sample_rate, uint8 channel_num,
 		hdmi_msm_state->hdmi_audio.down_mix    = down_mix;
 
 		hdmi_msm_audio_setup();
-		SWITCH_SET_HDMI_AUDIO(1, 0);
 	}
 }
 
@@ -4987,7 +4989,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	SWITCH_SET_HDMI_AUDIO(0, 0);
 
 	if (!hdmi_msm_is_dvi_mode())
-		hdmi_msm_audio_off();
+		hdmi_msm_audio_off(1);
 
 	if (!hdmi_prim_display)
 		hdmi_msm_powerdown_phy();
