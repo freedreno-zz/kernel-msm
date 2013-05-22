@@ -347,6 +347,18 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 	return ret;
 }
 
+int hdmi_common_read_edid_raw_data(char *buf, u32 size)
+{
+	u32 read_size = sizeof(external_common_state->edid_buf);
+	if (size < sizeof(external_common_state->edid_buf)) {
+		pr_err("%s input size is too small %d", __func__, size);
+		read_size = size;
+	}
+	memcpy(buf, external_common_state->edid_buf, read_size);
+	return read_size;
+}
+EXPORT_SYMBOL(hdmi_common_read_edid_raw_data);
+
 static ssize_t hdmi_common_rda_edid_raw_data(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
