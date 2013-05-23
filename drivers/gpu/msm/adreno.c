@@ -3600,6 +3600,8 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	 * applications don't spam the logs
 	 */
 
+	/* this is sort of crack.. it would be racy to check the ts and the
+	 * wait on it, and this check is pointless.. so just get rid of it:
 	if (adreno_ctx && !(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
 		if (_check_pending_timestamp(device, context, timestamp))
 			return -EINVAL;
@@ -3607,6 +3609,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		/* Reset the invalid timestamp flag on a valid wait */
 		context->wait_on_invalid_ts = false;
 	}
+	 */
 
 	/*
 	 * On the first time through the loop only wait 100ms.
