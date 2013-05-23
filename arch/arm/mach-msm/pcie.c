@@ -33,6 +33,7 @@
 #include <mach/gpiomux.h>
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
+#include <asm/mach-types.h>
 
 #include "pcie.h"
 
@@ -528,8 +529,13 @@ static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, BIT(0), 0);
 
 	/* PARF programming */
-	writel_relaxed(0x282828, dev->parf + PCIE20_PARF_PCS_DEEMPH);
-	writel_relaxed(0x7F7F, dev->parf + PCIE20_PARF_PCS_SWING);
+	if (machine_is_apq8064_dma()) {
+		writel_relaxed(0x00000020, dev->parf + PCIE20_PARF_PCS_DEEMPH);
+		writel_relaxed(0x6079 , dev->parf + PCIE20_PARF_PCS_SWING);
+	} else {
+		writel_relaxed(0x282828, dev->parf + PCIE20_PARF_PCS_DEEMPH);
+		writel_relaxed(0x7F7F, dev->parf + PCIE20_PARF_PCS_SWING);
+	}
 	writel_relaxed((4<<24), dev->parf + PCIE20_PARF_CONFIG_BITS);
 	/* ensure that hardware registers the PARF configuration */
 	wmb();
