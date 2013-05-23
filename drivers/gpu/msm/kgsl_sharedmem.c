@@ -680,7 +680,9 @@ kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		       struct kgsl_pagetable *pagetable, size_t size)
 {
 	int ret = 0;
-	BUG_ON(size == 0);
+
+	if (size == 0)
+		return -EINVAL;
 
 	size = ALIGN(size, PAGE_SIZE * 2);
 
@@ -701,7 +703,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 {
 	unsigned int protflags;
 
-	BUG_ON(size == 0);
+	if (size == 0)
+		return -EINVAL;
 
 	protflags = GSL_PT_PAGE_RV;
 	if (!(flags & KGSL_MEMFLAGS_GPUREADONLY))
