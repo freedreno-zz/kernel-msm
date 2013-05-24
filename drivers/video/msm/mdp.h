@@ -75,6 +75,12 @@ extern uint32 mdp_intr_mask;
 #define MDPOP_FG_PM_ALPHA       BIT(13)
 #define MDP_ALLOC(x)  kmalloc(x, GFP_KERNEL)
 
+struct splash_pages {
+	struct page **pages;
+	int nrpages;
+	unsigned long size;
+};
+
 struct mdp_buf_type {
 	struct ion_handle *ihdl;
 	u32 write_addr;

@@ -464,7 +464,8 @@ static void mdp4_dtv_wait4dmae(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	wait_for_completion(&vctrl->dmae_comp);
+	wait_for_completion_interruptible_timeout(&vctrl->dmae_comp,
+		msecs_to_jiffies(VSYNC_PERIOD * 2));
 }
 
 ssize_t mdp4_dtv_show_event(struct device *dev,
@@ -753,6 +754,15 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		pr_warn("%s: panel_next_on failed", __func__);
 
 	atomic_set(&vctrl->suspend, 0);
+
+	if (!(mfd->cont_splash_done)) {
+		mfd->cont_splash_done = 1;
+		mdp4_dtv_wait4dmae_done(0);
+		MDP_OUTP(MDP_BASE + DTV_BASE, 0);
+		/* Clks are enabled in probe.
+		   Disabling clocks now */
+		mdp_clk_ctrl(0);
+	}
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
