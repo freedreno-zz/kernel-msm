@@ -259,9 +259,8 @@ int mdp4_dtv_pipe_commit(int cndx, int wait)
 	undx =  vctrl->update_ndx;
 	vp = &vctrl->vlist[undx];
 	pipe = vctrl->base_pipe;
-	mixer = pipe->mixer_num;
-
-	if (vp->update_cnt == 0) {
+	if (pipe == NULL) {
+		pr_err("%s: NO base pipe\n", __func__);
 		mutex_unlock(&vctrl->update_lock);
 		return 0;
 	}
@@ -287,8 +286,6 @@ int mdp4_dtv_pipe_commit(int cndx, int wait)
 		}
 	}
 	mutex_unlock(&vctrl->update_lock);
-
-	mdp4_overlay_iommu_unmap_freelist(mixer);
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	if (vctrl->ov_koff != vctrl->ov_done) {
