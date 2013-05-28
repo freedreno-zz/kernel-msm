@@ -4194,7 +4194,12 @@ void hdmi_msm_audio_sample_rate_reset(int rate)
 }
 EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
-static uint8 hdmi_msm_avi_iframe_lut[][17] = {
+static DEFINE_MUTEX(avi_iframe_lut_lock);
+#define NUM_MODES_AVI (17)
+#define SET_ITC_BIT(byte)  (byte | 0x80)
+#define CLR_ITC_BIT(byte)  (byte & 0x7F)
+#define CONFIG_CN_BITS(bits, byte)  ((byte & ~(0x03 << 4)) | (bits << 4))
+static uint8 hdmi_msm_avi_iframe_lut[][NUM_MODES_AVI] = {
 /*	480p60	480i60	576p50	576i50	720p60	 720p50	1080p60	1080i60	1080p50
 	1080i50	1080p24	1080p30	1080p25	640x480p 480p60_16_9 576p50_4_3 1024p*/
 
@@ -4238,6 +4243,54 @@ static uint8 hdmi_msm_avi_iframe_lut[][17] = {
 	{0x02,	0x02,	0x02,	0x02,	0x05,	 0x05,	0x07,	0x07,	0x07,
 	 0x07,	0x07,	0x07,	0x07,	0x02, 0x02, 0x02, 0x05}  /*12*/
 };
+
+/* To statically config ITC bit from sysfs attribute */
+static int hdmi_msm_config_itc_bit(int itc)
+{
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		if (itc == 0)
+			hdmi_msm_avi_iframe_lut[2][loop] =
+				CLR_ITC_BIT(hdmi_msm_avi_iframe_lut[2][loop]);
+		if (itc == 1)
+			hdmi_msm_avi_iframe_lut[2][loop] =
+				SET_ITC_BIT(hdmi_msm_avi_iframe_lut[2][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
+
+/* To configure CN0_1 bits from sysfs attribute */
+static int hdmi_msm_config_cn_bits(int cns)
+{
+	int ret = 0, loop = NUM_MODES_AVI;
+
+	if (mutex_lock_interruptible(&avi_iframe_lut_lock)) {
+		ret = -ERESTARTSYS;
+		goto signal_intr;
+	}
+
+	do {
+		--loop;
+		hdmi_msm_avi_iframe_lut[4][loop] =
+			CONFIG_CN_BITS(cns, hdmi_msm_avi_iframe_lut[4][loop]);
+	} while (loop);
+
+	mutex_unlock(&avi_iframe_lut_lock);
+
+signal_intr:
+	return ret;
+}
 
 static void hdmi_msm_avi_info_frame(void)
 {
@@ -4417,6 +4470,9 @@ static void hdmi_msm_avi_info_frame(void)
 	/* INFOFRAME_CTRL0[0x002C] */
 	/* 0x3 for AVI InfFrame enable (every frame) */
 	HDMI_OUTP(0x002C, HDMI_INP(0x002C) | 0x00000003L);
+
+	DEV_INFO("%s: AVI iframe PB3 = %x, PB5 =  %x\n",
+			__func__, aviInfoFrame[5], aviInfoFrame[7]);
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_3D
@@ -4727,7 +4783,12 @@ static void hdmi_msm_turn_on(void)
 		if (!hdmi_msm_state->hdcp_enable)
 			SWITCH_SET_HDMI_AUDIO(1, 0);
 	}
+
+	/* when avi_iframe is sending, not allowed to change avi_iframe_lut */
+	mutex_lock(&avi_iframe_lut_lock);
 	hdmi_msm_avi_info_frame();
+	mutex_unlock(&avi_iframe_lut_lock);
+
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	hdmi_msm_vendor_infoframe_packetsetup();
 #endif
@@ -5497,6 +5558,10 @@ static int __init hdmi_msm_init(void)
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
 #endif
+
+	external_common_state->config_itc_bit = hdmi_msm_config_itc_bit;
+	external_common_state->config_cn_bits = hdmi_msm_config_cn_bits;
+
 	memset(external_common_state->spd_vendor_name, 0,
 			sizeof(external_common_state->spd_vendor_name));
 	memset(external_common_state->spd_product_description, 0,

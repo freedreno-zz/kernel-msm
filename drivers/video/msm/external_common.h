@@ -265,6 +265,8 @@ struct external_common_state_type {
 	int (*hpd_feature)(int on);
 	void (*hdmi_audio_cfg)(uint8 sample_rate, uint8 channel_num,
 			uint8 spkr_alloc, uint8 level_shift, uint8 down_mix);
+	int (*config_itc_bit)(int itc);
+	int (*config_cn_bits)(int cns);
 #endif
 };
 
