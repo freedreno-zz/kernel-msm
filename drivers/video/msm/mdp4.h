@@ -521,7 +521,7 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
 u32 mdp4_dtv_get_vsync_cnt(void);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
-int mdp4_dtv_pipe_commit(int cndx, int wait);
+int mdp4_dtv_pipe_commit(int cndx, int wait, u32 *release_busy);
 #else
 static inline void mdp4_overlay_dtv_start(void)
 {
@@ -648,6 +648,8 @@ void mdp4_overlay_dma_commit(int mixer);
 void mdp4_overlay_vsync_commit(struct mdp4_overlay_pipe *pipe);
 void mdp4_solidfill_commit(int mixer);
 void mdp4_mixer_stage_commit(int mixer);
+void mdp4_mixer_flush(int mixer);
+void mdp4_mixer_stage_commit_no_flush(int mixer);
 void mdp4_dsi_cmd_do_update(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_lcdc_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe, int all);
@@ -989,7 +991,7 @@ int mdp4_calc_blt_mdp_bw(struct msm_fb_data_type *mfd,
 int mdp4_overlay_mdp_perf_req(struct msm_fb_data_type *mfd);
 void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
 int mdp4_overlay_reset(struct msm_fb_data_type *mfd);
-void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd);
+void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd, u32 *release_busy);
 void mdp4_vg_csc_restore(void);
 
 #ifndef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
