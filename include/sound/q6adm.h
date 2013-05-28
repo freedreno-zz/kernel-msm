@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,8 @@
 #define ADM_PATH_PLAYBACK 0x1
 #define ADM_PATH_LIVE_REC 0x2
 #define ADM_PATH_NONLIVE_REC 0x3
+#define ADM_PATH_LOOPBACK_COPP 0x4
+#define ADM_PATH_COMPRESSED_RX 0x5
 
 /* multiple copp per stream. */
 struct route_payload {
@@ -31,6 +33,9 @@ int adm_multi_ch_copp_open(int port, int path, int rate, int mode,
 
 int adm_multi_ch_copp_open_v2(int port, int path, int rate, int mode,
 			int topology, int perfmode, uint16_t bit_width);
+
+int adm_multi_ch_copp_open_v3(int port, int path, int rate, int mode,
+			      int topology, int perfmode, uint16_t bit_width);
 
 int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 				uint32_t *bufsz, uint32_t bufcnt);
@@ -56,6 +61,8 @@ int adm_connect_afe_port_v2(int mode, int session_id, int port_id,
 int adm_multi_ch_copp_pseudo_open_v3(int port_id, int path, int rate,
 				int channel_mode, int topology);
 
+int adm_send_compressed_device_mute(int port_id, bool mute_on);
+int adm_send_device_mute(int port_id, int session_id, bool mute_on);
 #ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_id);
 #endif

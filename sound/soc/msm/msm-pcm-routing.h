@@ -112,12 +112,23 @@ enum {
 	MSM_BACKEND_DAI_MAX,
 };
 
+#define MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX	2
+#define HDMI_RX_ID				0x8001
+#define SEC_MI2S_RX_ID				0x8002
+#define ADM_PP_PARAM_MUTE_ID			0
+#define ADM_PP_PARAM_MUTE_BIT			1
+#define ADM_PP_PARAM_LATENCY_ID			1
+#define ADM_PP_PARAM_LATENCY_BIT		2
+
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
  */
 void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				int dspst_id, int stream_type);
+void msm_pcm_routing_reg_phy_compr_stream(int fedai_id, bool perf_mode,
+				    int dspst_id, int stream_type,
+				    bool compr_passthr);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type, int enable);
 

@@ -165,6 +165,7 @@ struct audio_client {
 	uint64_t         time_stamp;
 	atomic_t         cmd_response;
 	bool             perf_mode;
+	bool		compr_passthr;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);

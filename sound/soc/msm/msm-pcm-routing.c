@@ -42,6 +42,15 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  channel;
 	unsigned int  format;
 	bool perf_mode;
+	bool compr_passthr_mode;
+};
+
+struct msm_pcm_route_bdai_pp_params {
+	u32 device_id;
+	u16 port_id; /* AFE port ID */
+	unsigned long pp_params_config;
+	bool mute_on;
+	int latency;
 };
 
 #define INVALID_SESSION -1
@@ -219,6 +228,11 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ PSEUDOPORT_01, 0, 0, 0, 0, 0},
 };
 
+static struct msm_pcm_route_bdai_pp_params
+		msm_bedais_pp_params[MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX] = {
+	{ HDMI_RX_ID, HDMI_RX, 0, 0, 0},
+	{ SEC_MI2S_RX_ID, SECONDARY_I2S_RX, 0, 0, 0},
+};
 
 /* Track ASM playback & capture sessions of DAI */
 static int fe_dai_map[MSM_FRONTEND_DAI_MM_SIZE][2] = {
@@ -252,6 +266,72 @@ static uint8_t is_be_dai_extproc(int be_dai)
 		return 0;
 }
 
+static void msm_get_be_dai_active_and_mode(int port_id, int *idx,
+					   bool *is_active,
+					   bool *be_is_compr_passthr_mode)
+{
+	int be_index = 0;
+	*idx = 0;
+	*is_active = false;
+	*be_is_compr_passthr_mode = false;
+	for (be_index = 0; be_index < MSM_BACKEND_DAI_MAX; be_index++) {
+		if ((msm_bedais[be_index].port_id == port_id) &&
+			(msm_bedais[be_index].active)) {
+			*idx = be_index;
+			*is_active = true;
+			*be_is_compr_passthr_mode =
+					msm_bedais[be_index].compr_passthr_mode;
+			break;
+		}
+	}
+}
+
+static int msm_routing_send_device_pp_params(int port_id, int path_type)
+{
+	int index = 0, i, fe_id, be_idx = 0;
+	unsigned long pp_config = 0;
+	bool mute_on, be_is_active, be_is_compr_passthr_mode;
+
+	pr_debug("%s\n", __func__);
+	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
+		if (msm_bedais_pp_params[index].port_id == port_id)
+			break;
+	}
+	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX)
+		return -EINVAL;
+	pp_config = msm_bedais_pp_params[index].pp_params_config;
+	msm_get_be_dai_active_and_mode(port_id, &be_idx, &be_is_active,
+					&be_is_compr_passthr_mode);
+	while (pp_config) {
+		if (test_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config)) {
+			pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
+			clear_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config);
+			mute_on = msm_bedais_pp_params[index].mute_on;
+			if (path_type == ADM_PATH_COMPRESSED_RX) {
+				adm_send_compressed_device_mute(port_id,
+								mute_on);
+			} else if (path_type == ADM_PATH_PLAYBACK) {
+				for_each_set_bit(i,
+						&msm_bedais[be_idx].fe_sessions,
+						MSM_FRONTEND_DAI_MM_SIZE) {
+					fe_id = fe_dai_map[i][SESSION_TYPE_RX];
+					if (fe_id != INVALID_SESSION) {
+						adm_send_device_mute(port_id,
+								     fe_id,
+								     mute_on);
+					}
+				}
+			}
+		}
+		if (test_bit(ADM_PP_PARAM_LATENCY_BIT, &pp_config)) {
+			pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
+			clear_bit(ADM_PP_PARAM_LATENCY_BIT,
+				  &pp_config);
+		}
+	}
+	return 0;
+}
+
 static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 	int path_type)
 {
@@ -259,7 +339,8 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 	struct route_payload payload;
 
 	payload.num_copps = 0;
-	port_type = (path_type == ADM_PATH_PLAYBACK ?
+	port_type = ((path_type == ADM_PATH_PLAYBACK) ||
+			((path_type == ADM_PATH_COMPRESSED_RX)) ?
 		MSM_AFE_PORT_TYPE_RX : MSM_AFE_PORT_TYPE_TX);
 
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
@@ -346,8 +427,10 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 	payload.num_copps = 0;
 
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions))
+		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions)) {
 			msm_bedais[i].perf_mode = perf_mode;
+			msm_bedais[i].compr_passthr_mode = true;
+		}
 		if (!is_be_dai_extproc(i) &&
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
@@ -367,6 +450,102 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 				pr_err("%s: adm_connect_afe_port_v2 failed\n",
 					__func__);
 			break;
+		}
+	}
+	if (payload.num_copps)
+		adm_matrix_map(dspst_id, path_type,
+			payload.num_copps, payload.copp_ids, 0);
+
+	mutex_unlock(&routing_lock);
+}
+
+void msm_pcm_routing_reg_phy_compr_stream(int fedai_id, bool perf_mode,
+					  int dspst_id, int stream_type,
+					  bool compr_passthr_mode)
+{
+	int i, session_type, path_type, port_type;
+	struct route_payload payload;
+	u32 channels;
+	u16 bit_width = 16;
+
+	pr_debug("%s\n", __func__);
+	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+		/* bad ID assigned in machine driver */
+		pr_err("%s: bad MM ID %d\n", __func__, fedai_id);
+		return;
+	}
+
+	if (stream_type == SNDRV_PCM_STREAM_PLAYBACK) {
+		session_type = SESSION_TYPE_RX;
+		if (compr_passthr_mode)
+			path_type = ADM_PATH_COMPRESSED_RX;
+		else
+			path_type = ADM_PATH_PLAYBACK;
+		port_type = MSM_AFE_PORT_TYPE_RX;
+
+	} else {
+		session_type = SESSION_TYPE_TX;
+		path_type = ADM_PATH_LIVE_REC;
+		port_type = MSM_AFE_PORT_TYPE_TX;
+	}
+
+	mutex_lock(&routing_lock);
+
+	payload.num_copps = 0; /* only RX needs to use payload */
+	fe_dai_map[fedai_id][session_type] = dspst_id;
+	/* re-enable EQ if active */
+	if (eq_data[fedai_id].enable)
+		msm_send_eq_values(fedai_id);
+	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
+		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions)) {
+			msm_bedais[i].perf_mode = perf_mode;
+			msm_bedais[i].compr_passthr_mode = compr_passthr_mode;
+		}
+		if (!is_be_dai_extproc(i) &&
+		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
+		   (msm_bedais[i].active) &&
+		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
+
+			channels = msm_bedais[i].channel;
+
+			if (msm_bedais[i].format == SNDRV_PCM_FORMAT_S16_LE)
+				bit_width = 16;
+			else if (msm_bedais[i].format ==
+						SNDRV_PCM_FORMAT_S24_LE)
+				bit_width = 24;
+
+			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
+				(channels > 0) &&
+				(path_type != ADM_PATH_COMPRESSED_RX))
+				adm_multi_ch_copp_open_v2(msm_bedais[i].port_id,
+				path_type,
+				msm_bedais[i].sample_rate,
+				msm_bedais[i].channel,
+				DEFAULT_COPP_TOPOLOGY,
+				msm_bedais[i].perf_mode, bit_width);
+			else if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
+				(channels > 0) &&
+				(path_type == ADM_PATH_COMPRESSED_RX))
+				adm_multi_ch_copp_open_v3(msm_bedais[i].port_id,
+				path_type,
+				msm_bedais[i].sample_rate,
+				msm_bedais[i].channel,
+				DEFAULT_COPP_TOPOLOGY,
+				msm_bedais[i].perf_mode, bit_width);
+			else
+				adm_open(msm_bedais[i].port_id,
+				path_type,
+				msm_bedais[i].sample_rate,
+				msm_bedais[i].channel,
+				DEFAULT_COPP_TOPOLOGY);
+
+			payload.copp_ids[payload.num_copps++] =
+				msm_bedais[i].port_id;
+			srs_port_id = msm_bedais[i].port_id;
+			srs_send_params(srs_port_id, 1, 0);
+			msm_routing_send_device_pp_params(
+							msm_bedais[i].port_id,
+							path_type);
 		}
 	}
 	if (payload.num_copps)
@@ -408,8 +587,10 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
 	if (eq_data[fedai_id].enable)
 		msm_send_eq_values(fedai_id);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions))
+		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions)) {
 			msm_bedais[i].perf_mode = perf_mode;
+			msm_bedais[i].compr_passthr_mode = false;
+		}
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
@@ -442,6 +623,9 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
 				msm_bedais[i].port_id;
 			srs_port_id = msm_bedais[i].port_id;
 			srs_send_params(srs_port_id, 1, 0);
+			msm_routing_send_device_pp_params(
+							msm_bedais[i].port_id,
+							path_type);
 		}
 	}
 	if (payload.num_copps)
@@ -547,7 +731,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	if (afe_get_port_type(msm_bedais[reg].port_id) ==
 		MSM_AFE_PORT_TYPE_RX) {
 		session_type = SESSION_TYPE_RX;
-		path_type = ADM_PATH_PLAYBACK;
+		if (msm_bedais[reg].compr_passthr_mode)
+			path_type = ADM_PATH_COMPRESSED_RX;
+		else
+			path_type = ADM_PATH_PLAYBACK;
 	} else {
 		session_type = SESSION_TYPE_TX;
 		path_type = ADM_PATH_LIVE_REC;
@@ -568,33 +755,33 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			if (msm_bedais[reg].format == SNDRV_PCM_FORMAT_S24_LE)
 				bit_width = 24;
 
-			if (msm_bedais[reg].port_id == PSEUDOPORT_01) {
+			if (msm_bedais[reg].port_id == PSEUDOPORT_01)
 				adm_multi_ch_copp_pseudo_open_v3(
 						msm_bedais[reg].port_id,
 						path_type,
 						msm_bedais[reg].sample_rate,
-						channels > 6 ? 6 :
-						channels,
+						channels > 6 ? 6 : channels,
 						DEFAULT_COPP_TOPOLOGY);
-			} else if ((session_type == SESSION_TYPE_RX) &&
-				((channels == 1) || (channels == 2))
-				&& msm_bedais[reg].perf_mode) {
-				adm_multi_ch_copp_open_v2(msm_bedais[reg].port_id,
-				path_type,
-				msm_bedais[reg].sample_rate,
-				channels,
-				DEFAULT_COPP_TOPOLOGY,
-				msm_bedais[reg].perf_mode, bit_width);
-				pr_debug("%s:configure COPP to lowlatency mode",
-								 __func__);
-			} else if ((session_type == SESSION_TYPE_RX)
-					&& (channels > 2))
-				adm_multi_ch_copp_open_v2(msm_bedais[reg].port_id,
-				path_type,
-				msm_bedais[reg].sample_rate,
-				channels,
-				DEFAULT_COPP_TOPOLOGY,
-				msm_bedais[reg].perf_mode, bit_width);
+			else if ((session_type == SESSION_TYPE_RX) &&
+					(channels > 0) &&
+					(path_type != ADM_PATH_COMPRESSED_RX))
+				adm_multi_ch_copp_open_v2(
+					msm_bedais[reg].port_id,
+					path_type,
+					msm_bedais[reg].sample_rate,
+					channels,
+					DEFAULT_COPP_TOPOLOGY,
+					msm_bedais[reg].perf_mode, bit_width);
+			else if ((session_type == SESSION_TYPE_RX) &&
+					(channels > 0) &&
+					(path_type == ADM_PATH_COMPRESSED_RX))
+				adm_multi_ch_copp_open_v3(
+					msm_bedais[reg].port_id,
+					path_type,
+					msm_bedais[reg].sample_rate,
+					channels,
+					DEFAULT_COPP_TOPOLOGY,
+					msm_bedais[reg].perf_mode, bit_width);
 			else
 				adm_open(msm_bedais[reg].port_id,
 				path_type,
@@ -606,6 +793,9 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				fe_dai_map[val][session_type], path_type);
 			srs_port_id = msm_bedais[reg].port_id;
 			srs_send_params(srs_port_id, 1, 0);
+			msm_routing_send_device_pp_params(
+							msm_bedais[reg].port_id,
+							path_type);
 		}
 	} else {
 		if (test_bit(val, &msm_bedais[reg].fe_sessions) &&
@@ -955,6 +1145,81 @@ static int msm_routing_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
 		channel_map[i] = (char)(ucontrol->value.integer.value[i]);
 	adm_set_multi_ch_map(channel_map);
+	return 0;
+}
+
+static int getPortId(int device_id)
+{
+	int i;
+	for (i = 0; i < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; i++)
+		if (device_id == msm_bedais_pp_params[i].device_id)
+			return msm_bedais_pp_params[i].port_id;
+	return AFE_PORT_INVALID;
+}
+
+static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int pp_id = ucontrol->value.integer.value[0];
+	int device_id = ucontrol->value.integer.value[1], port_id = 0;
+	int index = 0, i = 0, fe_id, be_idx = 0;
+	bool mute_on, be_is_active, be_is_compr_passthr_mode;
+
+	pr_debug("%s\n", __func__);
+	port_id = getPortId(device_id);
+	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
+		if (msm_bedais_pp_params[index].port_id == port_id)
+			break;
+	}
+	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX)
+		return -EINVAL;
+	msm_get_be_dai_active_and_mode(port_id, &be_idx, &be_is_active,
+					&be_is_compr_passthr_mode);
+	pr_debug("%s: port_id: %d, be active: %d, be compr_passthr_mode: %d\n",
+		 __func__, port_id, be_is_active, be_is_compr_passthr_mode);
+	switch (pp_id) {
+	case ADM_PP_PARAM_MUTE_ID:
+		pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
+		mute_on = ucontrol->value.integer.value[2] ? true : false;
+		msm_bedais_pp_params[index].mute_on = mute_on;
+		set_bit(ADM_PP_PARAM_MUTE_BIT,
+			&msm_bedais_pp_params[index].pp_params_config);
+		if (be_is_active) {
+			if (be_is_compr_passthr_mode)
+				adm_send_compressed_device_mute(port_id,
+								mute_on);
+			else {
+				for_each_set_bit(i,
+					&msm_bedais[be_idx].fe_sessions,
+					MSM_FRONTEND_DAI_MM_SIZE) {
+					fe_id = fe_dai_map[i][SESSION_TYPE_RX];
+					if (fe_id != INVALID_SESSION)
+						adm_send_device_mute(port_id,
+								     fe_id,
+								     mute_on);
+				}
+			}
+		}
+		break;
+	case ADM_PP_PARAM_LATENCY_ID:
+		pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
+		msm_bedais_pp_params[index].latency =
+				ucontrol->value.integer.value[2];
+		set_bit(ADM_PP_PARAM_LATENCY_BIT,
+			&msm_bedais_pp_params[index].pp_params_config);
+		break;
+	default:
+		pr_info("%s, device pp param %d not supported\n", __func__,
+			pp_id);
+		break;
+	}
+	return 0;
+}
+
+static int msm_routing_get_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("msm_routing_get_device_pp_params_mixer");
 	return 0;
 }
 
@@ -2104,6 +2369,12 @@ static const struct snd_kcontrol_new multi_ch_channel_map_mixer_controls[] = {
 	msm_routing_put_channel_map_mixer),
 };
 
+static const struct snd_kcontrol_new device_pp_params_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Device PP Params", SND_SOC_NOPM, 0, 0xFFFFFFFF,
+	0, 3, msm_routing_get_device_pp_params_mixer,
+	msm_routing_put_device_pp_params_mixer),
+};
+
 static const struct snd_kcontrol_new lpa_SRS_trumedia_controls[] = {
 	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 	.name = "SRS TruMedia",
@@ -3025,6 +3296,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai->sample_rate = 0;
 	bedai->channel = 0;
 	bedai->perf_mode = false;
+	bedai->compr_passthr_mode = false;
 	mutex_unlock(&routing_lock);
 
 	return 0;
@@ -3040,6 +3312,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	bool playback, capture;
 	u16 bit_width = 16;
 
+	pr_debug("%s", __func__);
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
 		return -EINVAL;
@@ -3048,7 +3321,10 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	bedai = &msm_bedais[be_id];
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		path_type = ADM_PATH_PLAYBACK;
+		if (bedai->compr_passthr_mode)
+			path_type = ADM_PATH_COMPRESSED_RX;
+		else
+			path_type = ADM_PATH_PLAYBACK;
 		session_type = SESSION_TYPE_RX;
 	} else {
 		path_type = ADM_PATH_LIVE_REC;
@@ -3081,8 +3357,17 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 							channels > 6 ? 6 :
 							channels,
 							DEFAULT_COPP_TOPOLOGY);
-			else if (playback)
+			else if (playback &&
+				(path_type != ADM_PATH_COMPRESSED_RX))
 				adm_multi_ch_copp_open_v2(bedai->port_id,
+				path_type,
+				bedai->sample_rate,
+				channels,
+				DEFAULT_COPP_TOPOLOGY,
+				bedai->perf_mode, bit_width);
+			else if (playback &&
+				(path_type == ADM_PATH_COMPRESSED_RX))
+				adm_multi_ch_copp_open_v3(bedai->port_id,
 				path_type,
 				bedai->sample_rate,
 				channels,
@@ -3109,6 +3394,9 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			   (srs_port_id == HDMI_RX)) {
 				srs_send_params(srs_port_id, 1, 0);
 			}
+			msm_routing_send_device_pp_params(
+							bedai->port_id,
+							path_type);
 		}
 	}
 
@@ -3200,6 +3488,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				multi_ch_channel_map_mixer_controls,
 			ARRAY_SIZE(multi_ch_channel_map_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				device_pp_params_mixer_controls,
+			ARRAY_SIZE(device_pp_params_mixer_controls));
 
 	return 0;
 }
