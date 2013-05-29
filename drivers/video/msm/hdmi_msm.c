@@ -3738,6 +3738,10 @@ static void hdmi_msm_audio_acr_setup(boolean enabled, int video_format,
 
 		/* AUDIO_PRIORITY | SOURCE */
 		acr_pck_ctrl_reg |= 0x80000100;
+
+		/* Reset multiplier bits*/
+		acr_pck_ctrl_reg &= ~(7 << 16);
+
 		/* N_MULTIPLE(multiplier) */
 		acr_pck_ctrl_reg |= (multiplier & 7) << 16;
 
