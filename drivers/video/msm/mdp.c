@@ -2782,6 +2782,10 @@ static int mdp_probe(struct platform_device *pdev)
 #if defined(CONFIG_FB_MSM_MIPI_DSI) && defined(CONFIG_FB_MSM_MDP40)
 	struct mipi_panel_info *mipi;
 #endif
+	void *splash_virt_addr;
+	int cur_page;
+	unsigned long cur_addr;
+	struct splash_pages page_data;
 
 	if ((pdev->id == 0) && (pdev->num_resources > 0)) {
 		mdp_init_pdev = pdev;
@@ -2889,17 +2893,27 @@ static int mdp_probe(struct platform_device *pdev)
 
 	if (mdp_pdata) {
 		if (mdp_pdata->cont_splash_enabled &&
-				 mfd->panel_info.pdest == DISPLAY_1) {
-			char *cp;
+			((mfd->panel_info.pdest == DISPLAY_1) ||
+			((hdmi_prim_display) &&
+			(mfd->panel_info.pdest == DISPLAY_2)))) {
 			uint32 bpp = 3;
+			uint32 size_base = 0;
+			uint32 addr_base = 0;
 			/*read panel wxh and calculate splash screen
 			  size*/
 			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 			mdp_clk_ctrl(1);
 
+			if (hdmi_prim_display) {
+				size_base = ((uint32_t)(0x50000));
+				addr_base = ((uint32_t)(0x50000 + 0x10));
+			} else {
+				size_base = ((uint32_t)(0x90000 + 0x4));
+				addr_base = ((uint32_t)(0x90000 + 0x8));
+			}
 			mdp_pdata->splash_screen_size =
-				inpdw(MDP_BASE + 0x90004);
+				inpdw(MDP_BASE + size_base);
+
 			mdp_pdata->splash_screen_size =
 				(((mdp_pdata->splash_screen_size >> 16) &
 				  0x00000FFF) * (
@@ -2907,7 +2921,7 @@ static int mdp_probe(struct platform_device *pdev)
 					  0x00000FFF)) * bpp;
 
 			mdp_pdata->splash_screen_addr =
-				inpdw(MDP_BASE + 0x90008);
+				inpdw(MDP_BASE + addr_base);
 
 			mfd->copy_splash_buf = dma_alloc_coherent(NULL,
 					mdp_pdata->splash_screen_size,
@@ -2918,17 +2932,50 @@ static int mdp_probe(struct platform_device *pdev)
 				pr_err("DMA ALLOC FAILED for SPLASH\n");
 				return -ENOMEM;
 			}
-			cp = (char *)ioremap(
-					mdp_pdata->splash_screen_addr,
-					mdp_pdata->splash_screen_size);
-			if (!cp) {
-				pr_err("IOREMAP FAILED for SPLASH\n");
+
+			page_data.size =
+				PFN_ALIGN(mdp_pdata->splash_screen_size);
+			page_data.nrpages = (page_data.size) >> PAGE_SHIFT;
+			page_data.pages = kzalloc(
+					sizeof(struct page *)*page_data.nrpages,
+					GFP_KERNEL);
+			if (!page_data.pages) {
+				pr_err("KZALLOC FAILED for PAGES\n");
 				return -ENOMEM;
 			}
-			memcpy(mfd->copy_splash_buf, cp,
-					mdp_pdata->splash_screen_size);
+			/* Following code for obtaining the virtual address
+			for splash screen address relies on the fact that,
+			splash screen buffer is part of the kernel's memory
+			map and this code need to be changed if the memory
+			comes from outside the kernel. */
 
-			MDP_OUTP(MDP_BASE + 0x90008,
+			cur_addr = mdp_pdata->splash_screen_addr;
+			for (cur_page = 0; cur_page < page_data.nrpages;
+						cur_page++) {
+				page_data.pages[cur_page] =
+					phys_to_page(cur_addr);
+				if (!page_data.pages[cur_page]) {
+					pr_err("%s PHYS_TO_PAGE FAILED SPLASH",
+						__func__);
+					kfree(page_data.pages);
+					return -ENOMEM;
+				}
+				cur_addr += (1 << PAGE_SHIFT);
+			}
+			splash_virt_addr = vmap(page_data.pages,
+						page_data.nrpages,
+						VM_IOREMAP, pgprot_kernel);
+			if (!splash_virt_addr) {
+				pr_err("VMAP FAILED for SPLASH\n");
+				kfree(page_data.pages);
+				return -ENOMEM;
+			}
+			memcpy(mfd->copy_splash_buf, splash_virt_addr,
+			mdp_pdata->splash_screen_size);
+			vunmap(splash_virt_addr);
+			kfree(page_data.pages);
+
+			MDP_OUTP(MDP_BASE + addr_base,
 					mfd->copy_splash_phys);
 		}
 

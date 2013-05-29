@@ -4929,6 +4929,7 @@ static int hdmi_msm_hpd_on(void)
 	static int phy_reset_done;
 	uint32 hpd_ctrl;
 	int rc = 0;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 
 	if (hdmi_msm_state->hpd_initialized) {
 		DEV_DBG("%s: HPD is already ON\n", __func__);
@@ -4955,13 +4956,14 @@ static int hdmi_msm_hpd_on(void)
 		}
 		hdmi_msm_dump_regs("HDMI-INIT: ");
 
-		hdmi_msm_set_mode(FALSE);
-		if (!phy_reset_done) {
-			hdmi_phy_reset();
-			phy_reset_done = 1;
+		if (mfd->cont_splash_done) {
+			hdmi_msm_set_mode(FALSE);
+			if (!phy_reset_done) {
+				hdmi_phy_reset();
+				phy_reset_done = 1;
+			}
+			hdmi_msm_set_mode(TRUE);
 		}
-		hdmi_msm_set_mode(TRUE);
-
 		/* HDMI_USEC_REFTIMER[0x0208] */
 		HDMI_OUTP(0x0208, 0x0001001B);
 
