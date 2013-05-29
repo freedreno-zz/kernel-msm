@@ -749,12 +749,34 @@ static struct msm_bus_vectors hsic_max_vectors[] = {
 	},
 };
 
+/* Bandwidth requests (zero) if no vote placed */
+static struct msm_bus_vectors dma_hsic_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_SPS,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
 static struct msm_bus_vectors dma_hsic_max_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_SPS,
 		.dst = MSM_BUS_SLAVE_SPS,
 		.ab = 0,
 		.ib = 512000000, /*vote for 64Mhz dfab clk rate*/
+	},
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 1770000000,
 	},
 };
 
@@ -771,11 +793,11 @@ static struct msm_bus_paths hsic_bus_scale_usecases[] = {
 
 static struct msm_bus_paths dma_hsic_bus_scale_usecases[] = {
 	{
-		ARRAY_SIZE(hsic_init_vectors),
-		hsic_init_vectors,
+		ARRAY_SIZE(dma_hsic_init_vectors),
+		dma_hsic_init_vectors,
 	},
 	{
-		ARRAY_SIZE(hsic_max_vectors),
+		ARRAY_SIZE(dma_hsic_max_vectors),
 		dma_hsic_max_vectors,
 	},
 };
