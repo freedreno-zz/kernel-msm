@@ -2892,6 +2892,7 @@ static int mdp_probe(struct platform_device *pdev)
 	}
 
 	if (mdp_pdata) {
+		mfd->cont_splash_done = 1;
 		if (mdp_pdata->cont_splash_enabled &&
 			((mfd->panel_info.pdest == DISPLAY_1) ||
 			((hdmi_prim_display) &&
@@ -2923,63 +2924,73 @@ static int mdp_probe(struct platform_device *pdev)
 			mdp_pdata->splash_screen_addr =
 				inpdw(MDP_BASE + addr_base);
 
-			mfd->copy_splash_buf = dma_alloc_coherent(NULL,
+			if (mdp_pdata->splash_screen_size &&
+				mdp_pdata->splash_screen_addr) {
+				mfd->copy_splash_buf =
+					dma_alloc_coherent(
+					NULL,
 					mdp_pdata->splash_screen_size,
 					(dma_addr_t *) &(mfd->copy_splash_phys),
 					GFP_KERNEL);
 
-			if (!mfd->copy_splash_buf) {
-				pr_err("DMA ALLOC FAILED for SPLASH\n");
-				return -ENOMEM;
-			}
+				if (!mfd->copy_splash_buf) {
+					pr_err("DMA ALLOC FAILED for SPLASH\n");
+					return -ENOMEM;
+				}
 
-			page_data.size =
-				PFN_ALIGN(mdp_pdata->splash_screen_size);
-			page_data.nrpages = (page_data.size) >> PAGE_SHIFT;
-			page_data.pages = kzalloc(
+				page_data.size =
+					PFN_ALIGN(
+					mdp_pdata->splash_screen_size);
+				page_data.nrpages =
+					(page_data.size) >> PAGE_SHIFT;
+				page_data.pages =
+					kzalloc(
 					sizeof(struct page *)*page_data.nrpages,
 					GFP_KERNEL);
-			if (!page_data.pages) {
-				pr_err("KZALLOC FAILED for PAGES\n");
-				return -ENOMEM;
-			}
-			/* Following code for obtaining the virtual address
-			for splash screen address relies on the fact that,
-			splash screen buffer is part of the kernel's memory
-			map and this code need to be changed if the memory
-			comes from outside the kernel. */
+				if (!page_data.pages) {
+					pr_err("KZALLOC FAILED for PAGES\n");
+					return -ENOMEM;
+				}
+				/* Following code for obtaining the virtual
+				address	for splash screen address relies on
+				the fact that, splash screen buffer is part
+				of the kernel's memory map and this code need
+				to be changed if the memory comes from outside
+				the kernel. */
 
-			cur_addr = mdp_pdata->splash_screen_addr;
-			for (cur_page = 0; cur_page < page_data.nrpages;
-						cur_page++) {
-				page_data.pages[cur_page] =
-					phys_to_page(cur_addr);
-				if (!page_data.pages[cur_page]) {
-					pr_err("%s PHYS_TO_PAGE FAILED SPLASH",
-						__func__);
+				cur_addr = mdp_pdata->splash_screen_addr;
+				for (cur_page = 0; cur_page < page_data.nrpages;
+							cur_page++) {
+					page_data.pages[cur_page] =
+						phys_to_page(cur_addr);
+					if (!page_data.pages[cur_page]) {
+						pr_err("%s PHYS_TO_PAGE FAILED",
+							__func__);
+						kfree(page_data.pages);
+						return -ENOMEM;
+					}
+					cur_addr += (1 << PAGE_SHIFT);
+				}
+				splash_virt_addr =
+					vmap(page_data.pages,
+						page_data.nrpages,
+						VM_IOREMAP, pgprot_kernel);
+				if (!splash_virt_addr) {
+					pr_err("VMAP FAILED for SPLASH\n");
 					kfree(page_data.pages);
 					return -ENOMEM;
 				}
-				cur_addr += (1 << PAGE_SHIFT);
-			}
-			splash_virt_addr = vmap(page_data.pages,
-						page_data.nrpages,
-						VM_IOREMAP, pgprot_kernel);
-			if (!splash_virt_addr) {
-				pr_err("VMAP FAILED for SPLASH\n");
+				memcpy(mfd->copy_splash_buf, splash_virt_addr,
+				mdp_pdata->splash_screen_size);
+				vunmap(splash_virt_addr);
 				kfree(page_data.pages);
-				return -ENOMEM;
+
+				MDP_OUTP(MDP_BASE + addr_base,
+						mfd->copy_splash_phys);
+
+				mfd->cont_splash_done = 0;
 			}
-			memcpy(mfd->copy_splash_buf, splash_virt_addr,
-			mdp_pdata->splash_screen_size);
-			vunmap(splash_virt_addr);
-			kfree(page_data.pages);
-
-			MDP_OUTP(MDP_BASE + addr_base,
-					mfd->copy_splash_phys);
 		}
-
-		mfd->cont_splash_done = (1 - mdp_pdata->cont_splash_enabled);
 	}
 
 	/* data chain */
