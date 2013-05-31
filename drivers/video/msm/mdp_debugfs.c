@@ -26,6 +26,7 @@
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
+#include <stdarg.h>
 
 #include "mdp.h"
 #include "msm_fb.h"
@@ -38,12 +39,127 @@
 #include "hdmi_msm.h"
 #endif
 
-#define MDP_DEBUG_BUF	2048
+#define MDP_DEBUG_BUF	 2048
+#define DEBUG_RING_SIZE	 4194304	/* size of ring buffer */
+#define PR_MEM_TMP_SIZE	 256
+#define PR_MEM_BUF_SIZE  32
+#define USR_BUFF_SIZE	 4096
 
 static uint32	mdp_offset;
 static uint32	mdp_count;
 
-static char	debug_buf[MDP_DEBUG_BUF];
+static char		debug_buf[MDP_DEBUG_BUF];
+
+static char		*debug_ring_buf;		/* ring buffer */
+static char		pr_mem_temp[PR_MEM_TMP_SIZE] = {0};
+static char		pr_mem_buf[PR_MEM_BUF_SIZE];
+static char		pr_mem_fmt[3];
+
+static uint32	off_w;
+static uint32	off_r;
+static uint32	off_r_tmp;
+static uint32	off_w_tmp;
+static uint32	off_rw_busy;
+
+static char	kmsg_en = PR_MEM_OFF;
+
+DEFINE_MUTEX(pr_mem_mutex);
+
+char mdp_dbg_is_pr_mem_en(void){
+	return kmsg_en;
+}
+
+static void check_rwpntrs(void){
+	if (off_w == DEBUG_RING_SIZE)	/* loop over */
+		off_w = 0;
+
+	if (off_w == off_r) {
+		if (off_r == DEBUG_RING_SIZE-1)
+			off_r = 0;
+		else
+			off_r++;
+	}
+
+	if (!off_rw_busy) {
+		off_r_tmp = off_r;
+		off_w_tmp = off_w;
+	}
+
+	return;
+}
+
+void mdp_dbg_pr_mem(const char *fmt, ...)
+{
+	int count;
+	char *bp;
+	char *cp;
+	unsigned long long t = cpu_clock(smp_processor_id());
+	unsigned long nanosec_rem = do_div(t, 1000000000);
+	va_list args;
+
+	mutex_lock(&pr_mem_mutex);
+	va_start(args, fmt);
+
+	bp = pr_mem_temp;
+	strlcpy(pr_mem_temp, fmt, PR_MEM_TMP_SIZE);
+
+	pr_mem_buf[0] = ' ';
+	for (count = 0; count < 3; count++) {  /* padding */
+		if (debug_ring_buf != NULL)
+			memcpy(debug_ring_buf+off_w, pr_mem_buf, 1);
+		off_w++;
+		check_rwpntrs();
+	}
+
+	snprintf(pr_mem_buf, PR_MEM_BUF_SIZE, "[%5lu.%06lu] ",
+			(unsigned long)t, nanosec_rem/1000);
+	cp = pr_mem_buf;
+
+	while (*cp != '\0') {	/* print the time stamp */
+		if (debug_ring_buf != NULL)
+			memcpy(debug_ring_buf+off_w, cp , 1);
+		cp++;
+		off_w++;
+		check_rwpntrs();
+	}
+
+	while (*bp != '\0') {
+		if (*bp == '%') {
+			bp++;
+			pr_mem_fmt[0] = '%';
+			pr_mem_fmt[1] = *bp;
+			pr_mem_fmt[2] = '\0';
+			snprintf(pr_mem_buf, PR_MEM_BUF_SIZE, pr_mem_fmt,
+					 va_arg(args, int));
+			cp = pr_mem_buf;
+			while (*cp != '\0') {
+				if (debug_ring_buf != NULL)
+					memcpy(debug_ring_buf + off_w, cp , 1);
+				cp++;
+				off_w++;
+				check_rwpntrs();
+			}
+		} else {
+			if (debug_ring_buf != NULL)
+				memcpy(debug_ring_buf + off_w, bp, 1);
+			off_w++;
+			check_rwpntrs();
+		}
+		bp++;
+	}
+
+	pr_mem_buf[0] = '\n';
+	if (debug_ring_buf != NULL)
+		memcpy(debug_ring_buf + off_w, pr_mem_buf, 1);
+	off_w++;
+	check_rwpntrs();
+	mutex_unlock(&pr_mem_mutex);
+
+	memset(pr_mem_temp, 0, PR_MEM_TMP_SIZE);
+
+	va_end(args);
+	return;
+}
 
 /*
  * MDP4
@@ -569,12 +685,12 @@ struct mddi_reg {
 };
 
 static struct mddi_reg mddi_regs_list[] = {
-	{"MDDI_CMD", MDDI_CMD},	 	/* 0x0000 */
+	{"MDDI_CMD", MDDI_CMD},		/* 0x0000 */
 	{"MDDI_VERSION", MDDI_VERSION},  /* 0x0004 */
 	{"MDDI_PRI_PTR", MDDI_PRI_PTR},  /* 0x0008 */
-	{"MDDI_BPS",  MDDI_BPS}, 	/* 0x0010 */
-	{"MDDI_SPM", MDDI_SPM}, 	/* 0x0014 */
-	{"MDDI_INT", MDDI_INT}, 	/* 0x0018 */
+	{"MDDI_BPS",  MDDI_BPS},	/* 0x0010 */
+	{"MDDI_SPM", MDDI_SPM},		/* 0x0014 */
+	{"MDDI_INT", MDDI_INT},		/* 0x0018 */
 	{"MDDI_INTEN", MDDI_INTEN},	/* 0x001c */
 	{"MDDI_REV_PTR", MDDI_REV_PTR},	/* 0x0020 */
 	{"MDDI_	REV_SIZE", MDDI_REV_SIZE},/* 0x0024 */
@@ -583,7 +699,7 @@ static struct mddi_reg mddi_regs_list[] = {
 	{"MDDI_REV_CRC_ERR", MDDI_REV_CRC_ERR}, /* 0x0030 */
 	{"MDDI_TA1_LEN", MDDI_TA1_LEN}, /* 0x0034 */
 	{"MDDI_TA2_LEN", MDDI_TA2_LEN}, /* 0x0038 */
-	{"MDDI_TEST", MDDI_TEST}, 	/* 0x0040 */
+	{"MDDI_TEST", MDDI_TEST},	/* 0x0040 */
 	{"MDDI_REV_PKT_CNT", MDDI_REV_PKT_CNT}, /* 0x0044 */
 	{"MDDI_DRIVE_HI", MDDI_DRIVE_HI},/* 0x0048 */
 	{"MDDI_DRIVE_LO", MDDI_DRIVE_LO},	/* 0x004c */
@@ -1107,6 +1223,128 @@ static const struct file_operations dbg_reg_fops = {
 	.write = dbg_reg_write,
 };
 
+
+
+static ssize_t dbg_kmsg_en_write(
+	struct file *file,
+	const char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	char cbuf;
+	if (*ppos)
+		return 0;	/* the end */
+
+	if (copy_from_user(&cbuf, buff, 1))
+		return -EFAULT;
+
+	if (cbuf == PR_MEM_ON && kmsg_en != PR_MEM_ON) {
+		off_r = 0;
+		off_w = 0;
+		off_r_tmp = 0;
+		off_w_tmp = 0;
+		off_rw_busy = 0;
+		mutex_lock(&pr_mem_mutex);
+		debug_ring_buf = kmalloc(sizeof(char) * DEBUG_RING_SIZE,
+						 GFP_KERNEL);
+		mutex_unlock(&pr_mem_mutex);
+		kmsg_en = cbuf;
+	} else if (cbuf != PR_MEM_ON && kmsg_en == PR_MEM_ON) {
+		kmsg_en = cbuf;
+		off_r = 0;
+		off_w = 0;
+		off_r_tmp = 0;
+		off_w_tmp = 0;
+		off_rw_busy = 0;
+		mutex_lock(&pr_mem_mutex);
+		if (debug_ring_buf != NULL)
+			kfree(debug_ring_buf);
+		mutex_unlock(&pr_mem_mutex);
+	} else {
+		kmsg_en = cbuf;
+	}
+
+	return 2;
+}
+
+static ssize_t dbg_kmsg_en_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	if (*ppos)
+		return 0;	/* the end */
+
+	if (copy_to_user(buff, &kmsg_en, 1))
+		return -EFAULT;
+
+	*ppos += 1 ;
+
+	return 1;
+}
+
+static const struct file_operations dbg_kmsg_en_fops = {
+	.open = dbg_open,
+	.release = dbg_release,
+	.read = dbg_kmsg_en_read,
+	.write = dbg_kmsg_en_write,
+};
+
+static ssize_t dbg_kmsg_read(
+	struct file *file,
+	char __user *buff,
+	size_t count,
+	loff_t *ppos)
+{
+	int tot = 0;
+
+	off_rw_busy = 1;
+
+	if (off_r_tmp == off_w_tmp) {
+		off_r_tmp = off_r;
+		off_w_tmp = off_w;
+		off_rw_busy = 0;
+		return 0;
+	}
+
+	if (off_w_tmp > off_r_tmp + USR_BUFF_SIZE ||
+		(off_w_tmp < off_r_tmp &&
+		off_r_tmp + USR_BUFF_SIZE < DEBUG_RING_SIZE)) {
+		/* Write up to usr_buff_size */
+		if (copy_to_user(buff, debug_ring_buf + off_r_tmp,
+						USR_BUFF_SIZE))
+			return -EFAULT;
+		tot += USR_BUFF_SIZE;
+		off_r_tmp += USR_BUFF_SIZE;
+	} else if (off_w_tmp < off_r_tmp &&
+			off_r_tmp + USR_BUFF_SIZE >= DEBUG_RING_SIZE) {
+		/* Write up to end of ring */
+		if (copy_to_user(buff, debug_ring_buf + off_r_tmp,
+						DEBUG_RING_SIZE - off_r_tmp))
+			return -EFAULT;
+		tot += DEBUG_RING_SIZE - off_r_tmp;
+		off_r_tmp = 0;
+	} else {
+		/* Write up to w-pntr */
+		if (copy_to_user(buff, debug_ring_buf + off_r_tmp,
+						off_w_tmp - off_r_tmp))
+			return -EFAULT;
+		tot += off_w_tmp - off_r_tmp;
+		off_r_tmp += off_w_tmp - off_r_tmp;
+	}
+
+	*ppos += tot;	/* increase offset */
+	return tot;
+}
+
+static const struct file_operations dbg_kmsg_fops = {
+	.open = dbg_open,
+	.release = dbg_release,
+	.read = dbg_kmsg_read,
+};
+
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static uint32 hdmi_offset;
 static uint32 hdmi_count;
@@ -1297,12 +1535,28 @@ static const struct file_operations hdmi_reg_fops = {
 int mdp_debugfs_init(void)
 {
 	struct dentry *dent = debugfs_create_dir("mdp", NULL);
+	mutex_init(&pr_mem_mutex);
 
 	if (IS_ERR(dent)) {
 		printk(KERN_ERR "%s(%d): debugfs_create_dir fail, error %ld\n",
 			__FILE__, __LINE__, PTR_ERR(dent));
 		return -1;
 	}
+
+	if (debugfs_create_file("kmsg", 0644, dent, 0, &dbg_kmsg_fops)
+			== NULL) {
+		printk(KERN_ERR "%s(%d): debugfs_create_file: index fail\n",
+			__FILE__, __LINE__);
+		return -ENOENT;
+	}
+
+	if (debugfs_create_file("en_kmsg", 0644, dent, 0, &dbg_kmsg_en_fops)
+			== NULL) {
+		printk(KERN_ERR "%s(%d): debugfs_create_file: index fail\n",
+			__FILE__, __LINE__);
+		return -ENOENT;
+	}
+
 
 	if (debugfs_create_file("off", 0644, dent, 0, &mdp_off_fops)
 			== NULL) {
