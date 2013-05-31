@@ -244,11 +244,25 @@ enum {
 #define MDP4_MAX_PLANE		4
 #define VSYNC_PERIOD		16
 
+#define FRC_MAX_WAIT_VSYNC_CYCLE	3
+#define FRC_CADENCE_23_RATIO	25000
+#define FRC_CADENCE_22_RATIO	20000
+#define FRC_CADENCE_22_RATIO_LOW	19600
+#define FRC_CADENCE_22_RATIO_HIGH	20400
+#define FRC_CADENCE_23_RATIO_LOW	24500
+#define FRC_CADENCE_23_RATIO_HIGH	25500
+
 #ifdef BLT_RGB565
 #define BLT_BPP 2
 #else
 #define BLT_BPP 3
 #endif
+
+enum {
+	FRC_CADENCE_NONE,
+	FRC_CADENCE_23,
+	FRC_CADENCE_22
+};
 
 struct mdp4_hsic_regs {
 	int32_t params[NUM_HSIC_PARAM];
@@ -295,6 +309,7 @@ struct mdp4_overlay_pipe {
 	uint32 mixer_num;		/* which mixer used */
 	uint32 mixer_stage;		/* which stage of mixer used */
 	uint32 src_format;
+	uint32 src_type;
 	uint32 src_width;	/* source img width */
 	uint32 src_height;	/* source img height */
 	uint32 prev_src_width;	/* source img width */
@@ -378,6 +393,14 @@ struct mdp4_overlay_pipe {
 	uint64 bw_ab_quota;
 	uint64 bw_ib_quota;
 	uint32 luma_align_size;
+	uint32 frame_rate;
+	uint32 frc_data_play;
+	uint32 frc_last_repeat;
+	uint32 frc_cadence;
+	uint32 frc_last_vsync_cnt;
+	uint32 min_ts_diff;
+	struct msmfb_frc_data last_frc_data;
+	struct msmfb_frc_data cur_frc_data;
 	struct mdp_overlay_pp_params pp_cfg;
 	struct mdp_overlay req_data;
 	struct completion comp;
@@ -493,7 +516,9 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dmae_done_dtv(void);
 void mdp4_dtv_wait4vsync(int cndx);
+u32 mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync);
 void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
+u32 mdp4_dtv_get_vsync_cnt(void);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 int mdp4_dtv_pipe_commit(int cndx, int wait);
@@ -963,7 +988,8 @@ int mdp4_calc_blt_mdp_bw(struct msm_fb_data_type *mfd,
 			 struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_mdp_perf_req(struct msm_fb_data_type *mfd);
 void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
-int mdp4_overlay_reset(void);
+int mdp4_overlay_reset(struct msm_fb_data_type *mfd);
+void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd);
 void mdp4_vg_csc_restore(void);
 
 #ifndef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL

@@ -89,6 +89,7 @@ static struct vsycn_ctrl {
 	ktime_t vsync_time;
 	wait_queue_head_t vsync_queue;
 	uint32 vsync_event;
+	u32 vsync_cnt;
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -1024,6 +1025,29 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 	return result;
 }
 
+u32 mdp4_dtv_get_vsync_cnt(void)
+{
+	struct vsycn_ctrl *vctrl;
+	vctrl = &vsync_ctrl_db[0];
+	return vctrl->vsync_cnt;
+}
+
+u32 mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync)
+{
+	struct vsycn_ctrl *vctrl;
+	int ret;
+
+	vctrl = &vsync_ctrl_db[0];
+
+	ret = wait_event_interruptible_timeout(
+			vctrl->vsync_queue,
+			(expect_vsync == vctrl->vsync_cnt),
+			timeout);
+	if (ret <= 0)
+		pr_err("%s fails: %d", __func__, ret);
+	return vctrl->vsync_cnt;
+}
+
 /* TODO: dtv writeback need to be added later */
 
 void mdp4_external_vsync_dtv(void)
@@ -1037,6 +1061,7 @@ void mdp4_external_vsync_dtv(void)
 
 	spin_lock(&vctrl->spin_lock);
 	vctrl->vsync_time = ktime_get();
+	vctrl->vsync_cnt++;
 
 	vctrl->vsync_event++;
 	wake_up_interruptible(&vctrl->vsync_queue);

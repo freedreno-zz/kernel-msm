@@ -160,6 +160,8 @@ struct msm_fb_data_type {
 	__u32 var_yres;
 	__u32 var_pixclock;
 	__u32 var_frame_rate;
+	u32 disp_frame_rate;
+	u32 disp_frame_period;
 	u32 var_vic;
 
 #ifdef MSM_FB_ENABLE_DBGFS
@@ -199,6 +201,7 @@ struct msm_fb_data_type {
 	bool writeback_active_cnt;
 	int cont_splash_done;
 	void *cpu_pm_hdl;
+	u32 frc_pipe_ndx;
 	u32 acq_fen_cnt;
 	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
 	int cur_rel_fen_fd;
