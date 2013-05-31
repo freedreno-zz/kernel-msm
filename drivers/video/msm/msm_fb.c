@@ -1850,13 +1850,18 @@ int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 
 void msm_fb_release_timeline(struct msm_fb_data_type *mfd)
 {
+	u32 commit_cnt;
 	mutex_lock(&mfd->sync_mutex);
+	commit_cnt = atomic_read(&mfd->commit_cnt);
+	if (commit_cnt < 0)
+		commit_cnt = 0;
 	if (mfd->timeline) {
-		sw_sync_timeline_inc(mfd->timeline, 2);
-		mfd->timeline_value += 2;
+		sw_sync_timeline_inc(mfd->timeline, 2 + commit_cnt);
+		mfd->timeline_value += 2 + commit_cnt;
 	}
 	mfd->last_rel_fence = 0;
 	mfd->cur_rel_fence = 0;
+	atomic_set(&mfd->commit_cnt, 0);
 	mutex_unlock(&mfd->sync_mutex);
 }
 
@@ -1952,6 +1957,7 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 		sizeof(struct mdp_display_commit));
 	mfd->is_committing = 1;
 	INIT_COMPLETION(mfd->commit_comp);
+	atomic_inc(&mfd->commit_cnt);
 	schedule_work(&mfd->commit_work);
 	mutex_unlock(&mfd->sync_mutex);
 	if (wait_for_finish)
@@ -2110,6 +2116,13 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+void msm_fb_release_busy(struct msm_fb_data_type *mfd)
+{
+	mutex_lock(&mfd->sync_mutex);
+	mfd->is_committing = 0;
+	complete_all(&mfd->commit_comp);
+	mutex_unlock(&mfd->sync_mutex);
+}
 static void msm_fb_commit_wq_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd;
@@ -2118,24 +2131,23 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 	struct msm_fb_backup_type *fb_backup;
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
-	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
-	info = &fb_backup->info;
-	mdp4_overlay_frc_update(mfd);
-	if (fb_backup->disp_commit.flags &
-		MDP_DISPLAY_COMMIT_OVERLAY) {
-			mdp4_overlay_commit(info);
-	} else {
-		var = &fb_backup->disp_commit.var;
-		msm_fb_pan_display_sub(var, info);
+	while (atomic_read(&mfd->commit_cnt) > 0) {
+		fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
+		info = &fb_backup->info;
+		if (fb_backup->disp_commit.flags &
+			MDP_DISPLAY_COMMIT_OVERLAY) {
+				mdp4_overlay_commit(info);
+		} else {
+			var = &fb_backup->disp_commit.var;
+			msm_fb_pan_display_sub(var, info);
+			msm_fb_release_busy(mfd);
+		}
+		if (unset_bl_level && !bl_updated)
+			schedule_delayed_work(&mfd->backlight_worker,
+						backlight_duration);
+		if (atomic_read(&mfd->commit_cnt) > 0)
+			atomic_dec(&mfd->commit_cnt);
 	}
-	mutex_lock(&mfd->sync_mutex);
-	mfd->is_committing = 0;
-	complete_all(&mfd->commit_comp);
-	mutex_unlock(&mfd->sync_mutex);
-
-	if (unset_bl_level && !bl_updated)
-		schedule_delayed_work(&mfd->backlight_worker,
-					backlight_duration);
 }
 
 static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
@@ -3735,7 +3747,8 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	else
 		threshold = 2;
 	mfd->cur_rel_sync_pt = sw_sync_pt_create(mfd->timeline,
-			mfd->timeline_value + threshold);
+			mfd->timeline_value + threshold +
+			atomic_read(&mfd->commit_cnt));
 	if (mfd->cur_rel_sync_pt == NULL) {
 		pr_err("%s: cannot create sync point", __func__);
 		ret = -ENOMEM;

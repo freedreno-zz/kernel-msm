@@ -1826,7 +1826,7 @@ void mdp4_solidfill_commit(int mixer)
 	mdp4_mixer_stage_commit(mixer);
 }
 
-void mdp4_mixer_stage_commit(int mixer)
+void mdp4_mixer_stage_commit_no_flush(int mixer)
 {
 	struct mdp4_overlay_pipe *pipe;
 	int i, num;
@@ -1879,7 +1879,17 @@ void mdp4_mixer_stage_commit(int mixer)
 	local_irq_save(flags);
 	if (off)
 		outpdw(MDP_BASE + off, data);
+	local_irq_restore(flags);
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	mdp_clk_ctrl(0);
+}
 
+void mdp4_mixer_flush(int mixer)
+{
+	unsigned long flags;
+	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+	mdp_clk_ctrl(1);
+	local_irq_save(flags);
 	if (ctrl->flush[mixer]) {
 		outpdw(MDP_BASE + 0x18000, ctrl->flush[mixer]);
 		ctrl->flush[mixer] = 0;
@@ -1889,6 +1899,11 @@ void mdp4_mixer_stage_commit(int mixer)
 	mdp_clk_ctrl(0);
 }
 
+void mdp4_mixer_stage_commit(int mixer)
+{
+	mdp4_mixer_stage_commit_no_flush(mixer);
+	mdp4_mixer_flush(mixer);
+}
 
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe, int commit)
 {
@@ -3721,7 +3736,8 @@ static u32 mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
 	return cur_vsync_cnt;
 }
 
-void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
+void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
+	u32 *release_busy)
 {
 	struct mdp4_overlay_pipe *pipe;
 	u32 cur_vsync_cnt, expect_vsync_cnt = 0, time_out;
@@ -3729,13 +3745,14 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
 	struct msmfb_frc_data *last_frc;
 	u32 display_fps, fps_ratio = 0, cadence_id;
 	u32 frame_rate, cur_repeat = 2;
+	u32 backup_frc = true;
 	int ts_diff, fc_diff, vsync_diff = 0;
 
 	if ((!mfd->frc_pipe_ndx) || (mfd->frc_pipe_ndx >= OVERLAY_PIPE_MAX))
-		return;
+		goto frc_update_exit;
 	pipe = &ctrl->plist[mfd->frc_pipe_ndx - 1];
 	if (!pipe || !pipe->frc_data_play)
-		return;
+		goto frc_update_exit;
 
 	pipe->frc_data_play = false;
 
@@ -3745,12 +3762,12 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
 	/* repeat frame */
 	if ((cur_frc->frame_cnt || pipe->frc_last_vsync_cnt) &&
 		cur_frc->frame_cnt == last_frc->frame_cnt)
-		return;
+		goto frc_update_exit;
 
 	cur_vsync_cnt = mdp4_overlay_get_vsync_cnt(mfd);
 
 	/* first frame */
-	if (!cur_frc->frame_cnt && !cur_frc->frame_rate) {
+	if (!pipe->frc_last_vsync_cnt && !cur_frc->frame_rate) {
 		cur_repeat = 3;
 		pipe->frc_last_vsync_cnt = cur_vsync_cnt - 1;
 		goto frc_update;
@@ -3805,7 +3822,7 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
 	if ((cadence_id != FRC_CADENCE_NONE) &&
 		(cadence_id != pipe->frc_cadence)) {
 		pipe->frc_cadence = cadence_id;
-		if (cur_frc->frame_cnt == 0) {
+		if (pipe->frc_last_vsync_cnt == 0) {
 			pipe->frc_last_repeat = 2;
 			pipe->frc_last_vsync_cnt = cur_vsync_cnt - 1;
 		}
@@ -3814,7 +3831,15 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
 		pr_mem("%s: timestamp cur=%d, last=%d",
 			__func__, cur_frc->timestamp,
 			last_frc->timestamp);
+	} else if ((cadence_id == FRC_CADENCE_NONE) &&
+		pipe->frc_cadence) {
+		pr_mem("frc_Swtich: cadence=%d frame_rate=%d, fps_ratio=%d,",
+			cadence_id, pipe->frame_rate, fps_ratio);
+		pr_mem("%s: timestamp cur=%d, last=%d",
+			__func__, cur_frc->timestamp,
+			last_frc->timestamp);
 	}
+
 	if (cadence_id == FRC_CADENCE_23) {
 		if (pipe->frc_last_repeat >= 3)
 			cur_repeat = 2;
@@ -3828,13 +3853,17 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd)
 	}
 
 frc_update:
-
 	expect_vsync_cnt = cur_repeat + pipe->frc_last_vsync_cnt;
 	vsync_diff = expect_vsync_cnt - cur_vsync_cnt;
 
 	if (vsync_diff > FRC_MAX_WAIT_VSYNC_CYCLE)
 		vsync_diff = FRC_MAX_WAIT_VSYNC_CYCLE;
 	if (vsync_diff > 0) {
+		*last_frc = *cur_frc;
+		backup_frc = false;
+		msm_fb_release_busy(mfd);
+		if (release_busy)
+			*release_busy = false;
 		time_out = mfd->disp_frame_period * (vsync_diff + 1);
 		cur_vsync_cnt = mdp4_wait_expect_vsync(mfd,
 			time_out, expect_vsync_cnt);
@@ -3847,7 +3876,10 @@ frc_update:
 frc_update_done:
 	pipe->frc_last_repeat = cur_repeat;
 	pipe->frc_last_vsync_cnt = cur_vsync_cnt;
-	*last_frc = *cur_frc;
+	if (backup_frc)
+		*last_frc = *cur_frc;
+frc_update_exit:
+	return;
 }
 
 int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
@@ -4031,15 +4063,19 @@ end:
 
 int mdp4_overlay_commit(struct fb_info *info)
 {
-	int ret = 0;
+	int ret = 0, release_busy = true;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int mixer;
 
-	if (mfd == NULL)
-		return -ENODEV;
+	if (mfd == NULL) {
+		ret = -ENODEV;
+		goto mdp4_overlay_commit_exit;
+	}
 
-	if (!mfd->panel_power_on) /* suspended */
-		return -EINVAL;
+	if (!mfd->panel_power_on) {
+		ret = -EINVAL;
+		goto mdp4_overlay_commit_exit;
+	}
 
 	mixer = mfd->panel_info.pdest;	/* DISPLAY_1 or DISPLAY_2 */
 
@@ -4061,7 +4097,7 @@ int mdp4_overlay_commit(struct fb_info *info)
 		mdp4_lcdc_pipe_commit(0, 1);
 		break;
 	case DTV_PANEL:
-		mdp4_dtv_pipe_commit(0, 1);
+		mdp4_dtv_pipe_commit(0, 1, &release_busy);
 		break;
 	case WRITEBACK_PANEL:
 		mdp4_wfd_pipe_commit(mfd, 0, 1);
@@ -4076,7 +4112,9 @@ int mdp4_overlay_commit(struct fb_info *info)
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mdp4_unmap_sec_resource(mfd);
 	mutex_unlock(&mfd->dma->ov_mutex);
-
+mdp4_overlay_commit_exit:
+	if (release_busy)
+		msm_fb_release_busy(mfd);
 	return ret;
 }
 
