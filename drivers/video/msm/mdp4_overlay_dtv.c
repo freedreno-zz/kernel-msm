@@ -73,7 +73,6 @@ static struct vsycn_ctrl {
 	atomic_t suspend;
 	atomic_t vsync_resume;
 	int dmae_wait_cnt;
-	int wait_vsync_cnt;
 	int blt_change;
 	int sysfs_created;
 	int blt_free;
@@ -82,13 +81,14 @@ static struct vsycn_ctrl {
 	struct mutex update_lock;
 	struct completion ov_comp;
 	struct completion dmae_comp;
-	struct completion vsync_comp;
 	spinlock_t spin_lock;
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *base_pipe;
 	struct vsync_update vlist[2];
 	int vsync_irq_enabled;
 	ktime_t vsync_time;
+	wait_queue_head_t vsync_queue;
+	uint32 vsync_event;
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -406,6 +406,11 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 
 	vctrl = &vsync_ctrl_db[cndx];
 
+	if (!external_common_state->hpd_state) {
+		vctrl->vsync_event++;
+		wake_up_interruptible(&vctrl->vsync_queue);
+	}
+
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
 
@@ -423,7 +428,7 @@ void mdp4_dtv_wait4vsync(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
-	unsigned long flags;
+	uint32 flag = 0;
 
 	if (cndx >= MAX_CONTROLLER) {
 		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
@@ -436,17 +441,11 @@ void mdp4_dtv_wait4vsync(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	mdp4_dtv_vsync_irq_ctrl(cndx, 1);
+	flag = vctrl->vsync_event;
 
-	spin_lock_irqsave(&vctrl->spin_lock, flags);
+	wait_event_interruptible(vctrl->vsync_queue,
+		(flag != vctrl->vsync_event));
 
-	if (vctrl->wait_vsync_cnt == 0)
-		INIT_COMPLETION(vctrl->vsync_comp);
-	vctrl->wait_vsync_cnt++;
-	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-
-	wait_for_completion(&vctrl->vsync_comp);
-	mdp4_dtv_vsync_irq_ctrl(cndx, 0);
 	mdp4_stat.wait4vsync1++;
 }
 
@@ -476,56 +475,32 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 	ssize_t ret = 0;
 	unsigned long flags;
 	u64 vsync_tick;
-	ktime_t ctime;
-	u32 ctick, ptick;
-	int diff;
+	int flag = 0;
 
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[0];
 
 	if (atomic_read(&vctrl->suspend) > 0 ||
 		atomic_read(&vctrl->vsync_resume) == 0) {
-		vctrl->wait_vsync_cnt = 0;
 		vsync_tick = ktime_to_ns(ktime_get());
 		ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
 		buf[strlen(buf) + 1] = '\0';
 		return ret;
 	}
 
-	/*
-	 * show_event thread keep spinning on vctrl->vsync_comp
-	 * race condition on x.done if multiple thread blocked
-	 * at wait_for_completion(&vctrl->vsync_comp)
-	 *
-	 * if show_event thread waked up first then it will come back
-	 * and call INIT_COMPLETION(vctrl->vsync_comp) which set x.done = 0
-	 * then second thread wakeed up which set x.done = 0x7ffffffd
-	 * after that wait_for_completion will never wait.
-	 * To avoid this, force show_event thread to sleep 5 ms here
-	 * since it has full vsycn period (16.6 ms) to wait
-	 */
-	ctime = ktime_get();
-	ctick = (u32)ktime_to_us(ctime);
-	ptick = (u32)ktime_to_us(vctrl->vsync_time);
-	ptick += 5000;	/* 5ms */
-	diff = ptick - ctick;
-	if (diff > 0) {
-		if (diff > 1000) /* 1 ms */
-			diff = 1000;
-		usleep(diff);
-	}
+	flag = vctrl->vsync_event;
 
-	spin_lock_irqsave(&vctrl->spin_lock, flags);
-	if (vctrl->wait_vsync_cnt == 0)
-		INIT_COMPLETION(vctrl->vsync_comp);
-	vctrl->wait_vsync_cnt++;
-	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-
-	ret = wait_for_completion_interruptible_timeout(&vctrl->vsync_comp,
-		msecs_to_jiffies(VSYNC_PERIOD * 4));
+	ret = wait_event_interruptible_timeout(
+			vctrl->vsync_queue,
+			(flag != vctrl->vsync_event),
+			(VSYNC_PERIOD * 4));
 	if (ret <= 0) {
-		vctrl->wait_vsync_cnt = 0;
-		vctrl->vsync_time = ktime_get();
+		if (vctrl->vsync_irq_enabled)
+			pr_err("timeout for VSYNC %d\n", ret);
+		vsync_tick = ktime_to_ns(ktime_get());
+		ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
+		buf[strlen(buf) + 1] = '\0';
+		return ret;
 	}
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
@@ -554,12 +529,13 @@ void mdp4_dtv_vsync_init(int cndx)
 	vctrl->inited = 1;
 	vctrl->update_ndx = 0;
 	mutex_init(&vctrl->update_lock);
-	init_completion(&vctrl->vsync_comp);
 	init_completion(&vctrl->ov_comp);
 	init_completion(&vctrl->dmae_comp);
 	atomic_set(&vctrl->suspend, 1);
 	atomic_set(&vctrl->vsync_resume, 1);
 	spin_lock_init(&vctrl->spin_lock);
+	init_waitqueue_head(&vctrl->vsync_queue);
+	vctrl->vsync_event = 0;
 }
 
 static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
@@ -777,8 +753,6 @@ static void mdp4_dtv_tg_off(struct vsycn_ctrl *vctrl)
 	unsigned long flags;
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
-	INIT_COMPLETION(vctrl->vsync_comp);
-	vctrl->wait_vsync_cnt++;
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0); /* turn off timing generator */
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
@@ -806,8 +780,13 @@ int mdp4_dtv_off(struct platform_device *pdev)
 
 	atomic_set(&vctrl->vsync_resume, 0);
 
-	complete_all(&vctrl->vsync_comp);
-	vctrl->wait_vsync_cnt = 0;
+	/* wait for one vsycn time to make sure
+	 * previous stage_commit had been kicked in
+	 */
+	msleep(20);     /* >= 17 ms */
+
+	vctrl->vsync_event++;
+	wake_up_interruptible(&vctrl->vsync_queue);
 
 	pipe = vctrl->base_pipe;
 	if (pipe != NULL) {
@@ -1059,8 +1038,9 @@ void mdp4_external_vsync_dtv(void)
 	spin_lock(&vctrl->spin_lock);
 	vctrl->vsync_time = ktime_get();
 
-	complete_all(&vctrl->vsync_comp);
-	vctrl->wait_vsync_cnt = 0;
+	vctrl->vsync_event++;
+	wake_up_interruptible(&vctrl->vsync_queue);
+
 	spin_unlock(&vctrl->spin_lock);
 }
 
