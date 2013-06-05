@@ -83,12 +83,16 @@ struct splash_pages {
 #define PR_MEM_OFF		'0'
 #define PR_MEM_ON		'1'
 #define PR_MEM_KMSG		'2'
+#define PR_MEM_KMSG_NO_FRC		'3'
+
+#define frc_is_disabled (mdp_dbg_is_pr_mem_en() == PR_MEM_KMSG_NO_FRC)
 
 #define pr_mem(_fmt, _args...) \
 	do { \
 		if (mdp_dbg_is_pr_mem_en() == PR_MEM_ON) \
 			mdp_dbg_pr_mem(_fmt, ##_args); \
-		else if (mdp_dbg_is_pr_mem_en() == PR_MEM_KMSG) \
+		else if ((mdp_dbg_is_pr_mem_en() == PR_MEM_KMSG) || \
+			(mdp_dbg_is_pr_mem_en() == PR_MEM_KMSG_NO_FRC)) \
 			pr_err(_fmt, ##_args); \
 	} while (0)
 

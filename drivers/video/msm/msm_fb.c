@@ -941,6 +941,11 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				mfd->panel_power_on = TRUE;
 				up(&mfd->sem);
 				mfd->panel_driver_on = mfd->op_enable;
+				mfd->disp_frame_rate =
+					mdp_get_panel_framerate(mfd);
+				if (mfd->disp_frame_rate)
+					mfd->disp_frame_period = 1000000 /
+					mfd->disp_frame_rate;
 			}
 		}
 		break;

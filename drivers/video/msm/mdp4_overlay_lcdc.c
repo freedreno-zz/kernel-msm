@@ -764,7 +764,7 @@ static void mdp4_lcdc_tg_off(struct vsycn_ctrl *vctrl)
 	MDP_OUTP(MDP_BASE + LCDC_BASE, 0); /* turn off timing generator */
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	mdp4_lcdc_wait4vsync(0);
+	msleep(20);
 }
 int mdp4_lcdc_off(struct platform_device *pdev)
 {
