@@ -1525,6 +1525,19 @@ static struct gpiomux_setting gsbi6_uartdm_suspended = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting bt_host_wake_suspended = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting bt_ext_wake_suspended = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 static struct msm_gpiomux_config apq8064_uartdm_gsbi4_configs[] __initdata = {
 	{
 		.gpio      = 11,        /* GSBI4 UARTDM RX */
@@ -1598,6 +1611,21 @@ static struct msm_gpiomux_config mpq8064_gsbi5_uart_configs[] __initdata = {
 		.gpio      = 52,        /* GSBI5 UART RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi5_uart_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config mpq8064_bluesleep_configs[] __initdata = {
+	{
+		.gpio      = 7,        /* HOST_WAKE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &bt_host_wake_suspended,
+		},
+	},
+	{
+		.gpio      = 9,        /* EXT_WAKE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &bt_ext_wake_suspended,
 		},
 	},
 };
@@ -1736,4 +1764,6 @@ void __init apq8064_init_gpiomux(void)
 			machine_is_apq8064_dma())
 		msm_gpiomux_install(mpq8064_uartdm_configs,
 				ARRAY_SIZE(mpq8064_uartdm_configs));
+		msm_gpiomux_install(mpq8064_bluesleep_configs,
+				ARRAY_SIZE(mpq8064_bluesleep_configs));
 }
