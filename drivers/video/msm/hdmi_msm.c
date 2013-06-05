@@ -64,6 +64,10 @@
 #define HPD_EVENT_OFFLINE 0
 #define HPD_EVENT_ONLINE  1
 
+/* Physical address */
+#define MSM_HDMI_PHY_ADDR0	0x10
+#define MSM_HDMI_PHY_ADDR1	0x00
+
 static int hdmi_msm_res_priority[HDMI_VFRMT_MAX] = {
 	[HDMI_VFRMT_720x240p60_4_3]    = 1,
 	[HDMI_VFRMT_1440x480i60_16_9]  = 2,
@@ -293,14 +297,55 @@ u16 cec_user_control_code[] = {
 	KEY_UNKNOWN		/* 0x76 Data */
 };
 
-/* This is "Deck control Mode" to "UI Command Code" mapping table. Element 0
- * is a dummy to fill in an unassigned mode, and must not be used */
+/* CEC "Deck control Mode" to Kernel keycode mapping table. */
 u16 cec_deck_control[] = {
-	0,			/* dummy, must not be used */
-	0x4B,			/* Forward CEC UI Command Code */
-	0x4C,			/* Backward CEC UI Command Code */
-	0x45,			/* Stop CEC UI Command Code */
-	0x4A			/* Eject CEC UI Command Code */
+	KEY_RESERVED,		/* 0x00 Reserved */
+	KEY_FORWARD,		/* Forward CEC UI Command Code */
+	KEY_BACK,		/* Backward CEC UI Command Code */
+	KEY_STOP,		/* Stop CEC UI Command Code */
+	KEY_EJECTCD		/* Eject CEC UI Command Code */
+};
+
+/* CEC "Play" to Kernel keycode mapping table. */
+u16 cec_play[] = {
+	KEY_RESERVED,		/* 0x00 Reserved */
+	KEY_RESERVED,		/* 0x01 Reserved */
+	KEY_RESERVED,		/* 0x02 Reserved */
+	KEY_RESERVED,		/* 0x03 Reserved */
+	KEY_RESERVED,		/* 0x04 Reserved */
+	KEY_UNKNOWN,		/* 0x05 Fast Forward Min Speed */
+	KEY_UNKNOWN,		/* 0x06 Fast Forward Medium Speed */
+	KEY_UNKNOWN,		/* 0x07 Fast Forward Max Speed */
+	KEY_RESERVED,		/* 0x08 Reserved */
+	KEY_UNKNOWN,		/* 0x09 Fast Reverse Min Speed */
+	KEY_UNKNOWN,		/* 0x0A Fast Reverse Medium Speed */
+	KEY_UNKNOWN,		/* 0x0B Fast Reverse Max Speed */
+	KEY_RESERVED,		/* 0x0C Reserved */
+	KEY_RESERVED,		/* 0x0D Reserved */
+	KEY_RESERVED,		/* 0x0E Reserved */
+	KEY_RESERVED,		/* 0x0F Reserved */
+	KEY_RESERVED,		/* 0x10 Reserved */
+	KEY_RESERVED,		/* 0x11 Reserved */
+	KEY_RESERVED,		/* 0x12 Reserved */
+	KEY_RESERVED,		/* 0x13 Reserved */
+	KEY_RESERVED,		/* 0x14 Reserved */
+	KEY_UNKNOWN,		/* 0x15 Slow Forward Min Speed */
+	KEY_UNKNOWN,		/* 0x16 Slow Forward Medium Speed */
+	KEY_UNKNOWN,		/* 0x17 Slow Forward Max Speed */
+	KEY_RESERVED,		/* 0x18 Reserved */
+	KEY_UNKNOWN,		/* 0x19 Slow Reverse Min Speed */
+	KEY_UNKNOWN,		/* 0x1A Slow Reverse Medium Speed */
+	KEY_UNKNOWN,		/* 0x1B Slow Reverse Max Speed */
+	KEY_RESERVED,		/* 0x1C Reserved */
+	KEY_RESERVED,		/* 0x1D Reserved */
+	KEY_RESERVED,		/* 0x1E Reserved */
+	KEY_RESERVED,		/* 0x1F Reserved */
+	KEY_UNKNOWN,		/* 0x20 Play Reverse */
+	KEY_RESERVED,		/* 0x21 Reserved */
+	KEY_RESERVED,		/* 0x22 Reserved */
+	KEY_RESERVED,		/* 0x23 Reserved */
+	KEY_PLAY,		/* 0x24 Play Forward */
+	KEY_PAUSE		/* 0x25 Play Still */
 };
 
 void hdmi_msm_cec_init(void)
@@ -565,6 +610,7 @@ void hdmi_msm_cec_msg_recv(void)
 	struct hdmi_msm_cec_msg temp_msg;
 	struct input_dev *input;
 	u8 id;
+	u8 *addr;
 #endif
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->cec_queue_wr == hdmi_msm_state->cec_queue_rd
@@ -649,8 +695,8 @@ void hdmi_msm_cec_msg_recv(void)
 		temp_msg.recvr_id = 0xf;
 		temp_msg.opcode = 0x84;
 		i = 0;
-		temp_msg.operand[i++] = 0x10;
-		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = MSM_HDMI_PHY_ADDR0;
+		temp_msg.operand[i++] = MSM_HDMI_PHY_ADDR1;
 		temp_msg.operand[i++] = 0x04;
 		temp_msg.frame_size = i + 2;
 		hdmi_msm_cec_msg_send(&temp_msg);
@@ -730,6 +776,27 @@ void hdmi_msm_cec_msg_recv(void)
 	case 0x086:
 		/* Set Stream Path */
 		DEV_INFO("Recvd Set Stream\n");
+
+		addr = hdmi_msm_state->cec_queue_wr->operand;
+		/* If physical addresses do not match, this is not the request
+		 * for this device, and ignore the message */
+		if ((addr[0] != MSM_HDMI_PHY_ADDR0) ||
+		    (addr[1] !=	MSM_HDMI_PHY_ADDR1)) {
+			DEV_INFO("Physical address do not match\n");
+			break;
+		}
+
+		/* Send POWER_KEY event if it's in suspend */
+		input = hdmi_msm_state->input;
+
+		if (input && hdmi_msm_state->irq_wakeup_enabled) {
+			input_report_key(input, KEY_POWER, 1);
+			input_sync(input);
+			input_report_key(input, KEY_POWER, 0);
+			input_sync(input);
+			DEV_INFO("Event KEY_POWER Pressed and Released sent\n");
+		}
+
 		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
 		temp_msg.sender_id = hdmi_msm_cec_read_logical_addr();
 
@@ -737,22 +804,26 @@ void hdmi_msm_cec_msg_recv(void)
 		temp_msg.recvr_id = 0xf;
 		i = 0;
 		temp_msg.opcode = 0x82; /* Active Source */
-		temp_msg.operand[i++] = 0x10;
-		temp_msg.operand[i++] = 0x00;
+		temp_msg.operand[i++] = MSM_HDMI_PHY_ADDR0;
+		temp_msg.operand[i++] = MSM_HDMI_PHY_ADDR1;
 		temp_msg.frame_size = i + 2;
 		hdmi_msm_cec_msg_send(&temp_msg);
 
-		/*
-		 * sending <Image View On> message
-		 */
-		memset(&temp_msg, 0x00, sizeof(struct hdmi_msm_cec_msg));
-		temp_msg.sender_id = hdmi_msm_cec_read_logical_addr();
-		temp_msg.recvr_id = hdmi_msm_state->cec_queue_wr->sender_id;
-		i = 0;
-		/* opcode for Image View On */
-		temp_msg.opcode = 0x04;
-		temp_msg.frame_size = i + 2;
-		hdmi_msm_cec_msg_send(&temp_msg);
+		break;
+	case 0x41:
+		/* Play */
+		id = hdmi_msm_state->cec_queue_wr->operand[0];
+		input = hdmi_msm_state->input;
+		DEV_INFO("Deck Control received 0x%x\n", id);
+
+		if (input && id < ARRAY_SIZE(cec_play)) {
+			input_report_key(input, cec_play[id], 1);
+			input_sync(input);
+			input_report_key(input, cec_play[id], 0);
+			input_sync(input);
+			DEV_INFO("Event 0x%x Pressed and Released sent\n",
+					cec_play[id]);
+		}
 		break;
 	case 0x42:
 		/* Deck Control */
@@ -760,14 +831,13 @@ void hdmi_msm_cec_msg_recv(void)
 		input = hdmi_msm_state->input;
 		DEV_INFO("Deck Control received 0x%x\n", id);
 
-		if (input && id && id < ARRAY_SIZE(cec_deck_control)) {
-			id = cec_deck_control[id];
-			input_report_key(input, cec_user_control_code[id], 1);
+		if (input && id < ARRAY_SIZE(cec_deck_control)) {
+			input_report_key(input, cec_deck_control[id], 1);
 			input_sync(input);
-			input_report_key(input, cec_user_control_code[id], 0);
+			input_report_key(input, cec_deck_control[id], 0);
 			input_sync(input);
 			DEV_INFO("Event 0x%x Pressed and Released sent\n",
-					cec_user_control_code[id]);
+					cec_deck_control[id]);
 		}
 		break;
 	case 0x44:
@@ -796,6 +866,24 @@ void hdmi_msm_cec_msg_recv(void)
 					hdmi_msm_state->last_key);
 			hdmi_msm_state->last_key = 0;
 		}
+		break;
+	case 0x36:
+		/* Standby
+		 * This could be direct or broadcast to switch the device into
+		 * the standby state if it's not in standby. Standby and Suspend
+		 * are interchangeably used here */
+		input = hdmi_msm_state->input;
+		DEV_INFO("Standby received\n");
+
+		if (input && !hdmi_msm_state->irq_wakeup_enabled &&
+				!hdmi_msm_state->standby_servicing) {
+			input_report_key(input, KEY_POWER, 1);
+			input_sync(input);
+			input_report_key(input, KEY_POWER, 0);
+			input_sync(input);
+			DEV_INFO("Event KEY_POWER Pressed and Released sent\n");
+		}
+		hdmi_msm_state->standby_servicing = true;
 		break;
 	default:
 		DEV_INFO("Recvd an unknown cmd = [%u]\n",
@@ -4881,11 +4969,15 @@ static void hdmi_msm_hpd_off(void)
 			if (rc)
 				DEV_INFO("%s: Failed to enable irq wake",
 					__func__);
-			else
+			else {
 				hdmi_msm_state->irq_wakeup_enabled = true;
+				hdmi_msm_state->standby_servicing = false;
+			}
 		}
 		return;
 	}
+	else
+		hdmi_msm_state->standby_servicing = false;
 
 	if (!hdmi_msm_state->hpd_initialized) {
 		DEV_DBG("%s: HPD is already OFF, returning\n", __func__);
@@ -4990,11 +5082,6 @@ static int hdmi_msm_hpd_on(void)
 
 	DEV_DBG("%s: (IRQ, 5V on)\n", __func__);
 
-	if (hdmi_msm_state->irq_wakeup_enabled) {
-		disable_irq_wake(hdmi_msm_state->irq);
-		hdmi_msm_state->irq_wakeup_enabled = false;
-	}
-
 	return 0;
 
 error3:
@@ -5030,6 +5117,11 @@ static int hdmi_msm_power_ctrl(boolean enable)
 				DEV_ERR("%s: HPD ON FAILED\n", __func__);
 				return rc;
 			}
+		}
+
+		if (hdmi_msm_state->irq_wakeup_enabled) {
+			disable_irq_wake(hdmi_msm_state->irq);
+			hdmi_msm_state->irq_wakeup_enabled = false;
 		}
 	} else {
 		DEV_DBG("%s: Turning HPD ciruitry off\n", __func__);

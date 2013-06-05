@@ -96,6 +96,7 @@ struct hdmi_msm_state_type {
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	boolean cec_enabled;
+	boolean standby_servicing;
 	unsigned int first_monitor;
 	int cec_logical_addr;
 	struct completion cec_frame_wr_done;
