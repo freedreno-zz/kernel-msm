@@ -383,8 +383,12 @@ void mdp4_lcdc_wait4vsync(int cndx)
 
 	flag = vctrl->vsync_event;
 
-	wait_event_interruptible(vctrl->vsync_queue,
-		(flag != vctrl->vsync_event));
+	wait_event_interruptible_timeout(
+			vctrl->vsync_queue,
+			(flag != vctrl->vsync_event),
+			(VSYNC_PERIOD * 4));
+
+	mdp4_lcdc_vsync_irq_ctrl(cndx, 0);
 
 	mdp4_stat.wait4vsync0++;
 }
