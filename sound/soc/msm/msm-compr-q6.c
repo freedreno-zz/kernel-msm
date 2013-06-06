@@ -1023,7 +1023,8 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 				prtd->audio_client);
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 					SNDRV_PCM_STREAM_PLAYBACK);
-	if (compr->info.codec_param.codec.transcode_dts) {
+	if (compr->info.codec_param.codec.transcode_dts
+                                        && prtd->enc_audio_client) {
 		msm_pcm_routing_dereg_pseudo_stream(MSM_FRONTEND_DAI_PSEUDO,
 			prtd->enc_audio_client->session);
 	}
