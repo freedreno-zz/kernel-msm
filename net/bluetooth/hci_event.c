@@ -2003,6 +2003,10 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 				mod_timer(&conn->encrypt_pause_timer,
 					jiffies + msecs_to_jiffies(500));
 				BT_INFO("enc pause timer, enc_pend_flag set");
+			}
+			else if(ev->status == HCI_PIN_OR_KEY_MISSING) {
+				BT_DBG("PIN or key missing");
+				start_pairing_req(conn);
 			} else {
 				del_timer(&conn->encrypt_pause_timer);
 				hci_encrypt_cfm(conn, ev->status, ev->encrypt);

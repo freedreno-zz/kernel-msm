@@ -1113,4 +1113,9 @@ void hci_le_ltk_neg_reply(struct hci_conn *conn);
 
 void hci_read_rssi(struct hci_conn *conn);
 
+void start_pairing_req(struct hci_conn *conn);
+
+/*Error codes*/
+#define HCI_PIN_OR_KEY_MISSING	  0x06
+
 #endif /* __HCI_CORE_H */
