@@ -346,6 +346,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		size =  resource_size(&pdev->resource[0]);
 		mipi_dsi_base =  ioremap(pdev->resource[0].start, size);
+		__log_ioremap(mipi_dsi_base, size, "DSI");
 
 		MSM_FB_INFO("mipi_dsi base phy_addr = 0x%x virt = 0x%x\n",
 				pdev->resource[0].start, (int) mipi_dsi_base);
@@ -355,6 +356,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		if (mdp_rev >= MDP_REV_41) {
 			mmss_sfpb_base =  ioremap(MMSS_SFPB_BASE_PHY, 0x100);
+			__log_ioremap(mmss_sfpb_base, 0x100, "SFPB");
 			MSM_FB_INFO("mmss_sfpb  base phy_addr = 0x%x,"
 				"virt = 0x%x\n", MMSS_SFPB_BASE_PHY,
 				(int) mmss_sfpb_base);
@@ -362,6 +364,8 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 			if (!mmss_sfpb_base)
 				return -ENOMEM;
 		}
+
+		__log_ioremap(mmss_cc_base, SZ_4K, "MMSS_CC");
 
 		dsi_irq = platform_get_irq(pdev, 0);
 		if (dsi_irq < 0) {
@@ -386,6 +390,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 			 * (de)serializer on emulation platform
 			 */
 			periph_base = ioremap(MMSS_SERDES_BASE_PHY, 0x100);
+			__log_ioremap(periph_base, 0x100, "SERDES");
 
 			if (periph_base) {
 				pr_debug("periph_base %p\n", periph_base);

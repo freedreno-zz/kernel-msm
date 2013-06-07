@@ -4599,7 +4599,9 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		} while (0)
 
 		IO_REMAP(hdmi_msm_state->qfprom_io, "hdmi_msm_qfprom_addr");
+		__log_ioremap(hdmi_msm_state->qfprom_io, resource_size(res), "QFPROM");
 		hdmi_msm_state->hdmi_io = MSM_HDMI_BASE;
+		__log_ioremap(hdmi_msm_state->hdmi_io, SZ_4K, "HDMI");
 		GET_IRQ(hdmi_msm_state->irq, "hdmi_msm_irq");
 
 		hdmi_msm_state->pd = pdev->dev.platform_data;
