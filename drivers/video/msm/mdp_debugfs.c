@@ -1289,6 +1289,92 @@ static const struct file_operations hdmi_reg_fops = {
 };
 #endif
 
+static struct {
+	u32 base, size;
+	const char *name;
+} regions[10];
+
+static atomic_t regions_idx = {0};
+
+void __log_ioremap(void __iomem *base, u32 size, const char *name)
+{
+	int idx = atomic_inc_return(&regions_idx) - 1;
+	regions[idx].base = (u32)base;
+	regions[idx].size = size;
+	regions[idx].name = name;
+}
+
+static struct {
+	u32 val, addr;
+	const char *func;
+	void *cur;
+	u32 line : 12;
+	u32 op   : 2;
+	u32 ts   : 18;
+} log[20480];
+
+static atomic_t log_idx = {0};
+
+void __log_add(u32 val, u32 addr, const char *func, u32 line, u32 op)
+{
+	u64 ts;
+	int idx = atomic_inc_return(&log_idx) - 1;
+
+	if (idx >= ARRAY_SIZE(log))
+		return;
+
+	ts = local_clock();
+	do_div(ts, 1000000);
+
+	log[idx].val  = val;
+	log[idx].addr = addr;
+	log[idx].func = func;
+	log[idx].cur  = get_current();
+	log[idx].line = line;
+	log[idx].op   = op;
+	log[idx].ts   = ts;
+}
+
+static int log_show(struct seq_file *s, void *unused)
+{
+	int idx;
+	int max_log = atomic_read(&log_idx);
+	int max_regions = atomic_read(&regions_idx);
+
+	/* print register region base/sizes so parser can make sense of addresses */
+	for (idx = 0; idx < max_regions; idx++) {
+		seq_printf(s, "region %s %08x %08x\n",
+				regions[idx].name, regions[idx].base, regions[idx].size);
+	}
+
+	seq_printf(s, "max=%d\n", max_log);
+
+	if (max_log > ARRAY_SIZE(log))
+		max_log = ARRAY_SIZE(log);
+
+	for (idx = 0; idx < max_log; idx++) {
+		seq_printf(s, "%08d %p %d %08x %08x %s %d\n",
+				log[idx].ts, log[idx].cur, log[idx].op,
+				log[idx].addr, log[idx].val,
+				log[idx].func, log[idx].line);
+	}
+
+	return 0;
+}
+
+static int log_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, log_show, inode->i_private);
+}
+
+static const struct file_operations log_fops = {
+	.open = log_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
 /*
  * debugfs
  *
@@ -1326,6 +1412,13 @@ int mdp_debugfs_init(void)
 		return -1;
 	}
 #endif
+
+	if (debugfs_create_file("log", 0644, dent, 0, &log_fops)
+			== NULL) {
+		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+			__FILE__, __LINE__);
+		return -1;
+	}
 
 	dent = debugfs_create_dir("mddi", NULL);
 
