@@ -321,6 +321,7 @@ void mipi_dsi_phy_rdy_poll(void)
 			pr_err("DSI1 PHY NOT READY, exceeded polling TIMEOUT!\n");
 			break;
 		}
+		udelay(100);
 		phy_pll_busy = MIPI_INP(MIPI_DSI_BASE + 0x280);
 	}
 }

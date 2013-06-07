@@ -1265,6 +1265,9 @@ void mdp4_vg_qseed_init(int vp_num)
 	uint32 *off;
 	int i, voff;
 
+	if (1)
+		return;
+
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
 	voff = MDP4_VIDEO_OFF * vp_num;
@@ -2015,6 +2018,8 @@ void mdp4_vg_igc_lut_setup(int vp_num)
 	int i, voff, off;
 	uint32 data, val;
 
+	if (1) return; // hack to not pollute the reg log..
+
 	voff = MDP4_VIDEO_OFF * vp_num;
 	base = MDP_BASE + MDP4_VIDEO_BASE + voff + 0x5000;
 
@@ -2070,6 +2075,9 @@ void mdp4_rgb_igc_lut_setup(int num)
 	unsigned char *base;
 	int i, voff, off;
 	uint32 data, val;
+
+	if (1)
+		return;
 
 	voff = MDP4_RGB_OFF * num;
 	base = MDP_BASE + MDP4_RGB_BASE + voff + 0x5000;
