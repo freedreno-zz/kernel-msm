@@ -408,11 +408,6 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 
 	vctrl = &vsync_ctrl_db[cndx];
 
-	if (!external_common_state->hpd_state) {
-		vctrl->vsync_event++;
-		wake_up_interruptible(&vctrl->vsync_queue);
-	}
-
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
 
@@ -443,10 +438,14 @@ void mdp4_dtv_wait4vsync(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
+	mdp4_dtv_vsync_irq_ctrl(cndx, 1);
+
 	flag = vctrl->vsync_event;
 
 	wait_event_interruptible(vctrl->vsync_queue,
 		(flag != vctrl->vsync_event));
+
+	mdp4_dtv_vsync_irq_ctrl(cndx, 0);
 
 	mdp4_stat.wait4vsync1++;
 }
