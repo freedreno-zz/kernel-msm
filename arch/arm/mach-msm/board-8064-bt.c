@@ -35,20 +35,20 @@ static struct platform_device msm_bt_power_device = {
 static struct resource bluesleep_resources[] = {
 	{
 		.name   = "gpio_host_wake",
-		.start  = 27,
-		.end    = 27,
+		.start  = 7,
+		.end    = 7,
 		.flags  = IORESOURCE_IO,
 	},
 	{
 		.name   = "gpio_ext_wake",
-		.start  = 29,
-		.end    = 29,
+		.start  = 9,
+		.end    = 9,
 		.flags  = IORESOURCE_IO,
 	},
 	{
 		.name   = "host_wake",
-		.start  = MSM_GPIO_TO_INT(27),
-		.end    = MSM_GPIO_TO_INT(27),
+		.start  = MSM_GPIO_TO_INT(7),
+		.end    = MSM_GPIO_TO_INT(7),
 		.flags  = IORESOURCE_IRQ,
 	},
 };
