@@ -47,8 +47,8 @@
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
 #define PLAYBACK_MAX_NUM_PERIODS	1024
 #define PLAYBACK_MIN_NUM_PERIODS	2
-#define PLAYBACK_MAX_PERIOD_SIZE	(1200 * 1024)
-#define PLAYBACK_MIN_PERIOD_SIZE        2400
+#define PLAYBACK_MAX_PERIOD_SIZE	(160 * 1024)
+#define PLAYBACK_MIN_PERIOD_SIZE        320
 
 static struct audio_locks the_locks;
 
@@ -338,6 +338,8 @@ static void compr_event_handler(uint32_t opcode,
 						& (runtime->periods - 1);
 				atomic_set(&prtd->pending_buffer, 0);
 			} else {
+				if (atomic_read(&prtd->out_needed) == 0)
+					snd_pcm_period_elapsed(substream);
 				while (atomic_read(&prtd->out_needed)) {
 					pr_debug("%s:writing %d bytes of buffer to dsp\n",
 						__func__, prtd->pcm_count);
@@ -787,6 +789,7 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 			atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
+		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 		atomic_set(&prtd->start, 0);
 		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
 		break;
