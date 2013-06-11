@@ -442,8 +442,10 @@ void mdp4_dtv_wait4vsync(int cndx)
 
 	flag = vctrl->vsync_event;
 
-	wait_event_interruptible(vctrl->vsync_queue,
-		(flag != vctrl->vsync_event));
+	wait_event_interruptible_timeout(
+			vctrl->vsync_queue,
+			(flag != vctrl->vsync_event),
+			(VSYNC_PERIOD * 4));
 
 	mdp4_dtv_vsync_irq_ctrl(cndx, 0);
 
@@ -780,11 +782,6 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp4_dtv_wait4vsync(cndx);
 
 	atomic_set(&vctrl->vsync_resume, 0);
-
-	/* wait for one vsycn time to make sure
-	 * previous stage_commit had been kicked in
-	 */
-	msleep(20);     /* >= 17 ms */
 
 	vctrl->vsync_event++;
 	wake_up_interruptible(&vctrl->vsync_queue);
