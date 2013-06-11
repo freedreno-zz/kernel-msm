@@ -78,6 +78,8 @@ struct msm_audio {
 	atomic_t in_count;
 	atomic_t out_needed;
 	atomic_t eos;
+	atomic_t flush;
+	atomic_t close;
 	int out_head;
 	int periods;
 	int mmap_flag;
