@@ -332,7 +332,7 @@ VREG_CONSUMERS(BOOST) = {
 
 VREG_CONSUMERS(BT_WIFI) = {
 	REGULATOR_SUPPLY("bt_en",		"bluesleep"),
-	/* Add regulator supply entry for WLAN */
+	REGULATOR_SUPPLY("wlan_en",		"ath6kl_hsic"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
