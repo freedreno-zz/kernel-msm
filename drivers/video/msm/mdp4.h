@@ -247,10 +247,15 @@ enum {
 #define FRC_MAX_WAIT_VSYNC_CYCLE	3
 #define FRC_CADENCE_23_RATIO	25000
 #define FRC_CADENCE_22_RATIO	20000
-#define FRC_CADENCE_22_RATIO_LOW	19600
-#define FRC_CADENCE_22_RATIO_HIGH	20400
+#define FRC_CADENCE_22_RATIO_LOW	19400
+#define FRC_CADENCE_22_RATIO_HIGH	20600
 #define FRC_CADENCE_23_RATIO_LOW	24500
 #define FRC_CADENCE_23_RATIO_HIGH	25500
+#define FRC_FREE_RUN_DETECT_SIZE	10
+#define FRC_FREE_RUN_MAX	1
+#define FRC_FRAMERATE_DETECT_SIZE	4
+
+#define FRC_MAX_RENDER_LATENCY	900
 
 #ifdef BLT_RGB565
 #define BLT_BPP 2
@@ -261,7 +266,8 @@ enum {
 enum {
 	FRC_CADENCE_NONE,
 	FRC_CADENCE_23,
-	FRC_CADENCE_22
+	FRC_CADENCE_22,
+	FRC_CADENCE_FREE_RUN
 };
 
 struct mdp4_hsic_regs {
@@ -398,7 +404,14 @@ struct mdp4_overlay_pipe {
 	uint32 frc_last_repeat;
 	uint32 frc_cadence;
 	uint32 frc_last_vsync_cnt;
-	uint32 min_ts_diff;
+	uint32 play_time_100us;
+	uint32 frc_base_ts;
+	uint32 frc_base_frame_cnt;
+	uint32 frc_cnt;
+	uint32 frc_free_run_base;
+	uint32 frc_free_run_cnt;
+	uint32 frc_min_fps_ratio;
+	uint32 frc_max_fps_ratio;
 	struct msmfb_frc_data last_frc_data;
 	struct msmfb_frc_data cur_frc_data;
 	struct mdp_overlay_pp_params pp_cfg;

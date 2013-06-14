@@ -260,6 +260,7 @@ struct msmfb_frc_data {
 	uint32_t frame_cnt;
 	uint32_t timestamp;
 	uint32_t frame_rate;
+	uint32_t render_delay;
 };
 
 struct msmfb_overlay_data {

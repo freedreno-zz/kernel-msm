@@ -612,7 +612,7 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	dtv_border_clr = mfd->panel_info.lcdc.border_clr;
 	dtv_underflow_clr = mfd->panel_info.lcdc.underflow_clr;
 	dtv_hsync_skew = mfd->panel_info.lcdc.hsync_skew;
-	userformat = var->reserved[3] >> 16;
+	userformat = external_common_state->video_resolution;
 
 	pr_info("%s: <ID=%d %dx%d (%d,%d,%d), (%d,%d,%d) %dMHz>\n", __func__,
 		userformat, var->xres, var->yres,
@@ -759,7 +759,7 @@ static void mdp4_dtv_tg_off(struct vsycn_ctrl *vctrl)
 	MDP_OUTP(MDP_BASE + DTV_BASE, 0); /* turn off timing generator */
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	mdp4_dtv_wait4vsync(0);
+	msleep(40);
 }
 
 int mdp4_dtv_off(struct platform_device *pdev)
