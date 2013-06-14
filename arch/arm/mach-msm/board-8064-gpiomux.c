@@ -1732,9 +1732,11 @@ void __init apq8064_init_gpiomux(void)
 	}
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if (machine_is_apq8064_mtp() || machine_is_apq8064_dma())
+	if (machine_is_apq8064_mtp() || machine_is_apq8064_dma()) {
+		apq8064_hsic_configs[2].gpio = APQ8064_DMA_HSIC_WAKEUP_GPIO;
 		msm_gpiomux_install(apq8064_hsic_configs,
 				ARRAY_SIZE(apq8064_hsic_configs));
+	}
 #endif
 
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
