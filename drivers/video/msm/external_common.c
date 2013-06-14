@@ -709,7 +709,8 @@ static ssize_t hdmi_msm_wta_cec_frame(struct device *dev,
 	for (i = 0; i < RETRANSMIT_MAX_NUM; i++) {
 		hdmi_msm_cec_msg_send((struct hdmi_msm_cec_msg *) buf);
 		if (hdmi_msm_state->cec_frame_wr_status
-		    & CEC_STATUS_WR_ERROR && retry--) {
+		    & (CEC_STATUS_WR_ERROR | CEC_STATUS_WR_TMOUT) &&
+			retry--) {
 			mutex_lock(&hdmi_msm_state_mutex);
 			if (hdmi_msm_state->fsm_reset_done)
 				retry++;
