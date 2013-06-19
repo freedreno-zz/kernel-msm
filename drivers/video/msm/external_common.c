@@ -35,6 +35,7 @@
 #include "mdp.h"
 
 struct external_common_state_type *external_common_state;
+static int number_of_sad;
 EXPORT_SYMBOL(external_common_state);
 DEFINE_MUTEX(external_common_state_hpd_mutex);
 EXPORT_SYMBOL(external_common_state_hpd_mutex);
@@ -905,7 +906,7 @@ static ssize_t hdmi_common_rda_audio_data_block(struct device *dev,
 	memcpy(data, external_common_state->audio_data_block,
 			external_common_state->adb_size);
 
-	print_hex_dump(KERN_DEBUG, "AUDIO DATA BLOCK: ", DUMP_PREFIX_NONE,
+	print_hex_dump(KERN_INFO, "AUDIO DATA BLOCK: ", DUMP_PREFIX_NONE,
 			32, 8, buf, ret, false);
 
 	return ret;
@@ -932,7 +933,7 @@ static ssize_t hdmi_common_rda_spkr_alloc_data_block(struct device *dev,
 	memcpy(data, external_common_state->spkr_alloc_data_block,
 			external_common_state->sadb_size);
 
-	print_hex_dump(KERN_DEBUG, "SPKR ALLOC DATA BLOCK: ", DUMP_PREFIX_NONE,
+	print_hex_dump(KERN_INFO, "SPKR ALLOC DATA BLOCK: ", DUMP_PREFIX_NONE,
 			32, 8, buf, ret, false);
 
 	return ret;
@@ -985,6 +986,255 @@ static ssize_t hdmi_wta_avi_cn0_1(struct device *dev,
 
 	return ret;
 }
+static ssize_t hdmi_common_wta_audio_caps(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	number_of_sad = atoi(buf);
+	return ret;
+}
+
+
+int hdmi_common_get_audio_capabilities(
+		uint8 *channels, uint8 *formats,
+		uint8 *freq,     uint8 *bitrate,
+		uint8 *spkr_allocation)
+{
+	uint8 *adb = external_common_state->audio_data_block;
+	int count  = external_common_state->adb_size/3;
+
+	while (count--) {
+		*channels++ = (*adb & 0x07) + 1;
+		*formats++  = (*adb & 0x78) >> 3;
+		*freq++     = *(adb + 1) & 0xFF;
+		*bitrate++  = *(adb + 2) & 0xFF;
+
+		adb += 3;
+	}
+
+	*spkr_allocation = external_common_state->spkr_alloc_data_block[0];
+
+	return external_common_state->adb_size/3;
+}
+
+static ssize_t hdmi_common_rda_audio_caps(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	uint8 channels[16];
+	uint8 formats[16];
+	uint8 frequency[16];
+	uint8 bitrate[16];
+	uint8 spkr_allocation;
+	int count, i;
+	char str[512];
+	int str_size = 512;
+	boolean comma = FALSE;
+
+	if (number_of_sad == 0) {
+		count = external_common_state->adb_size/3;
+		return snprintf(buf, sizeof(int)+1, "%d\n", count);
+	}
+
+	count = hdmi_common_get_audio_capabilities(channels, formats,
+						   frequency, bitrate,
+						   &spkr_allocation);
+
+	strlcpy(str, "\n", str_size);
+	i = number_of_sad - 1;
+	{
+		char t[3];
+		snprintf(t, 3, "%d", i + 1);
+
+		strlcat(str, "\tSHORT AUDIO DESCRIPTOR # ", str_size);
+		strlcat(str, t, str_size);
+		strlcat(str, "\n", str_size);
+		strlcat(str, "Number of channels \t= ", str_size);
+
+		snprintf(t, 3, "%d", channels[i]);
+		strlcat(str, t, str_size);
+
+		strlcat(str, "\n", str_size);
+
+		strlcat(str, "Formats supported \t= ", str_size);
+		switch (formats[i]) {
+		case 1:
+			strlcat(str, "LPCM", str_size);
+			break;
+		case 2:
+			strlcat(str, "AC-3", str_size);
+			break;
+		case 3:
+			strlcat(str, "MPEG1 (Layers 1 & 2)", str_size);
+			break;
+		case 4:
+			strlcat(str, "MP3 (MPEG1 Layer 3)", str_size);
+			break;
+		case 5:
+			strlcat(str, "MPEG2 (multichannel)", str_size);
+			break;
+		case 6:
+			strlcat(str, "AAC", str_size);
+			break;
+		case 7:
+			strlcat(str, "DTS", str_size);
+			break;
+		case 8:
+			strlcat(str, "ATRAC", str_size);
+			break;
+		case 9:
+			strlcat(str, "One-bit audio aka SACD", str_size);
+			break;
+		case 10:
+			strlcat(str, "Dolby Digital +", str_size);
+			break;
+		case 11:
+			strlcat(str, "DTS-HD", str_size);
+			break;
+		case 12:
+			strlcat(str, "MAT (MLP)", str_size);
+			break;
+		case 13:
+			strlcat(str, "DST", str_size);
+			break;
+		case 14:
+			strlcat(str, "WMA Pro", str_size);
+			break;
+		default:
+			break;
+		}
+
+		strlcat(str, "\n", str_size);
+
+		strlcat(str, "Frequency supported \t= ", str_size);
+		comma = FALSE;
+		if (frequency[i] & BIT(0)) {
+			strlcat(str, "32kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(1)) {
+			if (comma)
+				strlcat(str, ", 44kHz", str_size);
+			else
+				strlcat(str, "44kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(2)) {
+			if (comma)
+				strlcat(str, ", 48kHz", str_size);
+			else
+				strlcat(str, "48kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(3)) {
+			if (comma)
+				strlcat(str, ", 88kHz", str_size);
+			else
+				strlcat(str, "88kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(4)) {
+			if (comma)
+				strlcat(str, ", 96kHz", str_size);
+			else
+				strlcat(str, "96kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(5)) {
+			if (comma)
+				strlcat(str, ", 176kHz", str_size);
+			else
+				strlcat(str, "176kHz", str_size);
+			comma = TRUE;
+		}
+		if (frequency[i] & BIT(6)) {
+			if (comma)
+				strlcat(str, ", 192kHz", str_size);
+			else
+				strlcat(str, "192kHz", str_size);
+		}
+
+		strlcat(str, "\n", str_size);
+
+		strlcat(str, "bitrate supported \t= ", str_size);
+		comma = FALSE;
+		if (formats[i] == 1) {
+			if (bitrate[i] & BIT(0)) {
+				strlcat(str, "16bit", str_size);
+				comma = TRUE;
+			}
+			if (bitrate[i] & BIT(1)) {
+				if (comma)
+					strlcat(str, ", 20bit", str_size);
+				else
+					strlcat(str, "20bit", str_size);
+				comma = TRUE;
+			}
+			if (bitrate[i] & BIT(2)) {
+				if (comma)
+					strlcat(str, ", 24bit", str_size);
+				else
+					strlcat(str, "24bit", str_size);
+			}
+		} else {
+			char t[20];
+			snprintf(t, 20, "%d", bitrate[i] * 8);
+			strlcat(str, t, str_size);
+			strlcat(str, "Kbit/s", str_size);
+		}
+
+		strlcat(str, "\n\n", str_size);
+	}
+
+	strlcat(str, "Speaker Allocation \t= ", str_size);
+	comma = FALSE;
+	if (spkr_allocation & BIT(0)) {
+		strlcat(str, "FL/FR", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(1)) {
+		if (comma)
+			strlcat(str, ", LFE", str_size);
+		else
+			strlcat(str, "LFE", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(2)) {
+		if (comma)
+			strlcat(str, ", FC", str_size);
+		else
+			strlcat(str, "FC", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(3)) {
+		if (comma)
+			strlcat(str, ", RL/RR", str_size);
+		else
+			strlcat(str, "RL/RR", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(4)) {
+		if (comma)
+			strlcat(str, ", RC", str_size);
+		else
+			strlcat(str, "RC", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(5)) {
+		if (comma)
+			strlcat(str, ", FLC/FRC", str_size);
+		else
+			strlcat(str, "FLC/FRC", str_size);
+		comma = TRUE;
+	}
+	if (spkr_allocation & BIT(6)) {
+		if (comma)
+			strlcat(str, ", RLC/RRC", str_size);
+		else
+			strlcat(str, "RLC/RRC", str_size);
+	}
+
+	return snprintf(buf, str_size, "%s\n", str);
+}
 
 static DEVICE_ATTR(video_mode, S_IRUGO | S_IWUGO,
 	external_common_rda_video_mode, external_common_wta_video_mode);
@@ -1024,6 +1274,8 @@ static DEVICE_ATTR(spkr_alloc_data_block, S_IRUGO,
 	hdmi_common_rda_spkr_alloc_data_block, NULL);
 static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_wta_avi_cn0_1);
+static DEVICE_ATTR(audio_caps, S_IRUGO | S_IWOTH, hdmi_common_rda_audio_caps,
+	hdmi_common_wta_audio_caps);
 
 static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_video_mode.attr,
@@ -1058,6 +1310,7 @@ static struct attribute *external_common_fs_attrs[] = {
 	&dev_attr_spkr_alloc_data_block.attr,
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
+	&dev_attr_audio_caps.attr,
 	NULL,
 };
 static struct attribute_group external_common_fs_attr_group = {
@@ -1275,7 +1528,7 @@ static struct hdmi_edid_video_mode_property_type
 };
 
 static const uint8 *hdmi_edid_find_block(const uint8 *in_buf,
-		uint32 start_offset, uint8 type, uint8 *len)
+		uint32 start_offset, enum edid_data_block_type type, uint8 *len)
 {
 	/* the start of data block collection, start of Video Data Block */
 	uint32 offset = start_offset;
@@ -1319,8 +1572,8 @@ static void hdmi_edid_extract_vendor_id(const uint8 *in_buf,
 static uint32 hdmi_edid_extract_ieee_reg_id(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3,
-			&len);
+	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+				VENDOR_SPECIFIC_DATA_BLOCK, &len);
 
 	if (vsd == NULL)
 		return 0;
@@ -1338,8 +1591,8 @@ static uint32 hdmi_edid_extract_ieee_reg_id(const uint8 *in_buf)
 static void hdmi_edid_extract_3d_present(const uint8 *in_buf)
 {
 	uint8 len, offset;
-	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3,
-			&len);
+	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+				VENDOR_SPECIFIC_DATA_BLOCK, &len);
 
 	external_common_state->present_3d = 0;
 	if (vsd == NULL || len < 9) {
@@ -1359,8 +1612,8 @@ static void hdmi_edid_extract_3d_present(const uint8 *in_buf)
 static void hdmi_edid_extract_latency_fields(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3,
-			&len);
+	const uint8 *vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+				VENDOR_SPECIFIC_DATA_BLOCK, &len);
 
 	if (vsd == NULL || len < 12 || !(vsd[8] & BIT(7))) {
 		external_common_state->video_latency = (uint16)-1;
@@ -1378,8 +1631,8 @@ static void hdmi_edid_extract_latency_fields(const uint8 *in_buf)
 static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *sadb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 4,
-			&len);
+	const uint8 *sadb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+				SPEAKER_ALLOCATION_DATA_BLOCK, &len);
 
 	if (sadb == NULL)
 		return;
@@ -1394,8 +1647,8 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 {
 	uint8 len;
-	const uint8 *adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1,
-			&len);
+	const uint8 *adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+				AUDIO_DATA_BLOCK, &len);
 
 	if (external_common_state->audio_data_block == NULL)
 		return;
@@ -1413,7 +1666,8 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 	uint32 start_offset = DBC_START_OFFSET;
 
 	/* A Tage code of 7 identifies extended data blocks */
-	uint8 const *etag = hdmi_edid_find_block(in_buf, start_offset, 7, &len);
+	uint8 const *etag = hdmi_edid_find_block(in_buf, start_offset,
+				EXTENDED_DATA_BLOCK, &len);
 
 	while (etag != NULL) {
 		/* The extended data block should at least be 2 bytes long */
@@ -1459,7 +1713,8 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 
 		/* There could be more that one extended data block */
 		start_offset = etag - in_buf + len + 1;
-		etag = hdmi_edid_find_block(in_buf, start_offset, 7, &len);
+		etag = hdmi_edid_find_block(in_buf, start_offset,
+					EXTENDED_DATA_BLOCK, &len);
 	}
 }
 
@@ -1705,7 +1960,7 @@ static void hdmi_edid_get_display_vsd_3d_mode(const uint8 *data_buf,
 	uint16 structure_all, structure_mask;
 	const uint8 *vsd = num_og_cea_blocks ?
 		hdmi_edid_find_block(data_buf+0x80, DBC_START_OFFSET,
-				3, &len) : NULL;
+				VENDOR_SPECIFIC_DATA_BLOCK, &len) : NULL;
 	int i;
 
 	offset = HDMI_VSDB_3D_DATA_OFFSET(vsd);
@@ -1833,7 +2088,7 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 	const uint8 *edid_blk1 = &data_buf[0x80];
 	const uint8 *svd = num_og_cea_blocks ?
 		hdmi_edid_find_block(data_buf+0x80, DBC_START_OFFSET,
-				2, &len) : NULL;
+				VIDEO_DATA_BLOCK, &len) : NULL;
 	boolean has60hz_mode	= FALSE;
 	boolean has50hz_mode	= FALSE;
 
