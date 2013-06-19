@@ -3664,6 +3664,7 @@ static void __init apq8064ab_update_retention_spm(void)
 static void __init apq8064_common_init(void)
 {
 	u32 platform_version = socinfo_get_platform_version();
+	struct resource *res;
 
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		apq8064_pm8917_pdata_fixup();
@@ -3742,6 +3743,10 @@ static void __init apq8064_common_init(void)
 		hsic_bus_scale_pdata.usecase = dma_hsic_bus_scale_usecases;
 		hsic_bus_scale_pdata.num_usecases = ARRAY_SIZE(dma_hsic_bus_scale_usecases);
 		msm_hsic_pdata.bus_scale_table = &hsic_bus_scale_pdata;
+		res = platform_get_resource_byname(&apq8064_device_hsic_host,
+				IORESOURCE_IO, "wakeup");
+		if (res)
+			res->start = APQ8064_DMA_HSIC_WAKEUP_GPIO;
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		platform_device_register(&apq8064_device_hsic_host);
 	}

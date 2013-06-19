@@ -163,4 +163,6 @@ enum {
 
 extern struct msm_rtb_platform_data apq8064_rtb_pdata;
 extern struct msm_cache_dump_platform_data apq8064_cache_dump_pdata;
+
+#define APQ8064_DMA_HSIC_WAKEUP_GPIO	6
 #endif
