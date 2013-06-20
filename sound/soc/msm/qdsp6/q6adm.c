@@ -528,6 +528,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			if (open->copp_id == INVALID_COPP_ID) {
 				pr_err("%s: invalid coppid rxed %d\n",
 					__func__, open->copp_id);
+				atomic_set(&this_adm.copp_id[index],
+							RESET_COPP_ID);
 				atomic_set(&this_adm.copp_stat[index], 1);
 				wake_up(&this_adm.wait);
 				break;
@@ -913,6 +915,10 @@ int adm_send_compressed_device_mute(int port_id, bool mute_on)
 		pr_err("%s: invald port id\n", __func__);
 		return index;
 	}
+	if (atomic_read(&this_adm.copp_id[index]) == RESET_COPP_ID) {
+		pr_err("%s: invald copp id\n", __func__);
+		return RESET_COPP_ID;
+	}
 	mute_params.command.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	mute_params.command.hdr.pkt_size =
@@ -966,6 +972,10 @@ int adm_send_device_mute(int port_id, int session_id, bool mute_on)
 	copp_id = atomic_read(&this_adm.copp_id[index]);
 	pr_debug("%s copp_id: %d, session_id: %d, mute_on: %d\n", __func__,
 		 copp_id, session_id, mute_on);
+	if (copp_id == RESET_COPP_ID) {
+		pr_err("%s: invald copp id\n", __func__);
+		return RESET_COPP_ID;
+	}
 	mute_params.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	mute_params.hdr.pkt_size = sizeof(struct adm_set_device_mute);
@@ -1710,11 +1720,10 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 {
 	struct adm_routings_command	route;
 	int ret = 0, i = 0;
+	int index = -1, loop_cnt, copp_cnt;
 	/* Assumes port_ids have already been validated during adm_open */
-	int index = afe_get_port_index(copp_id);
-	int copp_cnt;
-
-	pr_debug("%s\n", __func__);
+	if (port_id)
+		index = afe_get_port_index(port_id[0]);
 	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, copp_id);
@@ -1729,11 +1738,11 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	route.hdr.pkt_size = sizeof(route);
 	route.hdr.src_svc = 0;
 	route.hdr.src_domain = APR_DOMAIN_APPS;
-	route.hdr.src_port = copp_id;
+	route.hdr.src_port = copp_id;   /* ignored */
 	route.hdr.dest_svc = APR_SVC_ADM;
 	route.hdr.dest_domain = APR_DOMAIN_ADSP;
-	route.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
-	route.hdr.token = copp_id;
+	route.hdr.dest_port = copp_id;  /* ignored */
+	route.hdr.token = port_id[0];   /* used to wake up from callback */
 	if (path == ADM_PATH_COMPRESSED_RX)
 		route.hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS;
 	else
@@ -1741,19 +1750,17 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	route.num_sessions = 1;
 	route.session[0].id = session_id;
 
-	if (num_copps < ADM_MAX_COPPS) {
-		copp_cnt = num_copps;
-	} else {
-		copp_cnt = ADM_MAX_COPPS;
+	loop_cnt = num_copps;
+	if (num_copps >= ADM_MAX_COPPS) {
 		/* print out warning for now as playback/capture to/from
 		 * COPPs more than maximum allowed is extremely unlikely
 		 */
 		pr_warn("%s: max out routable COPPs\n", __func__);
+		loop_cnt = ADM_MAX_COPPS;
 	}
-
-	route.session[0].num_copps = copp_cnt;
-	for (i = 0; i < copp_cnt; i++) {
-		int tmp;
+	copp_cnt = 0;
+	for (i = 0; i < loop_cnt; i++) {
+		int tmp, tmp_copp_id = RESET_COPP_ID;
 		port_id[i] = afe_convert_virtual_to_portid(port_id[i]);
 
 		tmp = afe_get_port_index(port_id[i]);
@@ -1764,20 +1771,27 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		if (tmp >= 0 && tmp < AFE_MAX_PORTS) {
 			if (tmp == IDX_PSEUDOPORT_01) {
 				if (path == 0x1)
-					route.session[0].copp_id[i] =
-						pseudo_copp[0];
+					tmp_copp_id = pseudo_copp[0];
 				else if(path == 0x2 || path == 0x3)
-                                        route.session[0].copp_id[i] =
-	                                        pseudo_copp[1];
+					tmp_copp_id = pseudo_copp[1];
 			} else {
-				route.session[0].copp_id[i] =
+				tmp_copp_id =
 					atomic_read(&this_adm.copp_id[tmp]);
+			}
+			if (tmp_copp_id != RESET_COPP_ID) {
+				route.session[0].copp_id[copp_cnt] =
+								tmp_copp_id;
+				copp_cnt++;
+			} else {
+				pr_err("%s: invald copp for port id %d\n"
+						, __func__, tmp);
 			}
 		}
 	}
+	route.session[0].num_copps = copp_cnt;
 
 	if (copp_cnt % 2)
-		route.session[0].copp_id[i] = 0;
+		route.session[0].copp_id[copp_cnt] = 0; /* padding, ignored */
 
 	switch (path) {
 	case ADM_PATH_PLAYBACK:
@@ -2168,15 +2182,14 @@ int adm_close(int port_id)
 		close.token = port_id;
 		close.opcode = ADM_CMD_COPP_CLOSE;
 
-		atomic_set(&this_adm.copp_id[index], RESET_COPP_ID);
-		atomic_set(&this_adm.copp_stat[index], 0);
-
-
 		pr_debug("%s:coppid %d portid=%d index=%d coppcnt=%d\n",
 				__func__,
 				atomic_read(&this_adm.copp_id[index]),
 				port_id, index,
 				atomic_read(&this_adm.copp_cnt[index]));
+
+		atomic_set(&this_adm.copp_id[index], RESET_COPP_ID);
+		atomic_set(&this_adm.copp_stat[index], 0);
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&close);
 		if (ret < 0) {
