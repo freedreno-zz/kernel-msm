@@ -227,6 +227,16 @@ struct hdmi_disp_mode_list_type {
 #define MAX_AUDIO_DATA_BLOCK_SIZE	30
 #define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
 #define MAX_EDID_BLOCK_SIZE (0x80 * 5)
+enum edid_data_block_type {
+	RESERVED_DATA_BLOCK1 = 0,
+	AUDIO_DATA_BLOCK,
+	VIDEO_DATA_BLOCK,
+	VENDOR_SPECIFIC_DATA_BLOCK,
+	SPEAKER_ALLOCATION_DATA_BLOCK,
+	VESA_DTC_DATA_BLOCK,
+	RESERVED_DATA_BLOCK2,
+	EXTENDED_DATA_BLOCK
+};
 
 struct external_common_state_type {
 	boolean hpd_state;
