@@ -1112,8 +1112,8 @@ int q6asm_open_transcode_loopback(struct audio_client *ac, uint32_t channels)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
-			rc);
+		pr_err("%s: timeout. waited for OPEN_TRANSCODE_LOOP rc[%d]\n",
+				__func__, rc);
 		goto fail_cmd;
 	}
 	return 0;
@@ -1174,7 +1174,7 @@ int q6asm_enc_cfg_blk_dts(struct audio_client *ac,
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("timeout. waited for FORMAT_UPDATE\n");
+		pr_err("timeout. waited for ENCDEC_PARAM\n");
 		goto fail_cmd;
 	}
 	return 0;
@@ -1413,7 +1413,7 @@ int q6asm_open_read(struct audio_client *ac,
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
+		pr_err("%s: timeout. waited for OPEN_READ rc[%d]\n", __func__,
 			rc);
 		goto fail_cmd;
 	}
@@ -1489,8 +1489,8 @@ int q6asm_open_read_v2_1(struct audio_client *ac,
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
-			rc);
+		pr_err("%s: timeout. waited for OPEN_READ_V2 rc[%d]\n",
+				__func__, rc);
 		goto fail_cmd;
 	}
 	return 0;
@@ -1599,8 +1599,8 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
-			rc);
+		pr_err("%s: timeout. waited for OPEN_WRITE_COMPR rc[%d]\n",
+				__func__, rc);
 		goto fail_cmd;
 	}
 	if (atomic_read(&ac->cmd_response)) {
@@ -1902,7 +1902,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
-		pr_err("timeout. waited for OPEN_WRITE rc[%d]\n", rc);
+		pr_err("timeout. waited for OPEN_READ_WRITE rc[%d]\n", rc);
 		goto fail_cmd;
 	}
 	return 0;
