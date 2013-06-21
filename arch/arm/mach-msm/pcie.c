@@ -56,6 +56,8 @@
 #define PCIE20_BUSNUMBERS              0x18
 #define PCIE20_MEMORY_BASE_LIMIT       0x20
 
+#define PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL0 0x818
+#define PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL1 0x81c
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
 #define PCIE20_PLR_IATU_CTRL1          0x904
 #define PCIE20_PLR_IATU_CTRL2          0x908
@@ -479,6 +481,14 @@ static void msm_pcie_release_resources(void)
 	msm_pcie_dev.axi_conf = NULL;
 }
 
+static void msm_pcie_adjust_tlp_size(struct msm_pcie_dev_t *dev)
+{
+	writel_relaxed(4, dev->pcie20 +
+				 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL0);
+	writel_relaxed(1, dev->pcie20 +
+				 PCIE20_PLR_AXI_MSTR_RESP_COMP_CTRL1);
+};
+
 static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
 {
 	int rc;
@@ -560,6 +570,12 @@ static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
 	/* de-assert PCIe reset link to bring EP out of reset */
 	gpio_set_value_cansleep(dev->gpio[MSM_PCIE_GPIO_RST_N].num,
 				!dev->gpio[MSM_PCIE_GPIO_RST_N].on);
+
+	/*
+	 * adjust tlp size before link comes up
+	 * so there will be no transactions.
+	 */
+	msm_pcie_adjust_tlp_size(dev);
 
 	/* enable link training */
 	msm_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, 0, BIT(0));
