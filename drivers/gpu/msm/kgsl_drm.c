@@ -15,7 +15,7 @@
  * on
  */
 #include "drmP.h"
-#include "drm.h"
+#include "drm/drm.h"
 
 #include <linux/msm_ion.h>
 #include <linux/genlock.h>
