@@ -366,9 +366,11 @@ static void __init reserve_pmem_memory(void)
 	reserve_memory_for(&android_pmem_pdata);
 	reserve_memory_for(&android_pmem_audio_pdata);
 #endif
+#ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_contig_mem_size;
 	pr_info("mem_map: contig_mem reserved with size 0x%x in pool\n",
 			msm_contig_mem_size);
+#endif
 #endif
 }
 
