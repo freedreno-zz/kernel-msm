@@ -500,6 +500,7 @@ struct platform_device msm8960_fmem_device = {
 	.dev = { .platform_data = &msm8960_fmem_pdata },
 };
 
+#if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 static void __init adjust_mem_for_liquid(void)
 {
 	unsigned int i;
@@ -536,6 +537,7 @@ static void __init reserve_mem_for_ion(enum ion_memory_types mem_type,
 {
 	msm8960_reserve_table[mem_type].size += size;
 }
+#endif
 
 static void __init msm8960_reserve_fixed_area(unsigned long fixed_area_size)
 {
