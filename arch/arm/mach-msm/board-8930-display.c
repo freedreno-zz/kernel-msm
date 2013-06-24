@@ -488,7 +488,7 @@ static struct platform_device mipi_dsi_novatek_panel_device = {
 	}
 };
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#if defined(CONFIG_FB_MSM_HDMI_MSM_PANEL) || defined(CONFIG_DRM_MSM)
 static struct resource hdmi_msm_resources[] = {
 	{
 		.name  = "hdmi_msm_qfprom_addr",
@@ -547,6 +547,7 @@ static struct platform_device wfd_device = {
 };
 #endif
 
+#if defined(CONFIG_FB_MSM_HDMI_MSM_PANEL) || defined(CONFIG_DRM_MSM)
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors dtv_bus_init_vectors[] = {
 	{
@@ -612,7 +613,6 @@ static int hdmi_panel_power(int on)
 }
 #endif
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static int hdmi_enable_5v(int on)
 {
 	static struct regulator *reg_ext_5v;	/* HDMI_5V */
@@ -794,7 +794,7 @@ void __init msm8930_init_fb(void)
 
 	platform_device_register(&mipi_dsi_novatek_panel_device);
 
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#if defined(CONFIG_FB_MSM_HDMI_MSM_PANEL) || defined(CONFIG_DRM_MSM)
 	platform_device_register(&hdmi_msm_device);
 #endif
 
@@ -802,8 +802,10 @@ void __init msm8930_init_fb(void)
 
 	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
+#if defined(CONFIG_FB_MSM_HDMI_MSM_PANEL) || defined(CONFIG_DRM_MSM)
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_fb_register_device("dtv", &dtv_pdata);
+#endif
 #endif
 }
 
