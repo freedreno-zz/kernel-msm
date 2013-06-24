@@ -368,7 +368,6 @@ static void compr_event_handler(uint32_t opcode,
 						output_meta_data.timestamp_lsw,
 						time_stamp_flag);
 					atomic_dec(&prtd->out_needed);
-					wake_up(&the_locks.write_wait);
 				}
 				atomic_set(&prtd->start, 1);
 			}
@@ -420,7 +419,6 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 	prtd->out_head = 0;
-	atomic_set(&prtd->out_count, runtime->periods);
 
 	if (prtd->enabled)
 		return 0;
@@ -607,6 +605,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: CMD: DTS ENCDEC CFG BLK failed\n",
 				__func__);
 	}
+	atomic_set(&prtd->out_count, runtime->periods);
 	prtd->enabled = 1;
 	prtd->cmd_ack = 0;
 	prtd->cmd_interrupt = 0;
