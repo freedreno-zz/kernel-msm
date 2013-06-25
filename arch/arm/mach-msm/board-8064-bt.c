@@ -606,7 +606,7 @@ static int atheros_bluetooth_power(int on)
 
 		/* Voting for the ATH_CHIP_PWD_L GPIO line */
 		pr_debug("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
-		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_en");
+		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_wifi_en");
 		if (IS_ERR(vreg_gpio_8)) {
 			rc = PTR_ERR(vreg_gpio_8);
 			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d\n",

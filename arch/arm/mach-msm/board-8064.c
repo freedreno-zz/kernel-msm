@@ -2513,67 +2513,99 @@ static struct platform_device *pm8917_common_devices[] __initdata = {
 	&apq8064_device_ext_ts_sw_vreg,
 };
 
-enum WLANBT_STATUS {
-	WLANOFF_BTOFF = 1,
-	WLANOFF_BTON,
-	WLANON_BTOFF,
-	WLANON_BTON
+static struct platform_device msm_ath6kl_hsic_device = {
+	.name		= "ath6kl_hsic",
+	.id		= -1,
 };
 
-static DEFINE_MUTEX(ath_wlanbt_mutex);
-static int gpio_wlan_sys_rest_en = 8;
-static int ath_wlanbt_status = WLANOFF_BTOFF;
-
-static int ath6kl_power_control(int on)
+static int ath6kl_wlan_vreg_disable(struct regulator *vreg)
 {
 	int rc;
 
-	if (on) {
-		rc = gpio_request(gpio_wlan_sys_rest_en, "wlan sys_rst_n");
-		if (rc) {
-			pr_err("%s: unable to request gpio %d (%d)\n",
-				__func__, gpio_wlan_sys_rest_en, rc);
-			return rc;
-		}
-		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 0);
-		msleep(200);
-		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 1);
-		msleep(100);
-	} else {
-		gpio_set_value(gpio_wlan_sys_rest_en, 0);
-		rc = gpio_direction_input(gpio_wlan_sys_rest_en);
-		msleep(100);
-		gpio_free(gpio_wlan_sys_rest_en);
+	rc = regulator_disable(vreg);
+	if (rc < 0) {
+		pr_err("%s: Failed to disable reg. %p with %d\n", __func__, vreg
+			, rc);
+		return rc;
 	}
-	return 0;
-};
+	regulator_put(vreg);
+	vreg = NULL;
+	return rc;
+}
 
 static int ath6kl_wlan_power(int on)
 {
-	int ret = 0;
+	int rc = 0;
+	static struct regulator *vreg_s4;
+	static struct regulator *vreg_gpio_8;
 
-	pr_info("%s, power %s\n", __FUNCTION__, on?"on":"off");
-
-	mutex_lock(&ath_wlanbt_mutex);
 	if (on) {
-		if (ath_wlanbt_status == WLANOFF_BTOFF) {
-			ret = ath6kl_power_control(1);
-			ath_wlanbt_status = WLANON_BTOFF;
-		} else if (ath_wlanbt_status == WLANOFF_BTON)
-			ath_wlanbt_status = WLANON_BTON;
-	} else {
-		if (ath_wlanbt_status == WLANON_BTOFF) {
-			ret = ath6kl_power_control(0);
-			ath_wlanbt_status = WLANOFF_BTOFF;
-		} else if (ath_wlanbt_status == WLANON_BTON)
-			ath_wlanbt_status = WLANOFF_BTON;
-	}
-	mutex_unlock(&ath_wlanbt_mutex);
-	pr_info("%s on= %d, wlan_status= %d\n",
-		__func__, on, ath_wlanbt_status);
-	return ret;
-};
+		/* Voting for 1.8V s4 regulator */
+		pr_info("%s: Voting for the 1.8V s4 regulator\n", __func__);
+		vreg_s4 = regulator_get(&msm_ath6kl_hsic_device.dev, "8921_s4");
 
+		if (IS_ERR(vreg_s4)) {
+			rc = PTR_ERR(vreg_s4);
+			pr_err("%s: Failed to get s4 regulator: %d\n", __func__, rc);
+			goto out;
+		}
+		if (regulator_count_voltages(vreg_s4) > 0) {
+			pr_debug("%s: Setting volt. levels for s4 regulator\n",
+				 __func__);
+			rc = regulator_set_voltage(vreg_s4, 1800000, 1800000);
+			if (rc) {
+				pr_err("%s: Failed to set volt. for s4 regulator: %d\n",
+					__func__, rc);
+				goto free_vreg_s4;
+			}
+			pr_debug("%s: Enabling the s4 regulator\n", __func__);
+			rc = regulator_enable(vreg_s4);
+			if (rc) {
+				pr_err("%s: Failed to enable s4 regulator : %d\n",
+					__func__, rc);
+					goto free_vreg_s4;
+			}
+		}
+		/* Voting for the ATH_CHIP_PWD_L GPIO line */
+		pr_info("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
+		vreg_gpio_8 = regulator_get(&msm_ath6kl_hsic_device.dev, "bt_wifi_en");
+		if (IS_ERR(vreg_gpio_8)) {
+			rc = PTR_ERR(vreg_gpio_8);
+			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d\n",
+					__func__, rc);
+			goto free_vreg_s4;
+		}
+		pr_info("%s: Enabling ath_pwd_l gpio-regulator\n", __func__);
+		rc = regulator_enable(vreg_gpio_8);
+		if (rc) {
+			pr_err("%s: Failed to enable ath_pwd_l gpio-regulator: %d\n",
+					__func__, rc);
+			goto free_vreg_gpio_8;
+		}
+		goto out;
+	} else {
+		pr_info("%s: Powering down WLAN module \n", __func__);
+	}
+free_vreg_gpio_8:
+	ath6kl_wlan_vreg_disable(vreg_gpio_8);
+free_vreg_s4:
+	ath6kl_wlan_vreg_disable(vreg_s4);
+out:
+	return rc;
+}
+
+void __init ath6kl_wlan_power_init(void)
+{
+	struct device *dev;
+
+	dev = &msm_ath6kl_hsic_device.dev;
+	dev->platform_data = ath6kl_wlan_power;
+
+	if (platform_device_register(&msm_ath6kl_hsic_device) < 0)
+		pr_err("%s: ath6kl-hsic registration failed\n", __func__);
+	else
+		pr_info("%s: ath6kl-hsic registration success\n", __func__);
+}
 
 static struct platform_device *common_devices[] __initdata = {
 	&msm_device_smd_apq8064,
@@ -3848,9 +3880,6 @@ static void __init apq8064_cdp_init(void)
 		SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1)
 			cyttsp_pdata.sleep_gpio = CYTTSP_TS_GPIO_SLEEP_ALT;
 
-	if (machine_is_apq8064_dma())
-		ath6kl_wlan_power(1);
-
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()) {
@@ -3894,6 +3923,7 @@ static void __init apq8064_cdp_init(void)
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 	if (machine_is_mpq8064_hrd() || machine_is_apq8064_dma())
 		apq8064_bt_power_init();
+		ath6kl_wlan_power_init();
 		printk(KERN_INFO "%s: Confg BT-WiFi reset line as volt. reg.\n",
 			 __func__);
 		platform_add_devices(ath_chip_pwd, ARRAY_SIZE(ath_chip_pwd));
