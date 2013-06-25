@@ -1538,6 +1538,13 @@ static struct gpiomux_setting bt_ext_wake_suspended = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+static struct gpiomux_setting ath_chip_pwd_l_suspended = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 static struct msm_gpiomux_config apq8064_uartdm_gsbi4_configs[] __initdata = {
 	{
 		.gpio      = 11,        /* GSBI4 UARTDM RX */
@@ -1598,6 +1605,15 @@ static struct msm_gpiomux_config mpq8064_uartdm_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi6_uartdm_suspended,
 		},
 	},
+};
+
+static struct msm_gpiomux_config apq8064_bt_wifi_reset_configs[] __initdata = {
+	{ /* ATH_CHIP_PWD_L */
+		.gpio      = 8,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ath_chip_pwd_l_suspended,
+		},
+	}
 };
 
 static struct msm_gpiomux_config mpq8064_gsbi5_uart_configs[] __initdata = {
@@ -1751,21 +1767,25 @@ void __init apq8064_init_gpiomux(void)
 				ARRAY_SIZE(mpq8064_ir_configs));
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-	 msm_gpiomux_install(apq8064_sdc2_configs,
+	msm_gpiomux_install(apq8064_sdc2_configs,
 			     ARRAY_SIZE(apq8064_sdc2_configs));
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
-	 msm_gpiomux_install(apq8064_sdc4_configs,
+	msm_gpiomux_install(apq8064_sdc4_configs,
 			     ARRAY_SIZE(apq8064_sdc4_configs));
 #endif
 
 	msm_gpiomux_install(apq8064_sdc3_configs,
 			ARRAY_SIZE(apq8064_sdc3_configs));
-	 if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv() ||
-			machine_is_apq8064_dma())
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv() ||
+			machine_is_apq8064_dma()) {
 		msm_gpiomux_install(mpq8064_uartdm_configs,
 				ARRAY_SIZE(mpq8064_uartdm_configs));
 		msm_gpiomux_install(mpq8064_bluesleep_configs,
 				ARRAY_SIZE(mpq8064_bluesleep_configs));
+		msm_gpiomux_install(apq8064_bt_wifi_reset_configs,
+				ARRAY_SIZE(apq8064_bt_wifi_reset_configs));
+
+	}
 }
