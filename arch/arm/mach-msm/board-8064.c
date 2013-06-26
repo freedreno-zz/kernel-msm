@@ -2603,8 +2603,10 @@ void __init ath6kl_wlan_power_init(void)
 
 	if (platform_device_register(&msm_ath6kl_hsic_device) < 0)
 		pr_err("%s: ath6kl-hsic registration failed\n", __func__);
-	else
+	else {
 		pr_info("%s: ath6kl-hsic registration success\n", __func__);
+		ath6kl_wlan_power(1);
+	}
 }
 
 static struct platform_device *common_devices[] __initdata = {
