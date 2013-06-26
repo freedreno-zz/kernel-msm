@@ -7858,7 +7858,7 @@ static void l2cap_queue_smp_data(struct work_struct *worker)
 	int attempts = 0;
 	__u8 reason;
 
-	for (attempts = 0; attempts < 40; attempts++) {
+	for (attempts = 0; attempts < 50; attempts++) {
 		msleep(50);
 		BT_DBG("sock state check attempt %d", attempts);
 		if (!smp_chn_params.conn) {
@@ -7906,10 +7906,8 @@ err:
 	mgmt_auth_failed(hcon->hdev->id,
 					 smp_chn_params.conn->dst,
 					 reason);
-	hci_conn_put(hcon);
 
 	kfree_skb(smp_chn_params.skb);
-	l2cap_conn_del(smp_chn_params.conn->hcon, EACCES, 0);
 }
 
 
