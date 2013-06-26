@@ -802,7 +802,7 @@ void hdmi_msm_reset_core(void)
 void hdmi_msm_init_phy(int video_format)
 {
 	uint32 offset;
-	pr_err("Video format is : %u\n", video_format);
+	pr_err("Video format is : %u\n", (video_format + 1));
 
 	HDMI_OUTP(HDMI_PHY_REG_0, 0x1B);
 	HDMI_OUTP(HDMI_PHY_REG_1, 0xf2);

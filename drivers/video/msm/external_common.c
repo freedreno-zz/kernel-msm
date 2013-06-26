@@ -2531,6 +2531,10 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 		format = userformat - 1;
 		DEV_INFO("%s: selecting resolution from reserved format %d\n",
 			__func__, userformat);
+	} else if (mfd->var_vic) {
+		format = mfd->var_vic - 1;
+		DEV_INFO("%s: selecting resolution from best format %d\n",
+			__func__, mfd->var_vic);
 	} else {
 		DEV_INFO("%s: selecting resolution from %dx%d, framerate %d\n",
 			__func__, mfd->var_xres, mfd->var_yres,
