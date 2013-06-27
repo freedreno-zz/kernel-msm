@@ -297,6 +297,9 @@ VREG_CONSUMERS(EXT_5V) = {
 	REGULATOR_SUPPLY("ext_5v",		NULL),
 	REGULATOR_SUPPLY("vbus",		"msm_ehci_host.0"),
 };
+VREG_CONSUMERS(USB_OTG_SW) = {
+	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
+};
 
 /* Regulators that are only present when using PM8917 */
 VREG_CONSUMERS(8917_S1) = {
@@ -585,6 +588,8 @@ mpq8064_gpio_regulator_pdata[] __devinitdata = {
 	GPIO_VREG(AVC_5V, "avc_5v", "avc_5v_en", SX150X_GPIO(4, 3), NULL),
 	GPIO_VREG(AVC_3P3V, "avc_3p3v", "avc_3p3v_en",
 					SX150X_GPIO(4, 15), "avc_5v"),
+	GPIO_VREG(USB_OTG_SW, "vbus_otg", "usb_otg_sw_en",
+			PM8921_GPIO_PM_TO_SYS(42), "8921_usb_otg"),
 };
 
 /* SAW regulator constraints */
@@ -796,6 +801,30 @@ void __init configure_apq8064_dma_power_grid(void)
 		if (rpm_data->id == RPM_VREG_ID_PM8921_L28) {
 			rpm_data->init_data.constraints.min_uV = 1200000;
 			rpm_data->init_data.constraints.max_uV = 1200000;
+		}
+	}
+}
+
+/*
+ * Fix up regulator consumer supply data that moves to a different regulator
+ * when PM8921 is used.
+ */
+void __init configure_mpq8064_pm8921_power_grid(void)
+{
+	struct pm8xxx_regulator_platform_data *reg_data;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(msm8064_pm8921_regulator_pdata); i++) {
+		reg_data = &msm8064_pm8921_regulator_pdata[i];
+		if (reg_data->id == 2) {
+			/*
+			 * Set consumer_supplies as NULL for "8921_usb_otg"
+			 * regulator because it is parent of "usb_otg"
+			 * regulator PM8921_GPIO_PM_TO_SYS(42) in MPQ Hybrid.
+			 */
+			reg_data->init_data.consumer_supplies = NULL;
+			reg_data->init_data.num_consumer_supplies = 0;
+			break;
 		}
 	}
 }

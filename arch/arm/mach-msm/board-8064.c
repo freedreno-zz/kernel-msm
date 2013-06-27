@@ -2791,6 +2791,16 @@ mpq8064_device_ext_3p3v_ldo_vreg __devinitdata = {
 	},
 };
 
+static struct platform_device
+mpq8064_device_pmic_gpio_vreg __devinitdata = {
+	.name   = GPIO_REGULATOR_DEV_NAME,
+	.id     = PM8921_GPIO_PM_TO_SYS(42),
+	.dev    = {
+		.platform_data =
+		&mpq8064_gpio_regulator_pdata[GPIO_VREG_ID_USB_OTG_SW],
+	},
+};
+
 static struct platform_device rc_input_loopback_pdev = {
 	.name	= "rc-user-input",
 	.id	= -1,
@@ -2873,6 +2883,7 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&mpq8064_device_ext_2p2_buck_vreg,
 	&mpq8064_device_ext_5v_buck_vreg,
 	&mpq8064_device_ext_3p3v_ldo_vreg,
+	&mpq8064_device_pmic_gpio_vreg,
 #ifdef CONFIG_MSM_VCAP
 	&msm8064_device_vcap,
 #endif
@@ -3723,6 +3734,10 @@ static void __init apq8064_common_init(void)
 	regulator_suppress_info_printing();
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		configure_apq8064_pm8917_power_grid();
+
+	if (machine_is_mpq8064_hrd())
+		configure_mpq8064_pm8921_power_grid();
+
 	if (machine_is_apq8064_dma())
 		configure_apq8064_dma_power_grid();
 	platform_device_register(&apq8064_device_rpm_regulator);

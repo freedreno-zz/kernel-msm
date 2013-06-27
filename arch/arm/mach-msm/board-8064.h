@@ -50,6 +50,7 @@ extern int msm8064_pm8917_regulator_pdata_len __devinitdata;
 #define GPIO_VREG_ID_EXT_TS_SW		2
 #define GPIO_VREG_ID_EXT_MPP8		3
 #define GPIO_VREG_ID_BT_WIFI		4
+#define GPIO_VREG_ID_USB_OTG_SW		5
 
 #define GPIO_VREG_ID_AVC_1P2V		0
 #define GPIO_VREG_ID_AVC_1P8V		1
@@ -104,6 +105,7 @@ void __init apq8064_set_display_params(char *prim_panel, char *ext_panel,
 void apq8064_init_gpu(void);
 void apq8064_pm8xxx_gpio_mpp_init(void);
 void __init configure_apq8064_pm8917_power_grid(void);
+void __init configure_mpq8064_pm8921_power_grid(void);
 void __init configure_apq8064_dma_power_grid(void);
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
