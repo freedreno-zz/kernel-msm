@@ -3937,12 +3937,13 @@ static void __init apq8064_cdp_init(void)
 	}
 
 #if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
-	if (machine_is_mpq8064_hrd() || machine_is_apq8064_dma())
+	if (machine_is_apq8064_dma()) {
 		apq8064_bt_power_init();
 		ath6kl_wlan_power_init();
 		printk(KERN_INFO "%s: Confg BT-WiFi reset line as volt. reg.\n",
 			 __func__);
 		platform_add_devices(ath_chip_pwd, ARRAY_SIZE(ath_chip_pwd));
+	}
 #endif
 
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
