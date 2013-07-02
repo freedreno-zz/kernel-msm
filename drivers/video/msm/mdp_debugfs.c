@@ -1302,6 +1302,7 @@ void __log_ioremap(void __iomem *base, u32 size, const char *name)
 	regions[idx].base = (u32)base;
 	regions[idx].size = size;
 	regions[idx].name = name;
+	printk(KERN_ERR"IO:region %s %08x %08x\n", name, (u32)base, size);
 }
 
 static struct {
