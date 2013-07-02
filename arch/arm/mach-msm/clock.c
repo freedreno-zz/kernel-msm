@@ -404,6 +404,14 @@ out:
 }
 EXPORT_SYMBOL(clk_disable);
 
+const char *clk_name(struct clk *clk)
+{
+	if (clk->dbg_name)
+		return clk->dbg_name;
+	return "???";
+}
+
+
 void clk_unprepare(struct clk *clk)
 {
 	const char *name = clk ? clk->dbg_name : NULL;

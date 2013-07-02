@@ -87,6 +87,13 @@ struct regulator {
 	struct dentry *debugfs;
 };
 
+const char *regulator_name(struct regulator *r)
+{
+	if (r->supply_name)
+		return r->supply_name;
+	return "???";
+}
+
 static int _regulator_is_enabled(struct regulator_dev *rdev);
 static int _regulator_disable(struct regulator_dev *rdev);
 static int _regulator_get_voltage(struct regulator_dev *rdev);
