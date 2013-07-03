@@ -71,7 +71,6 @@ static struct vsycn_ctrl {
 	int update_ndx;
 	int dmae_intr_cnt;
 	atomic_t suspend;
-	atomic_t vsync_resume;
 	int dmae_wait_cnt;
 	int blt_change;
 	int sysfs_created;
@@ -408,6 +407,11 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 
 	vctrl = &vsync_ctrl_db[cndx];
 
+	if (!external_common_state->hpd_state) {
+		vctrl->vsync_event++;
+		wake_up_interruptible(&vctrl->vsync_queue);
+	}
+
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
 
@@ -416,16 +420,12 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable)
 	vctrl->vsync_irq_enabled = enable;
 
 	mdp4_dtv_vsync_irq_ctrl(cndx, enable);
-
-	if (vctrl->vsync_irq_enabled &&  atomic_read(&vctrl->suspend) == 0)
-		atomic_set(&vctrl->vsync_resume, 1);
 }
 
 void mdp4_dtv_wait4vsync(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
-	uint32 flag = 0;
 
 	if (cndx >= MAX_CONTROLLER) {
 		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
@@ -440,11 +440,8 @@ void mdp4_dtv_wait4vsync(int cndx)
 
 	mdp4_dtv_vsync_irq_ctrl(cndx, 1);
 
-	flag = vctrl->vsync_event;
-
 	wait_event_interruptible_timeout(
-			vctrl->vsync_queue,
-			(flag != vctrl->vsync_event),
+			vctrl->vsync_queue, 1,
 			(VSYNC_PERIOD * 4));
 
 	mdp4_dtv_vsync_irq_ctrl(cndx, 0);
@@ -476,20 +473,11 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 	int cndx;
 	struct vsycn_ctrl *vctrl;
 	ssize_t ret = 0;
-	unsigned long flags;
 	u64 vsync_tick;
 	int flag = 0;
 
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[0];
-
-	if (atomic_read(&vctrl->suspend) > 0 ||
-		atomic_read(&vctrl->vsync_resume) == 0) {
-		vsync_tick = ktime_to_ns(ktime_get());
-		ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
-		buf[strlen(buf) + 1] = '\0';
-		return ret;
-	}
 
 	flag = vctrl->vsync_event;
 
@@ -501,16 +489,14 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 		if (vctrl->vsync_irq_enabled)
 			pr_err("timeout for VSYNC %d\n", ret);
 		vsync_tick = ktime_to_ns(ktime_get());
-		ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
+		ret = scnprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
 		buf[strlen(buf) + 1] = '\0';
 		return ret;
 	}
 
-	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	vsync_tick = ktime_to_ns(vctrl->vsync_time);
-	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
+	ret = scnprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -535,7 +521,6 @@ void mdp4_dtv_vsync_init(int cndx)
 	init_completion(&vctrl->ov_comp);
 	init_completion(&vctrl->dmae_comp);
 	atomic_set(&vctrl->suspend, 1);
-	atomic_set(&vctrl->vsync_resume, 1);
 	spin_lock_init(&vctrl->spin_lock);
 	init_waitqueue_head(&vctrl->vsync_queue);
 	vctrl->vsync_event = 0;
@@ -780,8 +765,6 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	vctrl = &vsync_ctrl_db[cndx];
 
 	mdp4_dtv_wait4vsync(cndx);
-
-	atomic_set(&vctrl->vsync_resume, 0);
 
 	vctrl->vsync_event++;
 	wake_up_interruptible(&vctrl->vsync_queue);
