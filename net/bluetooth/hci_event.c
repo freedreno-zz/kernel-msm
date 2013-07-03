@@ -2498,9 +2498,12 @@ static inline void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *s
 		handle = get_unaligned_le16(ptr++);
 		count  = get_unaligned_le16(ptr++);
 
-		if (hdev->dev_type == HCI_BREDR)
+		if (hdev->dev_type == HCI_BREDR) {
+			BT_INFO("%s: Device type: BR/EDR", __func__);
 			conn = hci_conn_hash_lookup_handle(hdev, handle);
+		}
 		else {
+			BT_INFO("%s: Device type: AMP", __func__);
 			chan = hci_chan_list_lookup_handle(hdev, handle);
 			if (chan)
 				conn = chan->conn;
@@ -2509,25 +2512,34 @@ static inline void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *s
 			conn->sent -= count;
 
 			if (conn->type == ACL_LINK) {
+				BT_INFO("%s: Connection type: ACL-LINK", __func__);
 				hdev->acl_cnt += count;
 				if (hdev->acl_cnt > hdev->acl_pkts)
 					hdev->acl_cnt = hdev->acl_pkts;
+				BT_INFO("%s: HDEV-NAME\t: %s LE-Count\t: %d ACL-Count\t: %d", __func__,
+					hdev->name, hdev->le_cnt, hdev->acl_cnt);
 			} else if (conn->type == LE_LINK) {
+				BT_INFO("%s: Connection type: LE-LINK", __func__);
 				if (hdev->le_pkts) {
+					BT_INFO("%s: LE-LINK type: Incrementing LE Buffer count", __func__);
 					hdev->le_cnt += count;
 					if (hdev->le_cnt > hdev->le_pkts)
 						hdev->le_cnt = hdev->le_pkts;
 				} else {
+					BT_INFO("%s: LE-LINK type: Incrementing ACL Buffer count", __func__);
 					hdev->acl_cnt += count;
 					if (hdev->acl_cnt > hdev->acl_pkts)
 						hdev->acl_cnt = hdev->acl_pkts;
 				}
+				BT_INFO("%s: HDEV-NAME\t: %s LE-Count\t: %d ACL-Count\t: %d", __func__,
+					hdev->name, hdev->le_cnt, hdev->acl_cnt);
 			} else {
 				hdev->sco_cnt += count;
 				if (hdev->sco_cnt > hdev->sco_pkts)
 					hdev->sco_cnt = hdev->sco_pkts;
 			}
-		}
+		} else
+			BT_INFO("%s: No Connection handle!!!", __func__);
 	}
 
 	tasklet_schedule(&hdev->tx_task);
