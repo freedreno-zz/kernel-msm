@@ -1500,12 +1500,26 @@ struct platform_device msm_device_vpe = {
 #define ROTATOR_HW_BASE		0x04E00000
 #define TVENC_HW_BASE		0x04F00000
 #define MDP_HW_BASE		0x05100000
+#define MMSS_SFPB_BASE_PHY	0x05700000
+#define MSM_MMSS_CLK_CTL_PHYS	0x04000000
 
 static struct resource msm_mipi_dsi_resources[] = {
 	{
 		.name   = "mipi_dsi",
 		.start  = MIPI_DSI_HW_BASE,
 		.end    = MIPI_DSI_HW_BASE + 0x000F0000 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "mmss_sfpb",
+		.start  = MMSS_SFPB_BASE_PHY,
+		.end    = MMSS_SFPB_BASE_PHY + 0x100 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "mmss_cc",
+		.start  = MSM_MMSS_CLK_CTL_PHYS,
+		.end    = MSM_MMSS_CLK_CTL_PHYS + 0x1000 - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
@@ -1517,7 +1531,7 @@ static struct resource msm_mipi_dsi_resources[] = {
 
 static struct platform_device msm_mipi_dsi_device = {
 	.name   = "mipi_dsi",
-	.id     = 1,
+	.id     = 0,
 	.num_resources  = ARRAY_SIZE(msm_mipi_dsi_resources),
 	.resource       = msm_mipi_dsi_resources,
 };

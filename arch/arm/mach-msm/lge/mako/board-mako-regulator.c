@@ -28,7 +28,7 @@ VREG_CONSUMERS(L1) = {
 };
 VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("8921_l2",		NULL),
-	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.1"), 
 };
@@ -62,7 +62,7 @@ VREG_CONSUMERS(L8) = {
 	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0034"),
 	REGULATOR_SUPPLY("cam_vana",		"4-0020"),
-	REGULATOR_SUPPLY("dsi_vci",			"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_vci",			"mipi_dsi.0"),
 };
 VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("8921_l9",		NULL),
@@ -74,7 +74,7 @@ VREG_CONSUMERS(L10) = {
 };
 VREG_CONSUMERS(L11) = {
 	REGULATOR_SUPPLY("8921_l11",		NULL),
-	REGULATOR_SUPPLY("dsi1_avdd",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi1_avdd",		"mipi_dsi.0"),
 	REGULATOR_SUPPLY("cam1_vana",		"4-000d"), /* GSBI4, Slave Addr: 0x0d, imx111 */
 	REGULATOR_SUPPLY("cam2_vana",		"4-006e"), /* GSBI4, Slave Addr: 0x6e, imx119 */
 };
@@ -130,7 +130,7 @@ VREG_CONSUMERS(L22) = {
 
 VREG_CONSUMERS(L23) = {
 	REGULATOR_SUPPLY("8921_l23",		NULL),
-	REGULATOR_SUPPLY("dsi_vddio",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_vddio",		"mipi_dsi.0"),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.1"),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_qdsp6v4.2"),
 	REGULATOR_SUPPLY("HSUSB_1p8",		"msm_ehci_host.0"),
@@ -239,13 +239,13 @@ VREG_CONSUMERS(LVS5) = {
 VREG_CONSUMERS(LVS6) = {
 	REGULATOR_SUPPLY("8921_lvs6",		NULL),
 	REGULATOR_SUPPLY("vdd_pcie_vph",        "msm_pcie"),
-	REGULATOR_SUPPLY("dsi_iovcc",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi_iovcc",		"mipi_dsi.0"),
 };
 VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("8921_lvs7",		NULL),
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
 	REGULATOR_SUPPLY("lvds_vdda",		"lvds.0"),
-	REGULATOR_SUPPLY("dsi1_vddio",		"mipi_dsi.1"),
+	REGULATOR_SUPPLY("dsi1_vddio",		"mipi_dsi.0"),
 	REGULATOR_SUPPLY("hdmi_vdda",		"hdmi_msm.0"),
 };
 VREG_CONSUMERS(NCP) = {
