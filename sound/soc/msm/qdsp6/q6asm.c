@@ -1967,6 +1967,8 @@ int q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
 	run.flags    = flags;
 	run.msw_ts   = msw_ts;
 	run.lsw_ts   = lsw_ts;
+	pr_debug("%s: run.msw_ts %u run.lsw_ts %u", __func__,
+			run.msw_ts, run.lsw_ts);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &run);
 	if (rc < 0) {
 		pr_err("%s:Commmand run failed[%d]", __func__, rc);
