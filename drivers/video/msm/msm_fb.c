@@ -1847,6 +1847,8 @@ int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 		sw_sync_timeline_inc(mfd->timeline, 1);
 		mfd->timeline_value++;
 	}
+	if (atomic_read(&mfd->commit_cnt) > 0)
+		atomic_dec(&mfd->commit_cnt);
 	mfd->last_rel_fence = mfd->cur_rel_fence;
 	mfd->cur_rel_fence = 0;
 	mutex_unlock(&mfd->sync_mutex);
@@ -1861,8 +1863,8 @@ void msm_fb_release_timeline(struct msm_fb_data_type *mfd)
 	if (commit_cnt < 0)
 		commit_cnt = 0;
 	if (mfd->timeline) {
-		sw_sync_timeline_inc(mfd->timeline, 2 + commit_cnt);
-		mfd->timeline_value += 2 + commit_cnt;
+		sw_sync_timeline_inc(mfd->timeline, 4 + commit_cnt);
+		mfd->timeline_value += 4 + commit_cnt;
 	}
 	mfd->last_rel_fence = 0;
 	mfd->cur_rel_fence = 0;
@@ -2150,8 +2152,6 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 		if (unset_bl_level && !bl_updated)
 			schedule_delayed_work(&mfd->backlight_worker,
 						backlight_duration);
-		if (atomic_read(&mfd->commit_cnt) > 0)
-			atomic_dec(&mfd->commit_cnt);
 	}
 }
 
