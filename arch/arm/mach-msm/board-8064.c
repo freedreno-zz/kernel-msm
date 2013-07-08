@@ -3803,6 +3803,7 @@ static void __init apq8064_common_init(void)
 		hsic_bus_scale_pdata.usecase = dma_hsic_bus_scale_usecases;
 		hsic_bus_scale_pdata.num_usecases = ARRAY_SIZE(dma_hsic_bus_scale_usecases);
 		msm_hsic_pdata.bus_scale_table = &hsic_bus_scale_pdata;
+		msm_hsic_pdata.ahb_async_bridge_bypass = true;
 		res = platform_get_resource_byname(&apq8064_device_hsic_host,
 				IORESOURCE_IO, "wakeup");
 		if (res)
