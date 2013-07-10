@@ -736,6 +736,31 @@ invalid_key:
 	return 0;
 }
 
+void start_pairing_req(struct hci_conn *hcon)
+{
+	__u8 authreq;
+	authreq = seclevel_to_authreq(hcon->sec_level) | SMP_AUTH_MITM;
+	if (hcon->link_mode & HCI_LM_MASTER) {
+		struct smp_cmd_pairing cp;
+		hci_le_conn_update(hcon, SMP_MIN_CONN_INTERVAL, SMP_MAX_CONN_INTERVAL,
+				SMP_MAX_CONN_LATENCY, SMP_SUPERVISION_TIMEOUT);
+		build_pairing_cmd(hcon->l2cap_data, &cp, NULL, authreq);
+		hcon->preq[0] = SMP_CMD_PAIRING_REQ;
+		memcpy(&hcon->preq[1], &cp, sizeof(cp));
+
+		mod_timer(&hcon->smp_timer, jiffies +
+					msecs_to_jiffies(SMP_TIMEOUT));
+
+		smp_send_cmd(hcon->l2cap_data, SMP_CMD_PAIRING_REQ, sizeof(cp), &cp);
+		hci_conn_hold(hcon);
+	} else {
+		struct smp_cmd_security_req cp;
+		cp.auth_req = authreq;
+		smp_send_cmd(hcon->l2cap_data, SMP_CMD_SECURITY_REQ, sizeof(cp), &cp);
+	}
+	set_bit(HCI_CONN_ENCRYPT_PEND, &hcon->pend);
+}
+
 int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level)
 {
 	struct hci_conn *hcon = conn->hcon;
