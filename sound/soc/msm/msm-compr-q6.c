@@ -776,9 +776,10 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		/* intentional fall-through */
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		pr_debug("%s: Trigger start with delay %llu\n",
-				__func__, prtd->delay);
-		q6asm_run_nowait(prtd->audio_client, 1,
+		pr_debug("%s: Trigger start with delay %llu out_count %d\n",
+				__func__, prtd->delay,
+				atomic_read(&prtd->out_count));
+		q6asm_run_nowait(prtd->audio_client, CMD_RUN_RELATIVE,
 				prtd->delay & (mask << 32),
 				prtd->delay & mask);
 		if (prtd->enc_audio_client)
