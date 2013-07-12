@@ -591,7 +591,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
 	}
 
 	i = 0;
-	for_each_cpu_and(cpu, mask, cpu_online_mask)
+	for_each_cpu(cpu, mask)
 		map->cpus[i++] = cpu;
 
 	if (i)
@@ -1131,7 +1131,7 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
 		} else
 			pos = map_len = alloc_len = 0;
 
-		need_set = cpumask_test_cpu(cpu, mask) && cpu_online(cpu);
+		need_set = cpumask_test_cpu(cpu, mask);
 #ifdef CONFIG_NUMA
 		if (need_set) {
 			if (numa_node_id == -2)
