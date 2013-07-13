@@ -1657,18 +1657,32 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 
 static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 {
-	uint8 len;
-	const uint8 *adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+	uint8 len = 0;
+	const uint8 *adb = NULL;
+	uint32 next_offset = DBC_START_OFFSET;
+	external_common_state->adb_size = 0;
+
+	do {
+		adb = hdmi_edid_find_block(in_buf, next_offset,
 				AUDIO_DATA_BLOCK, &len);
 
-	if (external_common_state->audio_data_block == NULL)
-		return;
+		if (external_common_state->audio_data_block == NULL)
+			return;
 
-	if (len > MAX_AUDIO_DATA_BLOCK_SIZE)
-		return;
+		if ((external_common_state->adb_size + len) >
+						MAX_AUDIO_DATA_BLOCK_SIZE)
+			return;
 
-	memcpy(external_common_state->audio_data_block, adb + 1, len);
-	external_common_state->adb_size = len;
+		if (adb) {
+			memcpy((external_common_state->audio_data_block\
+			+external_common_state->adb_size), adb + 1, len);
+			next_offset = (adb - in_buf) + 1 + len;
+			pr_info("%s adb=%p, in_buf=%p, len=%d, next=%d\n",
+			__func__, adb, in_buf, len, next_offset);
+		}
+		external_common_state->adb_size += len;
+
+	} while (adb);
 }
 
 static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
