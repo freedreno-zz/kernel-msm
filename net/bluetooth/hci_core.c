@@ -2257,7 +2257,7 @@ static inline void hci_link_tx_to(struct hci_dev *hdev, __u8 type)
 
 static inline void hci_sched_acl(struct hci_dev *hdev)
 {
-	struct hci_conn *conn;
+	struct hci_conn *conn = NULL;
 	struct sk_buff *skb;
 	int quote;
 
@@ -2278,7 +2278,7 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			  (skb = skb_dequeue(&conn->data_q))) {
 			int count = 1;
 
-			BT_DBG("skb %p len %d", skb, skb->len);
+			BT_DBG("%s: skb\t: %p len\t: %d", __func__, skb, skb->len);
 
 			if (hdev->flow_ctl_mode ==
 				HCI_BLOCK_BASED_FLOW_CTL_MODE)
@@ -2294,9 +2294,20 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			hci_conn_enter_active_mode(conn, bt_cb(skb)->force_active);
 
 			hci_send_frame(skb);
-			hdev->acl_last_tx = jiffies;
 
-			hdev->acl_cnt -= count;
+			if (conn->type == ACL_LINK) {
+				hdev->acl_last_tx = jiffies;
+				hdev->acl_cnt -= count;
+				BT_INFO("%s: Decrementing ACL Buffer Count", __func__);
+			} else if (conn->type == LE_LINK){
+				hdev->le_last_tx = jiffies;
+				if (hdev->le_pkts) {
+					hdev->le_cnt -= count;
+				} else {
+					hdev->acl_cnt -= count;
+				}
+				BT_INFO("%s: Decrementing LE Buffer Count", __func__);
+			}
 			quote -= count;
 
 			conn->sent += count;
@@ -2351,8 +2362,6 @@ static inline void hci_sched_le(struct hci_dev *hdev)
 	struct sk_buff *skb;
 	int quote, cnt;
 
-	BT_DBG("%s", hdev->name);
-
 	if (!test_bit(HCI_RAW, &hdev->flags)) {
 		/* LE tx timeout must be longer than maximum
 		 * link supervision timeout (40.9 seconds) */
@@ -2364,7 +2373,7 @@ static inline void hci_sched_le(struct hci_dev *hdev)
 	cnt = hdev->le_pkts ? hdev->le_cnt : hdev->acl_cnt;
 	while (cnt && (conn = hci_low_sent(hdev, LE_LINK, &quote))) {
 		while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
-			BT_DBG("skb %p len %d", skb, skb->len);
+			BT_DBG("%s: skb\t: %p len\t: %d", __func__, skb, skb->len);
 
 			hci_send_frame(skb);
 			hdev->le_last_tx = jiffies;
