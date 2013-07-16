@@ -76,7 +76,7 @@ struct bluesleep_info {
 };
 
 /* 1 second timeout */
-#define TX_TIMER_INTERVAL  1
+#define TX_TIMER_INTERVAL  2
 
 /* state variable names and bit positions */
 #define BT_TXEXPIRED    0x01
@@ -396,7 +396,7 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 	if (hci_recv_stream_fragment(hu->hdev, data, count) < 0)
 		BT_ERR("Frame Reassembly Failed");
 
-	if (count & test_bit(BT_SLEEPCMD, &flags)) {
+	if (count) {
 		struct sk_buff *skb = hu->hdev->reassembly[0];
 
 		if (!skb) {
@@ -416,8 +416,10 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 			else
 				clear_bit(BT_SLEEPENABLE, &flags);
 		}
-		if (test_bit(BT_SLEEPENABLE, &flags))
+		if (test_bit(BT_SLEEPENABLE, &flags)) {
+			BT_DBG("Modify sleep timer");
 			modify_timer_task();
+		}
 	}
 	return count;
 }
