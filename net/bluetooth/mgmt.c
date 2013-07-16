@@ -2382,7 +2382,7 @@ static int start_discovery(struct sock *sk, u16 index)
 		le_cp.type = 0x01;		/* Active scanning */
 		/* The recommended value for scan interval and window is
 		 * 11.25 msec. It is calculated by: time = n * 0.625 msec */
-		le_cp.interval = cpu_to_le16(0x0012);
+		le_cp.interval = cpu_to_le16(0x0024);
 		le_cp.window = cpu_to_le16(0x0012);
 		le_cp.own_bdaddr_type = 0;	/* Public address */
 		le_cp.filter = 0;		/* Accept all adv packets */
