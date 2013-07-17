@@ -3311,6 +3311,8 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		return ret;
 	}
 
+	mdp4_overlay_check_splash(mfd, req.id);
+
 	if (info->node == 0 && !(mfd->cont_splash_done)) { /* primary */
 		mdp_set_dma_pan_info(info, NULL, TRUE);
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {

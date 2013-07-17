@@ -4940,6 +4940,7 @@ int hdmi_msm_clk(int on)
 static void hdmi_msm_turn_on(void)
 {
 	uint32 audio_pkt_ctrl, audio_cfg;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 	/*
 	 * Number of wait iterations for QDSP to disable Audio Engine
 	 * before resetting HDMI core
@@ -4960,19 +4961,20 @@ static void hdmi_msm_turn_on(void)
 			"AUDIO CFG is %08x", i, audio_pkt_ctrl, audio_cfg);
 		msleep(20);
 	}
+	if (mfd->cont_splash_done) {
+		hdmi_msm_set_mode(FALSE);
+		mutex_lock(&hdcp_auth_state_mutex);
+		hdmi_msm_reset_core();
+		mutex_unlock(&hdcp_auth_state_mutex);
 
-	hdmi_msm_set_mode(FALSE);
-	mutex_lock(&hdcp_auth_state_mutex);
-	hdmi_msm_reset_core();
-	mutex_unlock(&hdcp_auth_state_mutex);
+		hdmi_msm_init_phy(external_common_state->video_resolution);
+		/* HDMI_USEC_REFTIMER[0x0208] */
+		HDMI_OUTP(0x0208, 0x0001001B);
 
-	hdmi_msm_init_phy(external_common_state->video_resolution);
-	/* HDMI_USEC_REFTIMER[0x0208] */
-	HDMI_OUTP(0x0208, 0x0001001B);
+		hdmi_msm_set_mode(TRUE);
 
-	hdmi_msm_set_mode(TRUE);
-
-	hdmi_msm_video_setup(external_common_state->video_resolution);
+		hdmi_msm_video_setup(external_common_state->video_resolution);
+	}
 	if (!hdmi_msm_is_dvi_mode()) {
 		hdmi_msm_audio_setup();
 

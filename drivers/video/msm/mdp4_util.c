@@ -386,7 +386,7 @@ void mdp4_fetch_cfg(uint32 core_clk)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-void mdp4_hw_init(void)
+void mdp4_hw_init(int cont_splash_done)
 {
 	ulong bits;
 	uint32 clk_rate;
@@ -438,19 +438,21 @@ void mdp4_hw_init(void)
 	bits =  mdp_intr_mask;
 	outpdw(MDP_BASE + 0x0050, bits);/* enable specififed interrupts */
 
-	/* For the max read pending cmd config below, if the MDP clock     */
-	/* is less than the AXI clock, then we must use 3 pending          */
-	/* pending requests.  Otherwise, we should use 8 pending requests. */
-	/* In the future we should do this detection automatically.	   */
+	if (cont_splash_done) {
+		/* For the max read pending cmd config below,
+		if the MDP clock is less than the AXI clock,
+		then we must use 3 pending requests.Otherwise,
+		we should use 8 pending requests.In the future
+		we should do this detection automatically.*/
 
-	/* max read pending cmd config */
-	outpdw(MDP_BASE + 0x004c, 0x02222);	/* 3 pending requests */
-	outpdw(MDP_BASE + 0x0400, 0x7FF);
-	if (hdmi_prim_display)
-		outpdw(MDP_BASE + 0x0404, 0x70050);
-	else
-		outpdw(MDP_BASE + 0x0404, 0x30050);
-
+		/* max read pending cmd config */
+		outpdw(MDP_BASE + 0x004c, 0x02222); /* 3 pending requests */
+		outpdw(MDP_BASE + 0x0400, 0x7FF);
+		if (hdmi_prim_display)
+			outpdw(MDP_BASE + 0x0404, 0x70050);
+		else
+			outpdw(MDP_BASE + 0x0404, 0x30050);
+	}
 #ifndef CONFIG_FB_MSM_OVERLAY
 	/* both REFRESH_MODE and DIRECT_OUT are ignored at BLT mode */
 	mdp4_overlay_cfg(MDP4_MIXER0, OVERLAY_MODE_BLT, 0, 0);

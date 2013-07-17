@@ -3946,7 +3946,10 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 
 	if (pipe->pipe_type == OVERLAY_TYPE_BF) {
 		mdp4_overlay_borderfill_stage_up(pipe);
-		mdp4_mixer_stage_commit(pipe->mixer_num);
+		if (mfd->cont_splash_done) {
+			/* Don't Stage if Splash is not done */
+			mdp4_mixer_stage_commit(pipe->mixer_num);
+		}
 		return 0;
 	}
 
@@ -4400,4 +4403,37 @@ void mdp4_overlay_update_cached_reg(struct msm_fb_data_type *mfd)
 	for (i = 0; i < mfd->cached_reg_cnt; i++)
 		outpdw((char *)mfd->cached_reg[i].reg,  mfd->cached_reg[i].val);
 	mfd->cached_reg_cnt = 0;
+}
+
+void mdp4_overlay_stage_splash(int mixer)
+{
+	uint32 data = 0;
+	data = inpdw(MDP_BASE + 0x10100);
+	/* Is Borderfill Staged */
+	if (data & 0x900000) {
+		/*Stage RGB 2 as well.*/
+		data = (data | 0xA000);
+		outpdw(MDP_BASE + 0x10100, data);
+		ctrl->flush[mixer] = ctrl->flush[mixer] | BIT(5);
+		ctrl->flush[mixer] = ctrl->flush[mixer] | BIT(1);
+	}
+}
+
+void mdp4_overlay_check_splash(struct msm_fb_data_type *mfd, int ndx)
+{
+	struct mdp4_overlay_pipe *pipe;
+
+	if (!mfd->cont_splash_done) {
+		pipe = mdp4_overlay_ndx2pipe(ndx);
+		if (pipe == NULL) {
+			pr_err("%s NULL Pipe !! ", __func__);
+			return;
+		}
+		if (pipe->pipe_type != OVERLAY_TYPE_BF) {
+			mfd->cont_splash_done = 1;
+			/* Clks are enabled in probe.Disabling
+			clocks now to maintain ref count*/
+			mdp_clk_ctrl(0);
+		}
+	}
 }
