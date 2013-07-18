@@ -926,6 +926,7 @@ static int phy_init_seq[] = {
 
 #define MSM_MPM_PIN_USB1_OTGSESSVLD	40
 #define MSM_MPM_XO_WAKEUP_INT  60
+#define MSM_MPM_PIN_USB1_DPSHV		26
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
@@ -936,7 +937,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bus_scale_table	= &usb_bus_scale_pdata,
 	.phy_init_seq		= phy_init_seq,
 	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
-	.mpm_xo_wakeup_int	= MSM_MPM_XO_WAKEUP_INT,
 };
 
 static struct msm_usb_host_platform_data msm_ehci_host_pdata3 = {
@@ -3804,12 +3804,15 @@ static void __init apq8064_common_init(void)
 		hsic_bus_scale_pdata.num_usecases = ARRAY_SIZE(dma_hsic_bus_scale_usecases);
 		msm_hsic_pdata.bus_scale_table = &hsic_bus_scale_pdata;
 		msm_hsic_pdata.ahb_async_bridge_bypass = true;
+		msm_otg_pdata.mpm_dpshv_int = MSM_MPM_PIN_USB1_DPSHV;
 		res = platform_get_resource_byname(&apq8064_device_hsic_host,
 				IORESOURCE_IO, "wakeup");
 		if (res)
 			res->start = APQ8064_DMA_HSIC_WAKEUP_GPIO;
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		platform_device_register(&apq8064_device_hsic_host);
+	} else {
+		msm_otg_pdata.mpm_xo_wakeup_int = MSM_MPM_XO_WAKEUP_INT;
 	}
 
 	if (machine_is_apq8064_mtp()) {
