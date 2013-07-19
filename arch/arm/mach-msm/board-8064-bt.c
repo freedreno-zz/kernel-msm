@@ -579,7 +579,7 @@ static int atheros_bluetooth_power(int on)
 		pr_debug("%s: Powering up BT module on On AR3002\n", __func__);
 		/* Voting for 1.8V s4 regulator */
 		pr_debug("%s: Voting for the 1.8V s4 regulator\n", __func__);
-		vreg_s4 = regulator_get(&msm_bluesleep_device.dev, "8921_s4");
+		vreg_s4 = regulator_get(&msm_bluesleep_device.dev, "8921_l8");
 		if (IS_ERR(vreg_s4)) {
 			rc = PTR_ERR(vreg_s4);
 			pr_err("%s: Failed to get s4 regulator: %d\n", __func__,
@@ -606,7 +606,7 @@ static int atheros_bluetooth_power(int on)
 
 		/* Voting for the ATH_CHIP_PWD_L GPIO line */
 		pr_debug("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
-		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_wifi_en");
+		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_en");
 		if (IS_ERR(vreg_gpio_8)) {
 			rc = PTR_ERR(vreg_gpio_8);
 			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d\n",

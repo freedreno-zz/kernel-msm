@@ -2540,45 +2540,47 @@ static int ath6kl_wlan_power(int on)
 	static struct regulator *vreg_gpio_8;
 
 	if (on) {
-		/* Voting for 1.8V s4 regulator */
-		pr_info("%s: Voting for the 1.8V s4 regulator\n", __func__);
-		vreg_s4 = regulator_get(&msm_ath6kl_hsic_device.dev, "8921_s4");
+		/* Voting for 1.8V L8 regulator */
+		pr_info("%s: Voting for the 1.8V L8 regulator\n", __func__);
+		vreg_s4 = regulator_get(&msm_ath6kl_hsic_device.dev, "8921_l8");
 
 		if (IS_ERR(vreg_s4)) {
 			rc = PTR_ERR(vreg_s4);
-			pr_err("%s: Failed to get s4 regulator: %d\n", __func__, rc);
+			pr_err("%s: Failed to get L8 regulator: %d\n",
+				__func__, rc);
 			goto out;
 		}
 		if (regulator_count_voltages(vreg_s4) > 0) {
-			pr_debug("%s: Setting volt. levels for s4 regulator\n",
+			pr_debug("%s: Setting volt. levels for L8 regulator\n",
 				 __func__);
 			rc = regulator_set_voltage(vreg_s4, 1800000, 1800000);
 			if (rc) {
-				pr_err("%s: Failed to set volt. for s4 regulator: %d\n",
+				pr_err("%s: Failed to set volt. for L8 regulator: %d\n",
 					__func__, rc);
 				goto free_vreg_s4;
 			}
-			pr_debug("%s: Enabling the s4 regulator\n", __func__);
+			pr_debug("%s: Enabling the L8 regulator\n", __func__);
 			rc = regulator_enable(vreg_s4);
 			if (rc) {
-				pr_err("%s: Failed to enable s4 regulator : %d\n",
+				pr_err("%s: Failed to enable L8 regulator : %d\n",
 					__func__, rc);
 					goto free_vreg_s4;
 			}
 		}
 		/* Voting for the ATH_CHIP_PWD_L GPIO line */
 		pr_info("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
-		vreg_gpio_8 = regulator_get(&msm_ath6kl_hsic_device.dev, "bt_wifi_en");
+		vreg_gpio_8 = regulator_get(&msm_ath6kl_hsic_device.dev,
+			"wlan_en");
 		if (IS_ERR(vreg_gpio_8)) {
 			rc = PTR_ERR(vreg_gpio_8);
-			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d\n",
-					__func__, rc);
+			pr_err("%s: Failed to vote ath_pwd_l gpio-regulator: %d",
+				__func__, rc);
 			goto free_vreg_s4;
 		}
 		pr_info("%s: Enabling ath_pwd_l gpio-regulator\n", __func__);
 		rc = regulator_enable(vreg_gpio_8);
 		if (rc) {
-			pr_err("%s: Failed to enable ath_pwd_l gpio-regulator: %d\n",
+			pr_err("%s: Failed to enable ath_pwd_l gpio-regulator %d\n",
 					__func__, rc);
 			goto free_vreg_gpio_8;
 		}
