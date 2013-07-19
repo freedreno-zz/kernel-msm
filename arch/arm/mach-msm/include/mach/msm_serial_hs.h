@@ -26,6 +26,7 @@ struct msm_serial_hs_platform_data {
 	char rx_to_inject;
 	int (*gpio_config)(int);
 	int userid;
+	int uartdm_rx_buf_size;
 };
 
 unsigned int msm_hs_tx_empty(struct uart_port *uport);
