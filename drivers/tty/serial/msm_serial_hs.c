@@ -170,6 +170,7 @@ struct msm_hs_port {
 	struct mutex clk_mutex; /* mutex to guard against clock off/clock on */
 	bool tty_flush_receive;
 	bool rx_discard_flush_issued;
+	int rx_buf_size;
 };
 
 #define MSM_UARTDM_BURST_SIZE 16   /* DM burst size (in bytes) */
@@ -934,7 +935,7 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 		       buffer_pending);
 
 	msm_hs_write(uport, UARTDM_CR_ADDR, RESET_STALE_INT);
-	msm_hs_write(uport, UARTDM_DMRX_ADDR, UARTDM_RX_BUF_SIZE);
+	msm_hs_write(uport, UARTDM_DMRX_ADDR, msm_uport->rx_buf_size);
 	msm_hs_write(uport, UARTDM_CR_ADDR, STALE_EVENT_ENABLE);
 	msm_uport->imr_reg |= UARTDM_ISR_RXLEV_BMSK;
 
@@ -1878,7 +1879,7 @@ static int uartdm_init_port(struct uart_port *uport)
 			(unsigned long) &tx->tlet);
 
 	rx->pool = dma_pool_create("rx_buffer_pool", uport->dev,
-				   UARTDM_RX_BUF_SIZE, 16, 0);
+				   msm_uport->rx_buf_size, 16, 0);
 	if (!rx->pool) {
 		pr_err("%s(): cannot allocate rx_buffer_pool", __func__);
 		ret = -ENOMEM;
@@ -1907,8 +1908,8 @@ static int uartdm_init_port(struct uart_port *uport)
 		goto free_rx_command_ptr;
 	}
 
-	rx->command_ptr->num_rows = ((UARTDM_RX_BUF_SIZE >> 4) << 16) |
-					 (UARTDM_RX_BUF_SIZE >> 4);
+	rx->command_ptr->num_rows = ((msm_uport->rx_buf_size >> 4) << 16) |
+					 (msm_uport->rx_buf_size >> 4);
 
 	rx->command_ptr->dst_row_addr = rx->rbuffer;
 
@@ -2007,6 +2008,11 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 			return -ENXIO;
 
 	}
+
+	if (pdata && pdata->uartdm_rx_buf_size)
+		msm_uport->rx_buf_size = pdata->uartdm_rx_buf_size;
+	else
+		msm_uport->rx_buf_size = UARTDM_RX_BUF_SIZE;
 
 	resource = platform_get_resource_byname(pdev, IORESOURCE_DMA,
 						"uartdm_channels");

@@ -2634,6 +2634,7 @@ static int configure_gsbi8_uart_gpios(int on)
 
 static struct msm_serial_hs_platform_data msm_uart_dm8_pdata = {
 	.gpio_config	= configure_gsbi8_uart_gpios,
+	.uartdm_rx_buf_size = 1024,
 };
 #else
 static struct msm_serial_hs_platform_data msm_uart_dm8_pdata;
