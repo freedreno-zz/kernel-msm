@@ -266,6 +266,11 @@ int mdp4_dtv_pipe_commit(int cndx, int wait, u32 *release_busy)
 	}
 	mixer = pipe->mixer_num;
 
+	if (!vctrl->mfd->cont_splash_done) {
+		mutex_unlock(&vctrl->update_lock);
+		return 0;
+	}
+
 	mdp_update_pm(vctrl->mfd, vctrl->vsync_time);
 
 	/*
@@ -579,11 +584,14 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	if (hdmi_prim_display) {
 		if (is_mdp4_hw_reset()) {
-			mdp4_hw_init();
+			mdp4_hw_init(mfd->cont_splash_done);
 			outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 		}
 	}
 	mdp4_overlay_dmae_cfg(mfd, 0);
+
+	if (!mfd->cont_splash_done)
+		return 0;
 
 	/*
 	 * DTV timing setting
@@ -718,15 +726,6 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		pr_warn("%s: panel_next_on failed", __func__);
 
 	atomic_set(&vctrl->suspend, 0);
-
-	if (!(mfd->cont_splash_done)) {
-		mfd->cont_splash_done = 1;
-		mdp4_dtv_wait4dmae_done(0);
-		MDP_OUTP(MDP_BASE + DTV_BASE, 0);
-		/* Clks are enabled in probe.
-		   Disabling clocks now */
-		mdp_clk_ctrl(0);
-	}
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 
@@ -953,7 +952,13 @@ static void mdp4_overlay_dtv_alloc_pipe(struct msm_fb_data_type *mfd,
 
 	mdp4_overlay_reg_flush(pipe, 1);
 	mdp4_mixer_stage_up(pipe, 0);
-	mdp4_mixer_stage_commit(pipe->mixer_num);
+
+	mdp4_mixer_stage_commit_no_flush(pipe->mixer_num);
+	if (!mfd->cont_splash_done) {
+		/* Stage Splash Pipe along with Border Fill */
+		mdp4_overlay_stage_splash(pipe->mixer_num);
+	}
+	mdp4_mixer_flush(pipe->mixer_num);
 
 	vctrl->base_pipe = pipe; /* keep it */
 }
