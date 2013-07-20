@@ -1410,13 +1410,15 @@ static void hdmi_msm_cec_latch_work(struct work_struct *work)
  * Reduce hdcp link to regular hdmi data link with hdcp disabled so any
  * un-secure like UI & menu still can be sent over HDMI and display.
  */
-#define AUTH_RETRIES_TIME (7)
+#define AUTH_RETRIES_TIME (30)
 static void hdcp_deauthenticate(void);
 static int hdmi_msm_if_abort_reauth(void)
 {
 	int ret = 0;
 	uint32 value = 0;
 
+	DEV_INFO("%s: trying reauth %d times\n",
+			__func__, hdmi_msm_state->auth_retries + 1);
 	if (++hdmi_msm_state->auth_retries == AUTH_RETRIES_TIME) {
 		cancel_work_sync(&hdmi_msm_state->hdcp_work);
 		del_timer_sync(&hdmi_msm_state->hdcp_timer);
@@ -1459,7 +1461,7 @@ static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
 	mutex_unlock(&hdmi_msm_state_mutex);
 
 	if (hdmi_msm_if_abort_reauth()) {
-		DEV_INFO("%s: abort after trying auth for 6 times, use hdmi!\n",
+	DEV_INFO("%s: abort after trying auth for 30 times, use hdmi!\n",
 				__func__);
 		return;
 	}
