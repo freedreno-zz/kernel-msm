@@ -76,7 +76,7 @@ struct bluesleep_info {
 };
 
 /* 1 second timeout */
-#define TX_TIMER_INTERVAL  2
+#define TX_TIMER_INTERVAL  1
 
 /* state variable names and bit positions */
 #define BT_TXEXPIRED    0x01
