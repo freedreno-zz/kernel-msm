@@ -115,10 +115,6 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	u32 channel_allocation = 0;
-	u32 level_shift  = 0; /* 0dB */
-	bool down_mix = FALSE;
-	int sample_rate = HDMI_SAMPLE_RATE_48KHZ;
 	u16 bit_width = 16;
 
 	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
@@ -126,6 +122,50 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
 	dai_data->port_config.hdmi_multi_ch_v2.bit_width = bit_width;
+	dai_data->port_config.hdmi_multi_ch_v2.channel_allocation = 0;
+
+	return 0;
+}
+
+
+static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	int rc = 0;
+
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		pr_info("%s:  afe port not started. dai status_mask=%ld\n",
+			__func__, *dai_data->status_mask);
+		return;
+	}
+
+	rc = afe_close(dai->id); /* can block */
+
+	if (IS_ERR_VALUE(rc))
+		dev_err(dai->dev, "fail to close AFE port\n");
+
+	pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
+			*dai_data->status_mask);
+
+	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+}
+
+
+static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
+	int rc = 0;
+	u32 channel_allocation = 0;
+	u32 level_shift  = 0; /* 0dB */
+	bool down_mix = FALSE;
+	int sample_rate = HDMI_SAMPLE_RATE_48KHZ;
+
+	/* set channel allocation only for lpcm type */
+	if (hdmi_ca.set_ca && !dai_data->port_config.hdmi_multi_ch.data_type)
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
+								hdmi_ca.ca;
 
 	switch (dai_data->rate) {
 	case 192000:
@@ -152,79 +192,52 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	}
 	hdmi_msm_audio_sample_rate_reset(sample_rate);
 
+	channel_allocation =
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation;
+
+	dev_dbg(dai->dev, "%s() num_ch = %u rate =%u bit-width = %u\n",
+		__func__,
+		dai_data->channels,
+		dai_data->rate,
+		dai_data->port_config.hdmi_multi_ch_v2.bit_width);
+	dev_dbg(dai->dev, "%s(), ca = %0x, data type = %d\n", __func__,
+		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation,
+		dai_data->port_config.hdmi_multi_ch_v2.data_type);
+
 	switch (dai_data->channels) {
 	case 2:
-		channel_allocation  = 0;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
-			channel_allocation;
+		break;
+	case 3:
+		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_3,
+				channel_allocation, level_shift, down_mix);
+		break;
+	case 4:
+		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_4,
+				channel_allocation, level_shift, down_mix);
+		break;
+	case 5:
+		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_5,
+				channel_allocation, level_shift, down_mix);
 		break;
 	case 6:
-		channel_allocation  = 0x0B;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_6,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
-				channel_allocation;
+		break;
+	case 7:
+		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_7,
+				channel_allocation, level_shift, down_mix);
 		break;
 	case 8:
-		channel_allocation  = 0x1F;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_8,
 				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
-				channel_allocation;
 		break;
 	default:
 		dev_err(dai->dev, "invalid Channels = %u\n",
 				dai_data->channels);
 		return -EINVAL;
 	}
-	dev_dbg(dai->dev, "%s() num_ch = %u rate =%u bit-width = %u"
-		" channel_allocation = %u data type = %d\n", __func__,
-		dai_data->channels,
-		dai_data->rate,
-		dai_data->port_config.hdmi_multi_ch_v2.bit_width,
-		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation,
-		dai_data->port_config.hdmi_multi_ch_v2.data_type);
-
-	return 0;
-}
-
-
-static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
-				struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	int rc = 0;
-
-	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		pr_info("%s:  afe port not started. dai_data->status_mask"
-			" = %ld\n", __func__, *dai_data->status_mask);
-		return;
-	}
-
-	rc = afe_close(dai->id); /* can block */
-
-	if (IS_ERR_VALUE(rc))
-		dev_err(dai->dev, "fail to close AFE port\n");
-
-	pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
-			*dai_data->status_mask);
-
-	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
-}
-
-
-static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	int rc = 0;
-
-	/* set channel allocation only for lpcm type */
-	if (hdmi_ca.set_ca && !dai_data->port_config.hdmi_multi_ch.data_type)
-		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
-								hdmi_ca.ca;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_port_start(dai->id, &dai_data->port_config,
