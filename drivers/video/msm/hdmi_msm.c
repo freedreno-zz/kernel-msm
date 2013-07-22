@@ -32,12 +32,6 @@
 #include "hdmi_msm.h"
 #include "hdcp_tx.h"
 
-/* Supported HDMI Audio channels */
-#define MSM_HDMI_AUDIO_CHANNEL_2		0
-#define MSM_HDMI_AUDIO_CHANNEL_4		1
-#define MSM_HDMI_AUDIO_CHANNEL_6		2
-#define MSM_HDMI_AUDIO_CHANNEL_8		3
-#define MSM_HDMI_AUDIO_CHANNEL_MAX		4
 #define MSM_HDMI_AUDIO_CHANNEL_FORCE_32BIT	0x7FFFFFFF
 
 /* Supported HDMI Audio sample rates */
@@ -4137,20 +4131,23 @@ int hdmi_msm_audio_info_setup(bool enabled, u32 num_of_channels,
 		case MSM_HDMI_AUDIO_CHANNEL_2:
 			channel_allocation = 0;	/* Default to FR,FL */
 			break;
+		case MSM_HDMI_AUDIO_CHANNEL_3:
+			channel_count = 2;
+			break;
 		case MSM_HDMI_AUDIO_CHANNEL_4:
 			channel_count = 3;
-			/* FC,LFE,FR,FL */
-			channel_allocation = 0x3;
+			break;
+		case MSM_HDMI_AUDIO_CHANNEL_5:
+			channel_count = 4;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_6:
 			channel_count = 5;
-			/* RR,RL,FC,LFE,FR,FL */
-			channel_allocation = 0xB;
+			break;
+		case MSM_HDMI_AUDIO_CHANNEL_7:
+			channel_count = 6;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_8:
 			channel_count = 7;
-			/* FRC,FLC,RR,RL,FC,LFE,FR,FL */
-			channel_allocation = 0x1f;
 			break;
 		default:
 			pr_err("%s(): Unsupported num_of_channels = %u\n",
