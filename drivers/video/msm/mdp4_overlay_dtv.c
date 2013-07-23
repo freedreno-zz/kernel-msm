@@ -709,6 +709,20 @@ int mdp4_dtv_on(struct platform_device *pdev)
 	/* Mdp clock enable */
 	mdp_clk_ctrl(1);
 
+	if ((!mfd->cont_splash_done) && ((mfd->edid_fail_status) ||
+	   (mfd->vfmt_lk != mfd->vfmt_kernel))) {
+		pr_err("%s Vfmt_Lk: %d Vfmt_Kernel: %d edid_fail: %d ",
+		__func__, mfd->vfmt_lk, mfd->vfmt_kernel,
+		 mfd->edid_fail_status);
+		/* EDID Read failed in LK hence switch off TG
+		so that DTV regs can be programmed again */
+		MDP_OUTP(MDP_BASE + DTV_BASE, 0);
+		msleep(40);
+		mfd->edid_fail_status = 0;
+		mfd->cont_splash_done = 1;
+		mfd->vfmt_lk = 0;
+		mfd->vfmt_kernel = 0;
+	}
 	mdp4_overlay_panel_mode(MDP4_MIXER1, MDP4_PANEL_DTV);
 
 	/* Allocate dtv_pipe at dtv_on*/

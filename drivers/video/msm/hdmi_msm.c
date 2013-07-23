@@ -1322,6 +1322,7 @@ static void hdmi_msm_reinit_panel_info(void)
 				mode_change = 1;
 		}
 	}
+	mfd->vfmt_kernel = external_common_state->video_resolution + 1;
 
 	if (mode_change) {
 		hdmi_common_init_panel_info(&mfd->panel_info);
