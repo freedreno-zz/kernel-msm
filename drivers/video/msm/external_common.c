@@ -330,17 +330,26 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 	if (external_common_state->disp_mode_list.num_of_elements) {
 		uint32 *video_mode = external_common_state->disp_mode_list
 			.disp_mode_list;
+		/*Native mode in 0th index always*/
+		if (external_common_state->native_video_format) {
+			ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
+			external_common_state->native_video_format + 1);
+		} else {
+		/*No native mode, put zero in 0th index*/
+			ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
+				external_common_state->native_video_format);
+		}
 		for (i = 0; i < external_common_state->disp_mode_list
 			.num_of_elements; ++i) {
 			if (ret > 0)
-				ret += snprintf(buf+ret, PAGE_SIZE-ret, ",%d",
+				ret += snprintf(buf + ret, PAGE_SIZE-ret, ",%d",
 					*video_mode++ + 1);
 			else
-				ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
+				ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
 					*video_mode++ + 1);
 		}
 	} else
-		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
+		ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
 			external_common_state->video_resolution+1);
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
@@ -810,7 +819,6 @@ static DEVICE_ATTR(cec_rd_frame, S_IRUGO,
 static DEVICE_ATTR(cec_wr_frame, S_IWUSR,
 	NULL, hdmi_msm_wta_cec_frame);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
-
 
 static ssize_t external_common_rda_video_mode(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -2132,7 +2140,18 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 			/* Make a note of the preferred video format */
 			if (i == 0) {
 				external_common_state->preferred_video_format =
-					video_format;
+								video_format;
+			}
+			/*Store Native video mode*/
+			if ((*svd) & 0x80) {
+			if (hdmi_common_get_supported_mode(video_format)) {
+				external_common_state->native_video_format =
+								video_format;
+			pr_info("hdmi_msm:%s native mode %d\n", __func__,
+				external_common_state->native_video_format+1);
+			} else {
+				external_common_state->native_video_format = 0;
+			}
 			}
 			if (i < 16) {
 				disp_mode_list->disp_multi_3d_mode_list[i]
@@ -2403,6 +2422,7 @@ int hdmi_common_read_edid(void)
 	external_common_state->it_scan_info = 0;
 	external_common_state->ce_scan_info = 0;
 	external_common_state->preferred_video_format = 0;
+	external_common_state->native_video_format = 0;
 	external_common_state->present_3d = 0;
 	memset(&external_common_state->disp_mode_list, 0,
 		sizeof(external_common_state->disp_mode_list));
