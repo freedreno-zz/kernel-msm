@@ -313,6 +313,8 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 
 	gpu->submitted_fence = submit->fence;
 
+	msm_rd_dump_submit(submit);
+
 	ret = gpu->funcs->submit(gpu, submit, ctx);
 	priv->lastctx = ctx;
 
