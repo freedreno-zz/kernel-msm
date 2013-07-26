@@ -562,8 +562,11 @@ void l2cap_chan_del(struct sock *sk, int err)
 		/* Unlink from channel list */
 		l2cap_chan_unlink(l, sk);
 		l2cap_pi(sk)->conn = NULL;
-		if (!l2cap_pi(sk)->fixed_channel)
+		if (!l2cap_pi(sk)->fixed_channel) {
+			conn->hcon->disc_timeout = HCI_DISCONN_TIMEOUT;
+			conn->hcon->out_disc = 1;
 			hci_conn_put(conn->hcon);
+		}
 
 		read_lock(&l->lock);
 		if (l2cap_pi(sk)->flush_to < l2cap_get_smallest_flushto(l))

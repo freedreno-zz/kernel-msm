@@ -288,6 +288,7 @@ struct hci_conn {
 	__u8		mode;
 	__u8		type;
 	__u8		out;
+	__u8		out_disc;
 	__u8		attempt;
 	__u8		dev_class[3];
 	__u8		features[8];
@@ -638,7 +639,7 @@ static inline void hci_conn_put(struct hci_conn *conn)
 			del_timer(&conn->idle_timer);
 			if (conn->state == BT_CONNECTED) {
 				timeo = msecs_to_jiffies(conn->disc_timeout);
-				if (!conn->out)
+				if (!conn->out && !conn->out_disc)
 					timeo *= 4;
 			} else
 				timeo = msecs_to_jiffies(10);
