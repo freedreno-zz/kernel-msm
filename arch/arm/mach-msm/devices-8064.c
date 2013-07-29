@@ -377,7 +377,7 @@ static struct resource resources_uart_gsbi4[] = {
 
 struct platform_device apq8064_device_uart_gsbi4 = {
 	.name = "msm_serial_hsl",
-	.id = 2,
+	.id = 1,
 	.num_resources = ARRAY_SIZE(resources_uart_gsbi4),
 	.resource = resources_uart_gsbi4,
 };
