@@ -479,6 +479,7 @@ struct hid_device {							/* device report descriptor */
 	__u32 version;							/* HID version */
 	enum hid_type type;						/* device type (mouse, kbd, ...) */
 	unsigned country;						/* HID country */
+	__s32 battery_level;
 	struct hid_report_enum report_enum[HID_REPORT_TYPES];
 
 	struct semaphore driver_lock;					/* protects the current driver */
@@ -700,6 +701,9 @@ struct hid_ll_driver {
 			unsigned int code, int value);
 
 	int (*parse)(struct hid_device *hdev);
+
+	void (*battery_level_ind) (struct hid_device *hdev,
+			unsigned int battery_level);
 };
 
 #define	PM_HINT_FULLON	1<<5

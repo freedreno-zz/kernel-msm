@@ -419,3 +419,9 @@ struct mgmt_ev_le_conn_params {
 	__u16 latency;
 	__u16 timeout;
 } __packed;
+
+#define MGMT_EV_REMOTE_BATTERY_LEVEL		0xFF01
+struct mgmt_ev_remote_battery_level {
+	bdaddr_t bdaddr;
+	uint8_t battery_level;
+} __packed;
