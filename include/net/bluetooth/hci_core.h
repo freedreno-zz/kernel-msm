@@ -309,6 +309,7 @@ struct hci_conn {
 	__u16		disc_timeout;
 	__u16		conn_timeout;
 	unsigned long	pend;
+	bool		encrypt;
 
 	__u8		remote_cap;
 	__u8		remote_oob;
