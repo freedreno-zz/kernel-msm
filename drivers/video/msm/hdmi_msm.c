@@ -100,6 +100,8 @@ static struct platform_device *hdmi_msm_pdev;
 static bool hdcp_feature_on = true;
 
 DEFINE_MUTEX(hdmi_msm_state_mutex);
+DEFINE_MUTEX(hdmi_msm_power_mutex);
+
 EXPORT_SYMBOL(hdmi_msm_state_mutex);
 static DEFINE_MUTEX(hdcp_auth_state_mutex);
 
@@ -1352,6 +1354,7 @@ static void hdmi_msm_send_event(boolean on)
 	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 	char *envp[2];
 
+	mutex_lock(&hdmi_msm_power_mutex);
 	/* QDSP OFF preceding the HPD event notification */
 	envp[0] = "HDCP_STATE=FAIL";
 	envp[1] = NULL;
@@ -1387,6 +1390,7 @@ static void hdmi_msm_send_event(boolean on)
 			KOBJ_OFFLINE);
 	}
 
+	mutex_unlock(&hdmi_msm_power_mutex);
 	if (mfd->ref_cnt && hdmi_prim_display) {
 		if (on)
 			hdmi_msm_power_on(hdmi_msm_pdev);
@@ -1497,6 +1501,7 @@ static void hdmi_msm_hdcp_work(struct work_struct *work)
 		return;
 	}
 
+	mutex_lock(&hdmi_msm_power_mutex);
 	/* Only re-enable if cable still connected */
 	mutex_lock(&external_common_state_hpd_mutex);
 	if (external_common_state->hpd_state &&
@@ -1517,6 +1522,7 @@ static void hdmi_msm_hdcp_work(struct work_struct *work)
 				__func__);
 		hdmi_msm_state->reauth = FALSE;
 	}
+	mutex_unlock(&hdmi_msm_power_mutex);
 }
 
 int hdmi_msm_process_hdcp_interrupts(void)
@@ -5227,6 +5233,8 @@ static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc = 0;
 
+	mutex_lock(&hdmi_msm_power_mutex);
+
 	if (enable) {
 		/*
 		 * Enable HPD only if the UI option is on or if
@@ -5246,6 +5254,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 			rc = hdmi_msm_hpd_on();
 			if (rc) {
 				DEV_ERR("%s: HPD ON FAILED\n", __func__);
+				mutex_unlock(&hdmi_msm_power_mutex);
 				return rc;
 			}
 		}
@@ -5262,6 +5271,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 
 		hdmi_msm_hpd_off();
 	}
+	mutex_unlock(&hdmi_msm_power_mutex);
 
 	return rc;
 }
@@ -5276,6 +5286,7 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 		return ret;
 	}
 
+	mutex_lock(&hdmi_msm_power_mutex);
 	if (!external_common_state->hpd_state) {
 		DEV_DBG("%s:HDMI cable not connected\n", __func__);
 		goto error;
@@ -5323,6 +5334,7 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 error:
 	/* Set HPD cable sense polarity */
 	hdmi_msm_hpd_polarity_setup();
+	mutex_unlock(&hdmi_msm_power_mutex);
 
 	return ret;
 }
@@ -5380,6 +5392,8 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 		return ret;
 	}
 
+	mutex_lock(&hdmi_msm_power_mutex);
+
 	if (!hdmi_msm_state->panel_power_on) {
 		DEV_DBG("%s: panel not ON\n", __func__);
 		goto error;
@@ -5422,9 +5436,11 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 
 	if (!completion_done(&hdmi_msm_state->hpd_event_processed))
 		complete(&hdmi_msm_state->hpd_event_processed);
+
 error:
 	/* Set HPD cable sense polarity */
 	hdmi_msm_hpd_polarity_setup();
+	mutex_unlock(&hdmi_msm_power_mutex);
 
 	return ret;
 }
@@ -5710,6 +5726,7 @@ static int hdmi_msm_hpd_feature(int on)
 	int rc = 0;
 
 	DEV_INFO("%s: %d\n", __func__, on);
+	mutex_lock(&hdmi_msm_power_mutex);
 	if (on) {
 		rc = hdmi_msm_hpd_on();
 	} else {
@@ -5732,6 +5749,7 @@ static int hdmi_msm_hpd_feature(int on)
 		DEV_INFO("%s: hdmi state switched to %d\n", __func__,
 				external_common_state->sdev.state);
 	}
+	mutex_unlock(&hdmi_msm_power_mutex);
 
 	return rc;
 }
