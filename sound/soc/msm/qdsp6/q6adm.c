@@ -1176,16 +1176,26 @@ int adm_multi_ch_copp_pseudo_open_v3(int port_id, int path,
 		open.hdr.opcode = ADM_CMD_MULTI_CHANNEL_COPP_OPEN_V3;
 		memset(open.dev_channel_mapping, 0, 8);
 
-		if (channel_mode == 1)	{
+		if (channel_mode == 1) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 2) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+		} else if (channel_mode == 3) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 4) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
 			open.dev_channel_mapping[2] = PCM_CHANNEL_LS;
 			open.dev_channel_mapping[3] = PCM_CHANNEL_RS;
+		} else if (channel_mode == 5) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_LS;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_RS;
 		} else if (channel_mode == 6) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FL;
@@ -1304,16 +1314,31 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 
 		memset(open.dev_channel_mapping, 0, 8);
 
-		if (channel_mode == 1)	{
+		if ((channel_mode > 2)	&&
+			multi_ch_map.set_channel_map == true) {
+			memcpy(open.dev_channel_mapping,
+				multi_ch_map.channel_mapping,
+				PCM_FORMAT_MAX_NUM_CHANNEL);
+		} else if (channel_mode == 1) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 2) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+		} else if (channel_mode == 3) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 4) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-			open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_RB;
+		} else if (channel_mode == 5) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
 		} else if (channel_mode == 6) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1321,6 +1346,14 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
 			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+		} else if (channel_mode == 7) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[6] = PCM_CHANNEL_CS;
 		} else if (channel_mode == 8) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1335,11 +1368,6 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 					channel_mode);
 			return -EINVAL;
 		}
-                if ((channel_mode > 2) &&
-			multi_ch_map.set_channel_map)
-			memcpy(open.dev_channel_mapping,
-				multi_ch_map.channel_mapping,
-				PCM_FORMAT_MAX_NUM_CHANNEL);
 
 		open.hdr.src_svc = APR_SVC_ADM;
 		open.hdr.src_domain = APR_DOMAIN_APPS;
@@ -1460,16 +1488,31 @@ int adm_multi_ch_copp_open_v2(int port_id, int path, int rate, int channel_mode,
 
 		memset(open.dev_channel_mapping, 0, 8);
 
-		if (channel_mode == 1)	{
+		if ((channel_mode > 2)	&&
+			multi_ch_map.set_channel_map == true) {
+			memcpy(open.dev_channel_mapping,
+				multi_ch_map.channel_mapping,
+				PCM_FORMAT_MAX_NUM_CHANNEL);
+		} else if (channel_mode == 1) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 2) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+		} else if (channel_mode == 3) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 		} else if (channel_mode == 4) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-			open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_RB;
+		} else if (channel_mode == 5) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
 		} else if (channel_mode == 6) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1477,6 +1520,14 @@ int adm_multi_ch_copp_open_v2(int port_id, int path, int rate, int channel_mode,
 			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
 			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+		} else if (channel_mode == 7) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[6] = PCM_CHANNEL_CS;
 		} else if (channel_mode == 8) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1634,16 +1685,31 @@ int adm_multi_ch_copp_open_v3(int port_id, int path, int rate, int channel_mode,
 			open.bit_width = 16;
 		} else if (path == ADM_PATH_PLAYBACK) {
 			open.flags = ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT;
-			if (channel_mode == 1)	{
+			if ((channel_mode > 2)	&&
+				multi_ch_map.set_channel_map == true) {
+				memcpy(open.dev_channel_mapping,
+					multi_ch_map.channel_mapping,
+					PCM_FORMAT_MAX_NUM_CHANNEL);
+			} else if (channel_mode == 1) {
 				open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
 			} else if (channel_mode == 2) {
 				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			} else if (channel_mode == 3) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 			} else if (channel_mode == 4) {
 				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_LB;
+				open.dev_channel_mapping[3] = PCM_CHANNEL_RB;
+			} else if (channel_mode == 5) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
 				open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+				open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
 			} else if (channel_mode == 6) {
 				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1651,6 +1717,14 @@ int adm_multi_ch_copp_open_v3(int port_id, int path, int rate, int channel_mode,
 				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
 				open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
 				open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			} else if (channel_mode == 7) {
+				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+				open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+				open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+				open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+				open.dev_channel_mapping[6] = PCM_CHANNEL_CS;
 			} else if (channel_mode == 8) {
 				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
