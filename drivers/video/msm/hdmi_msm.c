@@ -94,6 +94,8 @@ static int hdmi_msm_res_priority[HDMI_VFRMT_MAX] = {
 struct workqueue_struct *hdmi_work_queue;
 struct hdmi_msm_state_type *hdmi_msm_state;
 
+static struct platform_device *hdmi_msm_pdev;
+
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
@@ -601,6 +603,7 @@ void hdmi_msm_cec_msg_recv(void)
 	int i;
 	struct hdmi_msm_cec_msg temp_msg;
 	struct input_dev *input;
+	struct msm_fb_data_type *mfd;
 	u8 id;
 	u8 *addr;
 
@@ -790,8 +793,9 @@ void hdmi_msm_cec_msg_recv(void)
 
 			/* Send POWER_KEY event if it's in suspend */
 			input = hdmi_msm_state->input;
+			mfd = platform_get_drvdata(hdmi_msm_pdev);
 
-			if (input && hdmi_msm_state->irq_wakeup_enabled) {
+			if (input && !mfd->panel_power_on) {
 				input_report_key(input, KEY_POWER, 1);
 				input_sync(input);
 				input_report_key(input, KEY_POWER, 0);
@@ -885,9 +889,10 @@ void hdmi_msm_cec_msg_recv(void)
 			 * device into the standby state if it's not in standby.
 			 * Standby and Suspend are interchangeably used here */
 			input = hdmi_msm_state->input;
+			mfd = platform_get_drvdata(hdmi_msm_pdev);
 			DEV_INFO("Standby received\n");
 
-			if (input && !hdmi_msm_state->irq_wakeup_enabled &&
+			if (input && mfd->panel_power_on &&
 					!hdmi_msm_state->standby_servicing) {
 				input_report_key(input, KEY_POWER, 1);
 				input_sync(input);
@@ -1277,8 +1282,6 @@ static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
 static int hdmi_msm_power_on(struct platform_device *pdev);
 static int hdmi_msm_power_off(struct platform_device *pdev);
-
-static struct platform_device *hdmi_msm_pdev;
 
 static bool hdmi_ready(void)
 {
