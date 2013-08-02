@@ -158,13 +158,13 @@ struct hdmi_disp_mode_timing_type {
 	 720, 5, 5, 20, FALSE, 74250, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_1920x1080i60_16_9					\
 	{HDMI_VFRMT_1920x1080i60_16_9,   1920, 88,  44,  148, FALSE,	\
-	 540, 2, 5, 5, FALSE, 74250, 60000, FALSE, TRUE}
+	 540, 2, 5, 5, FALSE, 74250, 60000, TRUE, FALSE}
 #define HDMI_SETTINGS_1440x480i60_4_3					\
 	{HDMI_VFRMT_1440x480i60_4_3,     1440, 38,  124, 114, TRUE,	\
-	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, TRUE}
+	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, FALSE}
 #define HDMI_SETTINGS_1440x480i60_16_9					\
 	{HDMI_VFRMT_1440x480i60_16_9,    1440, 38,  124, 114, TRUE,	\
-	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, TRUE}
+	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, FALSE}
 #define HDMI_SETTINGS_1920x1080p60_16_9					\
 	{HDMI_VFRMT_1920x1080p60_16_9,   1920, 88,  44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 148500, 60000, FALSE, TRUE}
@@ -179,10 +179,10 @@ struct hdmi_disp_mode_timing_type {
 	 720,  5, 5, 20, FALSE, 74250, 50000, FALSE, TRUE}
 #define HDMI_SETTINGS_1440x576i50_4_3					\
 	{HDMI_VFRMT_1440x576i50_4_3,     1440, 24,  126, 138,  TRUE,	\
-	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, TRUE}
+	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, FALSE}
 #define HDMI_SETTINGS_1440x576i50_16_9					\
 	{HDMI_VFRMT_1440x576i50_16_9,    1440, 24,  126, 138,  TRUE,	\
-	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, TRUE}
+	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, FALSE}
 #define HDMI_SETTINGS_1920x1080p50_16_9					\
 	{HDMI_VFRMT_1920x1080p50_16_9,   1920,  528,  44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 148500, 50000, FALSE, TRUE}
@@ -259,6 +259,7 @@ struct external_common_state_type {
 	uint16 video_latency, audio_latency;
 	uint16 physical_address;
 	uint32 preferred_video_format;
+	uint32 native_video_format;
 	uint32 best_video_format;
 	uint8 pt_scan_info;
 	uint8 it_scan_info;
