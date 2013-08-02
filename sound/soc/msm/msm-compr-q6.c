@@ -120,8 +120,6 @@ static void compr_event_handler(uint32_t opcode,
 	int i = 0;
 	int time_stamp_flag = 0;
 	int buffer_length = 0;
-	struct audio_port_data *port;
-	int dsp_buf = 0;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
@@ -332,37 +330,7 @@ static void compr_event_handler(uint32_t opcode,
 						& (runtime->periods - 1);
 				atomic_set(&prtd->pending_buffer, 0);
 			} else {
-				if (atomic_read(&prtd->out_needed) == 0)
-					snd_pcm_period_elapsed(substream);
-				while (atomic_read(&prtd->out_needed)) {
-					pr_debug("%s:writing %d bytes of buffer to dsp\n",
-						__func__, prtd->pcm_count);
-					if (runtime->tstamp_mode ==
-						SNDRV_PCM_TSTAMP_ENABLE)
-						time_stamp_flag = SET_TIMESTAMP;
-					else
-						time_stamp_flag = NO_TIMESTAMP;
-					port = &(prtd->audio_client->port[IN]);
-					dsp_buf = port->dsp_buf;
-					buf = &port->buf[dsp_buf];
-					memcpy(&output_meta_data,
-						(char *)buf->data,
-						COMPRE_OUTPUT_METADATA_SIZE);
-					buffer_length =
-						output_meta_data.frame_size;
-					memmove((char *)buf->data,
-						(char *)buf->data +
-						COMPRE_OUTPUT_METADATA_SIZE,
-						buffer_length);
-					pr_debug("frame length: %d\n",
-						buffer_length);
-					q6asm_write_nolock(prtd->audio_client,
-						buffer_length,
-						output_meta_data.timestamp_msw,
-						output_meta_data.timestamp_lsw,
-						time_stamp_flag);
-					atomic_dec(&prtd->out_needed);
-				}
+				snd_pcm_period_elapsed(substream);
 				atomic_set(&prtd->start, 1);
 			}
 			break;
@@ -988,29 +956,25 @@ static int msm_compr_playback_copy(struct snd_pcm_substream *substream, int a,
 		buf += xfer;
 		fbytes -= xfer;
 		pr_debug("%s:fbytes = %d: xfer=%d\n", __func__, fbytes, xfer);
-		if (atomic_read(&prtd->start)) {
-			pr_debug("%s:writing %d bytes of buffer to dsp\n",
+		pr_debug("%s:writing %d bytes of buffer to dsp\n",
 				__func__, xfer);
-			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
-				time_stamp_flag = SET_TIMESTAMP;
-			else
-				time_stamp_flag = NO_TIMESTAMP;
-			memcpy(&output_meta_data, (char *)bufptr,
+		if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
+			time_stamp_flag = SET_TIMESTAMP;
+		else
+			time_stamp_flag = NO_TIMESTAMP;
+		memcpy(&output_meta_data, (char *)bufptr,
 				COMPRE_OUTPUT_METADATA_SIZE);
-			buffer_length = output_meta_data.frame_size;
-			memmove((char *)bufptr, (char *)bufptr +
+		buffer_length = output_meta_data.frame_size;
+		memmove((char *)bufptr, (char *)bufptr +
 				COMPRE_OUTPUT_METADATA_SIZE,
 				buffer_length);
-			ret = q6asm_write(prtd->audio_client, buffer_length,
+		ret = q6asm_write(prtd->audio_client, buffer_length,
 				output_meta_data.timestamp_msw,
 				output_meta_data.timestamp_lsw,
 				time_stamp_flag);
-			if (ret < 0) {
-				ret = -EFAULT;
-				goto fail;
-			}
-		} else {
-			atomic_inc(&prtd->out_needed);
+		if (ret < 0) {
+			ret = -EFAULT;
+			goto fail;
 		}
 		atomic_dec(&prtd->out_count);
 	}
@@ -1543,7 +1507,6 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 				atomic_set(&prtd->eos, 0);
 				atomic_set(&prtd->pending_buffer, 1);
 			}
-			atomic_set(&prtd->out_needed, 0);
 			atomic_set(&prtd->flush, 1);
 			wake_up(&the_locks.write_wait);
 			/* A unlikely race condition possible with FLUSH
