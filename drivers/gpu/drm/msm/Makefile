@@ -24,6 +24,7 @@ msm-y := \
 	msm_gem_prime.o \
 	msm_gem_submit.o \
 	msm_gpu.o \
+	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o
 
