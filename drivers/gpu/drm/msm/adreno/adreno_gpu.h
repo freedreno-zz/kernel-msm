@@ -54,8 +54,6 @@ struct adreno_gpu {
 	uint32_t revn;  /* numeric revision name */
 	const struct adreno_gpu_funcs *funcs;
 
-	uint32_t last_fence;
-
 	/* firmware: */
 	const struct firmware *pm4, *pfp;
 

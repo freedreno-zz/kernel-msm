@@ -119,8 +119,6 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 	struct msm_ringbuffer *ring = gpu->rb;
 	unsigned i, ibs = 0;
 
-	adreno_gpu->last_fence = submit->fence;
-
 	for (i = 0; i < submit->nr_cmds; i++) {
 		switch (submit->cmd[i].type) {
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
@@ -225,7 +223,7 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			adreno_gpu->rev.patchid);
 
 	seq_printf(m, "fence:    %d/%d\n", adreno_gpu->memptrs->fence,
-			adreno_gpu->last_fence);
+			gpu->submitted_fence);
 	seq_printf(m, "rptr:     %d\n", adreno_gpu->memptrs->rptr);
 	seq_printf(m, "wptr:     %d\n", adreno_gpu->memptrs->wptr);
 	seq_printf(m, "rb wptr:  %d\n", get_wptr(gpu->rb));

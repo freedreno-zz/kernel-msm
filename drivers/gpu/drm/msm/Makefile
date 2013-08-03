@@ -23,6 +23,7 @@ msm-y := \
 	msm_gem.o \
 	msm_gem_submit.o \
 	msm_gpu.o \
+	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o
 
