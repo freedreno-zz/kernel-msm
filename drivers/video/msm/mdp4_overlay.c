@@ -162,6 +162,8 @@ static int mdp4_map_sec_resource(struct msm_fb_data_type *mfd)
 		pr_err("IOMMU clock enabled failed while open");
 		return ret;
 	}
+	if (hdmi_prim_display)
+		hdmi_msm_encryt_en(true);
 	ret = msm_ion_secure_heap(ION_HEAP(ION_CP_MM_HEAP_ID));
 	if (ret)
 		pr_err("ION heap secure failed heap id %d ret %d\n",
@@ -196,6 +198,8 @@ int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
 	msm_ion_unsecure_heap(ION_HEAP(ION_CP_MM_HEAP_ID));
 	mfd->sec_mapped = 0;
 	mdp_disable_iommu_clocks();
+	if (hdmi_prim_display)
+		hdmi_msm_encryt_en(false);
 	return ret;
 }
 
