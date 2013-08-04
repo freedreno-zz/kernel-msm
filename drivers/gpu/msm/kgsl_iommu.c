@@ -72,7 +72,7 @@ static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
 }
 
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
-	struct device *dev, unsigned long addr, int flags)
+	struct device *dev, unsigned long addr, int flags, void *arg)
 {
 	struct kgsl_iommu_unit *iommu_unit = get_iommu_unit(dev);
 	struct kgsl_iommu_device *iommu_dev = get_iommu_device(iommu_unit, dev);
@@ -312,7 +312,7 @@ void *kgsl_iommu_create_pagetable(void)
 				sizeof(struct kgsl_iommu_pt));
 		return NULL;
 	}
-	iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
+	iommu_pt->domain = iommu_domain_alloc_flags(&platform_bus_type,
 										  MSM_IOMMU_DOMAIN_PT_CACHEABLE);
 	if (!iommu_pt->domain) {
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
@@ -320,7 +320,7 @@ void *kgsl_iommu_create_pagetable(void)
 		return NULL;
 	} else {
 		iommu_set_fault_handler(iommu_pt->domain,
-			kgsl_iommu_fault_handler);
+			kgsl_iommu_fault_handler, NULL);
 	}
 
 	return iommu_pt;
