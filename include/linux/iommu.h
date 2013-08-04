@@ -44,6 +44,7 @@ typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 struct iommu_domain {
 	struct iommu_ops *ops;
 	void *priv;
+	void *arg;
 	iommu_fault_handler_t handler;
 	void *handler_token;
 };
@@ -100,7 +101,11 @@ struct iommu_ops {
 
 extern int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops);
 extern bool iommu_present(struct bus_type *bus);
-extern struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags);
+extern struct iommu_domain *iommu_domain_alloc_flags(struct bus_type *bus, int flags);
+static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
+{
+	return iommu_domain_alloc_flags(bus, 0);
+}
 extern void iommu_domain_free(struct iommu_domain *domain);
 extern int iommu_attach_device(struct iommu_domain *domain,
 			       struct device *dev);

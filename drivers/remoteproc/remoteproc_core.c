@@ -117,7 +117,11 @@ static int rproc_enable_iommu(struct rproc *rproc)
 		return -ENOMEM;
 	}
 
+<<<<<<< HEAD
 	iommu_set_fault_handler(domain, rproc_iommu_fault, rproc);
+=======
+	iommu_set_fault_handler(domain, rproc_iommu_fault, NULL);
+>>>>>>> 674b195... iommu: adjust api to match upstream
 
 	ret = iommu_attach_device(domain, dev);
 	if (ret) {

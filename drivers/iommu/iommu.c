@@ -650,7 +650,7 @@ void iommu_set_fault_handler(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL_GPL(iommu_set_fault_handler);
 
-struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags)
+struct iommu_domain *iommu_domain_alloc_flags(struct bus_type *bus, int flags)
 {
 	struct iommu_domain *domain;
 	int ret;
