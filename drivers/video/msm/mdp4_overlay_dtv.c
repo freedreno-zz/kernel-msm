@@ -708,6 +708,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 	mdp_footswitch_ctrl(TRUE);
 	/* Mdp clock enable */
 	mdp_clk_ctrl(1);
+	mdp_bus_scale_restore_request();
 
 	mdp4_overlay_panel_mode(MDP4_MIXER1, MDP4_PANEL_DTV);
 
@@ -815,6 +816,9 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp4_overlay_iommu_unmap_freelist(mixer);
 	mdp4_overlay_iommu_unmap_freelist(mixer);
 
+#ifdef CONFIG_MSM_BUS_SCALING
+	mdp_bus_scale_update_request(0, 0, 0, 0);
+#endif
 	/* Mdp clock disable */
 	mdp_clk_ctrl(0);
 	mutex_unlock(&mfd->dma->ov_mutex);
