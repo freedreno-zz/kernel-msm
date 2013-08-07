@@ -911,7 +911,7 @@ int adm_send_compressed_device_mute(int port_id, bool mute_on)
 
 	pr_debug("%s port_id: %d, mute_on: %d\n", __func__, port_id, mute_on);
 	index = afe_get_port_index(port_id);
-	if (IS_ERR_VALUE(index)) {
+	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invald port id\n", __func__);
 		return index;
 	}
@@ -965,7 +965,7 @@ int adm_send_device_mute(int port_id, int session_id, bool mute_on)
 	int index, ret = 0, copp_id;
 
 	index = afe_get_port_index(port_id);
-	if (IS_ERR_VALUE(index)) {
+        if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invald port id\n", __func__);
 		return index;
 	}
