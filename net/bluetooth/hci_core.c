@@ -2298,7 +2298,8 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			if (conn->type == ACL_LINK) {
 				hdev->acl_last_tx = jiffies;
 				hdev->acl_cnt -= count;
-				BT_INFO("%s: Decrementing ACL Buffer Count", __func__);
+				BT_DBG("%s: Decrementing ACL Buffer Count",
+					__func__);
 			} else if (conn->type == LE_LINK){
 				hdev->le_last_tx = jiffies;
 				if (hdev->le_pkts) {
@@ -2306,7 +2307,8 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 				} else {
 					hdev->acl_cnt -= count;
 				}
-				BT_INFO("%s: Decrementing LE Buffer Count", __func__);
+				BT_DBG("%s: Decrementing LE Buffer Count",
+					__func__);
 			}
 			quote -= count;
 
