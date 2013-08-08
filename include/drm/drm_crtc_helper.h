@@ -125,6 +125,34 @@ struct drm_connector_helper_funcs {
 	struct drm_encoder *(*best_encoder)(struct drm_connector *connector);
 };
 
+/**
+ * drm_bridge_helper_funcs - helper operations for bridges (all required)
+ * @dpms: Control power levels on the bridge.  If the mode passed in is
+ *	  unsupported, the provider must use the next lowest power level.
+ * @mode_fixup: Try to fixup (or reject entirely) proposed mode for this bridge
+ * @disable: Called right before encoder prepare, disables the bridge
+ * @post_disable: Called right after encoder prepare, for lockstepped disable
+ * @mode_set: Set this mode to the bridge
+ * @pre_enable: Called right before encoder commit, for lockstepped commit
+ * @enable: Called right after encoder commit, enables the bridge
+ *
+ * The helper operations are called by the mid-layer CRTC helper, however they
+ * can also be called directly by drivers that don't use the helper functions.
+ */
+struct drm_bridge_helper_funcs {
+	void (*dpms)(struct drm_bridge *bridge, int mode);
+	bool (*mode_fixup)(struct drm_bridge *bridge,
+			   const struct drm_display_mode *mode,
+			   struct drm_display_mode *adjusted_mode);
+	void (*disable)(struct drm_bridge *bridge);
+	void (*post_disable)(struct drm_bridge *bridge);
+	void (*mode_set)(struct drm_bridge *bridge,
+			 struct drm_display_mode *mode,
+			 struct drm_display_mode *adjusted_mode);
+	void (*pre_enable)(struct drm_bridge *bridge);
+	void (*enable)(struct drm_bridge *bridge);
+};
+
 extern int drm_helper_probe_single_connector_modes(struct drm_connector *connector, uint32_t maxX, uint32_t maxY);
 extern void drm_helper_disable_unused_functions(struct drm_device *dev);
 extern int drm_crtc_helper_set_config(struct drm_mode_set *set);
@@ -158,6 +186,12 @@ static inline void drm_connector_helper_add(struct drm_connector *connector,
 					    const struct drm_connector_helper_funcs *funcs)
 {
 	connector->helper_private = (void *)funcs;
+}
+
+static inline void drm_bridge_helper_add(struct drm_bridge *bridge,
+		const struct drm_bridge_helper_funcs *funcs)
+{
+	bridge->helper_private = (void *)funcs;
 }
 
 extern int drm_helper_resume_force_mode(struct drm_device *dev);

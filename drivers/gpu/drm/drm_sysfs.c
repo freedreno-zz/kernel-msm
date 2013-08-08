@@ -184,6 +184,8 @@ static ssize_t status_show(struct device *device,
 			   char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
+	struct drm_encoder *encoder = connector->encoder;
+	struct drm_bridge *bridge = encoder ? encoder->bridge : NULL;
 	enum drm_connector_status status;
 	int ret;
 
@@ -191,7 +193,11 @@ static ssize_t status_show(struct device *device,
 	if (ret)
 		return ret;
 
-	status = connector->funcs->detect(connector, true);
+	if (bridge && bridge->funcs->detect)
+		status = bridge->funcs->detect(bridge, true);
+	else
+		status = connector->funcs->detect(connector, true);
+
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
