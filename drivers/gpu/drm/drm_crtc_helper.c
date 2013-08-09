@@ -277,7 +277,8 @@ drm_encoder_disable(struct drm_encoder *encoder)
 
 	if (encoder->bridge) {
 		bridge_funcs = encoder->bridge->helper_private;
-		bridge_funcs->disable(encoder->bridge);
+		if (bridge_funcs->disable)
+			bridge_funcs->disable(encoder->bridge);
 	}
 
 	if (encoder_funcs->disable)
@@ -287,7 +288,8 @@ drm_encoder_disable(struct drm_encoder *encoder)
 
 	if (encoder->bridge) {
 		bridge_funcs = encoder->bridge->helper_private;
-		bridge_funcs->post_disable(encoder->bridge);
+		if (bridge_funcs->post_disable)
+			bridge_funcs->post_disable(encoder->bridge);
 	}
 }
 
@@ -456,11 +458,13 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			ret = bridge_funcs->mode_fixup(encoder->bridge, mode,
-						       adjusted_mode);
-			if (!ret) {
-				DRM_DEBUG_KMS("Bridge fixup failed\n");
-				goto done;
+			if (bridge_funcs->mode_fixup) {
+				ret = bridge_funcs->mode_fixup(encoder->bridge, mode,
+						adjusted_mode);
+				if (!ret) {
+					DRM_DEBUG_KMS("Bridge fixup failed\n");
+					goto done;
+				}
 			}
 		}
 
@@ -486,7 +490,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			bridge_funcs->disable(encoder->bridge);
+			if (bridge_funcs->disable)
+				bridge_funcs->disable(encoder->bridge);
 		}
 
 		encoder_funcs = encoder->helper_private;
@@ -495,7 +500,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			bridge_funcs->post_disable(encoder->bridge);
+			if (bridge_funcs->post_disable)
+				bridge_funcs->post_disable(encoder->bridge);
 		}
 	}
 
@@ -523,7 +529,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			bridge_funcs->mode_set(encoder->bridge, mode,
+			if (bridge_funcs->mode_set)
+				bridge_funcs->mode_set(encoder->bridge, mode,
 					       adjusted_mode);
 		}
 	}
@@ -538,7 +545,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			bridge_funcs->pre_enable(encoder->bridge);
+			if (bridge_funcs->pre_enable)
+				bridge_funcs->pre_enable(encoder->bridge);
 		}
 
 		encoder_funcs = encoder->helper_private;
@@ -546,7 +554,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 		if (encoder->bridge) {
 			bridge_funcs = encoder->bridge->helper_private;
-			bridge_funcs->enable(encoder->bridge);
+			if (bridge_funcs->enable)
+				bridge_funcs->enable(encoder->bridge);
 		}
 	}
 
