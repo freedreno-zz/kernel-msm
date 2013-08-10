@@ -110,6 +110,7 @@ struct kcal_data kcal_value;
 extern unsigned int lcd_color_preset_lut[];
 int update_preset_lcdc_lut(void)
 {
+#if 0
 	struct fb_cmap cmap;
 	int ret = 0;
 
@@ -132,6 +133,9 @@ int update_preset_lcdc_lut(void)
 		pr_err("%s: failed to set lut! %d\n", __func__, ret);
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 #endif
 
