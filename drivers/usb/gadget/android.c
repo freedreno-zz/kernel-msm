@@ -325,8 +325,9 @@ static void android_enable(struct android_dev *dev)
 	if (WARN_ON(!dev->disable_depth))
 		return;
 
+pr_info("%s: %d\n", __func__, dev->disable_depth);
 	if (--dev->disable_depth == 0) {
-
+pr_info("enable\n");
 		list_for_each_entry(conf, &dev->configs, list_item)
 			usb_add_config(cdev, &conf->usb_config,
 						android_bind_config);
@@ -339,8 +340,10 @@ static void android_disable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_configuration *conf;
+pr_info("%s: %d\n", __func__, dev->disable_depth);
 
 	if (dev->disable_depth++ == 0) {
+pr_info("disable\n");
 		usb_gadget_disconnect(cdev->gadget);
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
@@ -388,6 +391,7 @@ static void adb_android_function_enable(struct android_usb_function *f)
 	struct adb_data *data = f->config;
 
 	data->enabled = true;
+pr_info("%s: %d\n", __func__, data->opened);
 
 	/* Disable the gadget until adbd is ready */
 	if (!data->opened)
@@ -400,6 +404,7 @@ static void adb_android_function_disable(struct android_usb_function *f)
 	struct adb_data *data = f->config;
 
 	data->enabled = false;
+pr_info("%s: %d\n", __func__, data->opened);
 
 	/* Balance the disable that was called in closed_callback */
 	if (!data->opened)
@@ -420,6 +425,7 @@ static void adb_ready_callback(void)
 	struct android_dev *dev = adb_function.android_dev;
 	struct adb_data *data = adb_function.config;
 
+pr_info("%s\n", __func__);
 	data->opened = true;
 
 	if (data->enabled && dev) {
@@ -434,6 +440,7 @@ static void adb_closed_callback(void)
 	struct android_dev *dev = adb_function.android_dev;
 	struct adb_data *data = adb_function.config;
 
+pr_info("%s\n", __func__);
 	data->opened = false;
 
 	if (data->enabled) {
