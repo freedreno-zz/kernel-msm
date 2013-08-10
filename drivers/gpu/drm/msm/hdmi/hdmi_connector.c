@@ -122,7 +122,7 @@ static int hpd_enable(struct hdmi_connector *hdmi_connector)
 
 	if (hdmi->mpp0)
 		ret = regulator_enable(hdmi->mpp0);
-	if (!ret)
+	if (hdmi->mvs && !ret)
 		ret = regulator_enable(hdmi->mvs);
 	if (ret) {
 		dev_err(dev->dev, "failed to enable regulators: %d\n", ret);
@@ -169,7 +169,7 @@ static int hdp_disable(struct hdmi_connector *hdmi_connector)
 
 	if (hdmi->mpp0)
 		ret = regulator_disable(hdmi->mpp0);
-	if (!ret)
+	if (hdmi->mvs && !ret)
 		ret = regulator_disable(hdmi->mvs);
 	if (ret) {
 		dev_err(dev->dev, "failed to enable regulators: %d\n", ret);

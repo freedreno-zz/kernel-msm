@@ -111,13 +111,11 @@ int hdmi_init(struct hdmi *hdmi, struct drm_device *dev,
 	}
 
 	hdmi->mvs = devm_regulator_get(&pdev->dev, "8901_hdmi_mvs");
+
 	if (IS_ERR(hdmi->mvs))
 		hdmi->mvs = devm_regulator_get(&pdev->dev, "hdmi_mvs");
-	if (IS_ERR(hdmi->mvs)) {
-		ret = PTR_ERR(hdmi->mvs);
-		dev_err(dev->dev, "failed to get mvs regulator: %d\n", ret);
-		goto fail;
-	}
+	if (IS_ERR(hdmi->mvs))
+		hdmi->mvs = NULL;
 
 	hdmi->mpp0 = devm_regulator_get(&pdev->dev, "8901_mpp0");
 	if (IS_ERR(hdmi->mpp0))
