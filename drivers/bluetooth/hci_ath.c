@@ -260,7 +260,7 @@ free_host_wake_irq:
 	free_irq(bsi->host_wake_irq, (void *)ath);
 delete_timer:
 	BT_INFO("%s: Deleting the Tx timer", __func__);
-	del_timer(&tx_timer);
+	del_timer_sync(&tx_timer);
 gpio_ext_wake:
 	gpio_free(bsi->ext_wake);
 gpio_host_wake:
