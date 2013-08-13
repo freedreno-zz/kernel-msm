@@ -181,4 +181,5 @@ void mhl_connect_api(boolean on);
 u32 hdmi_msm_is_cec_wakeup_enabled(void);
 u32 hdmi_msm_cect_no_daemon_enabled(void);
 void hdmi_msm_encryt_en(u32 enable);
+int afe_short_silence(u32 duration);
 #endif /* __HDMI_MSM_H__ */

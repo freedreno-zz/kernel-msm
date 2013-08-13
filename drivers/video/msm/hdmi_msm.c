@@ -5056,6 +5056,8 @@ static void hdmi_msm_turn_on(void)
 		hdmi_msm_state->reauth = FALSE ;
 	}
 
+	afe_short_silence(100);
+
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	/* re-initialize CEC if enabled with wakeup feature disabled because
 	 * CEC block is transitioning from off to on */
@@ -5431,6 +5433,8 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 		DEV_DBG("%s: panel not ON\n", __func__);
 		goto error;
 	}
+
+	afe_short_silence(100);
 
 	if (hdmi_msm_state->hdcp_enable) {
 		if (hdmi_msm_state->hdcp_activating) {
