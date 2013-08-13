@@ -20,7 +20,10 @@
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
-
+#include <linux/slab.h>
+#include <mach/msm_hdmi_audio.h>
+#include <linux/delay.h>
+#include <linux/module.h>
 struct afe_ctl {
 	void *apr;
 	atomic_t state;
@@ -35,6 +38,14 @@ struct afe_ctl {
 	void *rx_private_data;
 };
 
+struct msm_dai_q6_hdmi_dai_data {
+	DECLARE_BITMAP(status_mask, STATUS_MAX);
+	u32 rate;
+	u32 channels;
+	union afe_port_config port_config;
+};
+
+static atomic_t hdmi_port_start;
 static struct afe_ctl this_afe;
 
 static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
@@ -492,6 +503,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		config.hdr.dest_port = 0;
 		config.hdr.token = 0;
 		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG_V2;
+		atomic_set(&hdmi_port_start, 1);
 	} else {
 
 		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -620,8 +632,41 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	return 0;
 
 fail_cmd:
+	if (port_id == HDMI_RX)
+		atomic_set(&hdmi_port_start, 0);
 	return ret;
 }
+
+int afe_short_silence(u32 duration)
+{
+	struct msm_dai_q6_hdmi_dai_data dai_data;
+	u16 bit_width = 16;
+	u32 channel_allocation = 0;
+	u32 level_shift  = 0; /* 0dB */
+	bool down_mix = FALSE;
+	int sample_rate = HDMI_SAMPLE_RATE_48KHZ;
+	if (atomic_read(&hdmi_port_start) == 1)
+		return 0;
+
+	dai_data.rate = 48000;
+	dai_data.channels = 2;
+	dai_data.port_config.hdmi_multi_ch_v2.bit_width = bit_width;
+	dai_data.port_config.hdmi_multi_ch_v2.channel_allocation = 0;
+
+	hdmi_msm_audio_sample_rate_reset(sample_rate);
+
+	hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,
+			channel_allocation, level_shift, down_mix);
+	afe_port_start(HDMI_RX, &dai_data.port_config,
+			dai_data.rate);
+
+	msleep(duration);
+
+	afe_close(HDMI_RX);
+
+	return 0;
+}
+EXPORT_SYMBOL(afe_short_silence);
 
 /* This function should be used by 8660 exclusively */
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
@@ -1793,6 +1838,8 @@ int afe_close(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+	if (port_id == HDMI_RX)
+		atomic_set(&hdmi_port_start, 0);
 fail_cmd:
 	return ret;
 }

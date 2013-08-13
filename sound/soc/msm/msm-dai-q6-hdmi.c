@@ -28,11 +28,6 @@
 
 #define HDMI_RX_CA_MAX 0x32
 
-enum {
-	STATUS_PORT_STARTED, /* track if AFE port has started */
-	STATUS_MAX
-};
-
 struct msm_hdmi_ca {
 	bool set_ca;
 	u32 ca;
