@@ -98,6 +98,7 @@ static struct platform_device *hdmi_msm_pdev;
 
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
+static u32 audio_dma_ctl_base;
 
 DEFINE_MUTEX(hdmi_msm_state_mutex);
 DEFINE_MUTEX(hdmi_msm_power_mutex);
@@ -5566,6 +5567,14 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	/* reset audio dma */
+	if (hdmi_prim_display) {
+		if (audio_dma_ctl_base == 0)
+			audio_dma_ctl_base = (u32)ioremap(0x28106000, 0x100);
+		if (audio_dma_ctl_base)
+			outpdw(audio_dma_ctl_base, 0);
+	}
+
 	hdmi_msm_state->hdmi_app_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(hdmi_msm_state->hdmi_app_clk)) {
 		DEV_ERR("'core_clk' clk not found\n");
@@ -5729,6 +5738,11 @@ static int __devexit hdmi_msm_remove(struct platform_device *pdev)
 	if (hdmi_msm_state->hdmi_io)
 		iounmap(hdmi_msm_state->hdmi_io);
 	hdmi_msm_state->hdmi_io = NULL;
+
+	if (audio_dma_ctl_base) {
+		iounmap((unsigned char *)audio_dma_ctl_base);
+		audio_dma_ctl_base = 0;
+	}
 
 	external_common_state_remove();
 
