@@ -576,7 +576,8 @@ static int atheros_bluetooth_power(int on)
 	int rc = 0;
 
 	if (on) {
-		pr_debug("%s: Powering up BT module on On AR3002\n", __func__);
+		printk(KERN_INFO "%s: Powering up BT module on On AR3002\n",
+			__func__);
 		/* Voting for 1.8V s4 regulator */
 		pr_debug("%s: Voting for the 1.8V s4 regulator\n", __func__);
 		vreg_s4 = regulator_get(&msm_bluesleep_device.dev, "8921_l8");
@@ -605,7 +606,8 @@ static int atheros_bluetooth_power(int on)
 		}
 
 		/* Voting for the ATH_CHIP_PWD_L GPIO line */
-		pr_debug("%s: Voting for ath_pwd_l gpio-regulator\n", __func__);
+		printk(KERN_INFO "%s: Voting On ath_pwd_l gpio-regulator\n",
+			__func__);
 		vreg_gpio_8 = regulator_get(&msm_bluesleep_device.dev, "bt_en");
 		if (IS_ERR(vreg_gpio_8)) {
 			rc = PTR_ERR(vreg_gpio_8);
@@ -646,7 +648,8 @@ static int atheros_bluetooth_power(int on)
 		}
 		goto out;
 	} else {
-		pr_debug("%s: Powering down BT module on AR3002\n", __func__);
+		printk(KERN_INFO "%s: Powering down BT module on AR3002\n",
+			__func__);
 		gpio_set_value(gpio_bt_sys_reset_en, 0);
 		rc = gpio_direction_input(gpio_bt_sys_reset_en);
 		msleep(100);
@@ -659,6 +662,7 @@ static int atheros_bluetooth_power(int on)
 free_gpio:
 	gpio_free(gpio_bt_sys_reset_en);
 free_vreg_gpio_8:
+	printk(KERN_INFO "%s: Voting off ath_pwd_l gpio-regulator\n", __func__);
 	bt_vreg_disable(vreg_gpio_8);
 free_vreg_s4:
 	bt_vreg_disable(vreg_s4);
@@ -673,7 +677,7 @@ int bluetooth_power(int on)
 
 	conn_chip = adie_get_detected_connectivity_type();
 	if (conn_chip == BAHAMA_ID) {
-		pr_debug("%s: Chip type is WCN2243\n", __func__);
+		printk(KERN_INFO "%s: Chip type is WCN2243\n", __func__);
 		rc = bahama_bluetooth_power(on);
 		if (rc < 0) {
 			if (on)
@@ -689,7 +693,7 @@ int bluetooth_power(int on)
 				pr_debug("%s: BT powered off\n", __func__);
 		}
 	} else {
-		pr_debug("%s: Chip type is AR3002\n", __func__);
+		printk(KERN_INFO "%s: Chip type is AR3002\n", __func__);
 		rc = atheros_bluetooth_power(on);
 		if (rc < 0) {
 			if (on)
@@ -700,9 +704,11 @@ int bluetooth_power(int on)
 					 __func__, rc);
 		} else {
 			if (on)
-				pr_debug("%s: BT powered on\n", __func__);
+				printk(KERN_INFO
+					"%s: BT Powered ON", __func__);
 			else
-				pr_debug("%s: BT powered off\n", __func__);
+				printk(KERN_INFO
+					"%s: BT Powered Off", __func__);
 		}
 	}
 	return rc;

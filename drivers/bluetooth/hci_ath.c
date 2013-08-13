@@ -187,13 +187,14 @@ static int ath_bluesleep_gpio_config(struct ath_struct *ath, int on)
 		return 0;
 	}
 
-	BT_INFO("%s config: %d", __func__, on);
 	if (!on) {
+		BT_INFO("%s: Releasing Low Power Mode Resources", __func__);
 		if (disable_irq_wake(bsi->host_wake_irq))
 			BT_ERR("Couldn't disable hostwake IRQ wakeup mode\n");
 		goto free_host_wake_irq;
 	}
 
+	BT_INFO("%s: Acquiring & Configuring LPM Resources", __func__);
 	ret = gpio_request(bsi->host_wake, "bt_host_wake");
 	if (ret < 0) {
 		BT_ERR("failed to request gpio pin %d, error %d\n",
@@ -258,6 +259,7 @@ static int ath_bluesleep_gpio_config(struct ath_struct *ath, int on)
 free_host_wake_irq:
 	free_irq(bsi->host_wake_irq, (void *)ath);
 delete_timer:
+	BT_INFO("%s: Deleting the Tx timer", __func__);
 	del_timer(&tx_timer);
 gpio_ext_wake:
 	gpio_free(bsi->ext_wake);
@@ -272,7 +274,7 @@ static int ath_open(struct hci_uart *hu)
 {
 	struct ath_struct *ath;
 
-	BT_DBG("hu %p, bsi %p", hu, bsi);
+	BT_DBG("%s: hu: %p bsi: %p", __func__, hu, bsi);
 
 	if (!bsi) {
 		pr_err("%s: Bluetooth sleep info. not available\n", __func__);
@@ -280,8 +282,11 @@ static int ath_open(struct hci_uart *hu)
 	}
 
 	ath = kzalloc(sizeof(*ath), GFP_ATOMIC);
-	if (!ath)
+	if (!ath) {
+		BT_ERR("%s: Failed to allocate memory for sleep info structure",
+			__func__);
 		return -ENOMEM;
+	}
 
 	skb_queue_head_init(&ath->txq);
 
@@ -289,7 +294,7 @@ static int ath_open(struct hci_uart *hu)
 	ath->hu = hu;
 
 	if (ath_bluesleep_gpio_config(ath, 1) < 0) {
-		BT_ERR("HCIATH3K GPIO Config failed");
+		BT_ERR("%s: HCIATH3K GPIO Config failed", __func__);
 		hu->priv = NULL;
 		kfree(ath);
 		return -EIO;
@@ -298,6 +303,8 @@ static int ath_open(struct hci_uart *hu)
 	ath->cur_sleep = enableuartsleep;
 	if (ath->cur_sleep == 1) {
 		set_bit(BT_SLEEPENABLE, &flags);
+		printk(KERN_INFO "%s: Starting the Transport idle timer",
+			__func__);
 		modify_timer_task();
 	}
 	INIT_WORK(&ath->ctxtsw, ath_hci_uart_work);
@@ -410,7 +417,7 @@ static int ath_recv(struct hci_uart *hu, void *data, int count)
 
 		if (type == HCI_EVENT_PKT) {
 			clear_bit(BT_SLEEPCMD, &flags);
-			BT_INFO("cur_sleep:%d\n", ath->cur_sleep);
+			BT_DBG("%s: cur_sleep: %d", __func__, ath->cur_sleep);
 			if (ath->cur_sleep == 1)
 				set_bit(BT_SLEEPENABLE, &flags);
 			else
@@ -428,8 +435,14 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 {
 	struct hci_uart *hu = (struct hci_uart *) data;
 
+	if (hu == NULL) {
+		pr_err("%s: No valid data. Probably BT is OFF!", __func__);
+		return;
+	}
+
 	if (!test_bit(BT_SLEEPENABLE, &flags))
 		return;
+
 	BT_INFO("Transport idle timer timeout\n");
 
 	set_bit(BT_TXEXPIRED, &flags);
