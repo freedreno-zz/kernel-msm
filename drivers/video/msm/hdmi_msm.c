@@ -1360,6 +1360,8 @@ static void hdmi_msm_send_event(boolean on)
 			   KOBJ_CHANGE, envp);
 
 	if (on) {
+		/*Enable SW DDC before EDID read*/
+		HDMI_OUTP(0x0210, HDMI_INP(0x0210) & ~(BIT(4)));
 		/* Build EDID table */
 		hdmi_msm_read_edid();
 		hdmi_msm_reinit_panel_info();
@@ -3672,7 +3674,8 @@ static void hdmi_msm_hdcp_enable(void)
 
 	/* Disable HDCP before we start part1 */
 	HDMI_OUTP(0x0110, 0x0);
-
+	/*Enable SW DDC*/
+	HDMI_OUTP(0x0210, HDMI_INP(0x0210) & ~(BIT(4)));
 	/* PART I Authentication*/
 	ret = hdcp_authentication_part1(
 			hdmi_msm_state->cur_tp.topology.recv.bksv);
@@ -3699,6 +3702,8 @@ static void hdmi_msm_hdcp_enable(void)
 	} else
 		DEV_INFO("HDCP: authentication part II skipped, no repeater\n");
 
+	/*Disable SW DDC*/
+	HDMI_OUTP(0x0210, HDMI_INP(0x0210) | BIT(4));
 	/* PART III Authentication*/
 	ret = hdcp_authentication_part3(found_repeater);
 	if (ret)
@@ -5001,7 +5006,6 @@ static void hdmi_msm_turn_on(void)
 		if (!hdmi_msm_state->hdcp_enable)
 			SWITCH_SET_HDMI_AUDIO(1, 0);
 	}
-
 	/* when avi_iframe is sending, not allowed to change avi_iframe_lut */
 	mutex_lock(&avi_iframe_lut_lock);
 	hdmi_msm_avi_info_frame();
