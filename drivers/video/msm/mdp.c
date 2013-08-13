@@ -2389,8 +2389,6 @@ void mdp4_hw_init(int cont_splash_done)
 
 #endif
 
-static int mdp_bus_scale_restore_request(void);
-
 static int mdp_on(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2604,7 +2602,7 @@ int mdp_bus_scale_update_request(u64 ab_p0, u64 ib_p0, u64 ab_p1, u64 ib_p1)
 	return msm_bus_scale_client_update_request
 		(mdp_bus_scale_handle, bus_index);
 }
-static int mdp_bus_scale_restore_request(void)
+int mdp_bus_scale_restore_request(void)
 {
 	pr_debug("%s: index=%d ab_p0=%llu ib_p0=%llu\n", __func__, bus_index,
 		 mdp_bus_usecases[bus_index].vectors[0].ab,
@@ -2620,7 +2618,7 @@ static int mdp_bus_scale_restore_request(void)
 		 mdp_bus_usecases[bus_index].vectors[1].ib);
 }
 #else
-static int mdp_bus_scale_restore_request(void)
+int mdp_bus_scale_restore_request(void)
 {
 	return 0;
 }
@@ -3475,12 +3473,16 @@ static void mdp_early_suspend(struct early_suspend *h)
 #ifdef CONFIG_FB_MSM_DTV
 	mdp4_solidfill_commit(MDP4_MIXER1);
 	mdp4_dtv_set_black_screen();
+	mdp_bus_scale_update_request(0, 0, 0, 0);
 #endif
 	mdp_footswitch_ctrl(FALSE);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
+#ifdef CONFIG_FB_MSM_DTV
+	mdp_bus_scale_restore_request();
+#endif
 	mdp_footswitch_ctrl(TRUE);
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
