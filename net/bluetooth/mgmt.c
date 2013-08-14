@@ -1,7 +1,7 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2010  Nokia Corporation
-   Copyright (c) 2011-2012 The Linux Foundation.  All rights reserved.
+   Copyright (c) 2011-2013 The Linux Foundation.  All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 as
@@ -3416,5 +3416,18 @@ int mgmt_remote_features(u16 index, bdaddr_t *bdaddr, u8 features[8])
 	memcpy(ev.features, features, sizeof(ev.features));
 
 	return mgmt_event(MGMT_EV_REMOTE_FEATURES, index, &ev, sizeof(ev),
+									NULL);
+}
+
+int mgmt_update_battery_info(u16 index, bdaddr_t *bdaddr, u8 bat_level)
+{
+	struct mgmt_ev_remote_battery_level ev;
+
+	memset(&ev, 0, sizeof(ev));
+
+	bacpy(&ev.bdaddr, bdaddr);
+	ev.battery_level = bat_level;
+
+	return mgmt_event(MGMT_EV_REMOTE_BATTERY_LEVEL, index, &ev, sizeof(ev),
 									NULL);
 }

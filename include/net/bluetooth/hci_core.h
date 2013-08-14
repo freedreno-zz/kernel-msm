@@ -1077,6 +1077,7 @@ int mgmt_remote_class(u16 index, bdaddr_t *bdaddr, u8 dev_class[3]);
 int mgmt_remote_version(u16 index, bdaddr_t *bdaddr, u8 ver, u16 mnf,
 							u16 sub_ver);
 int mgmt_remote_features(u16 index, bdaddr_t *bdaddr, u8 features[8]);
+int mgmt_update_battery_info(u16 index, bdaddr_t *bdaddr, u8 bat_level);
 
 /* HCI info for socket */
 #define hci_pi(sk) ((struct hci_pinfo *) sk)

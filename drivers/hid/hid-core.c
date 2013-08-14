@@ -923,6 +923,19 @@ static void hid_input_field(struct hid_device *hid, struct hid_field *field,
 		    value[n] >= min && value[n] <= max &&
 		    field->usage[value[n] - min].hid == HID_UP_KEYBOARD + 1)
 			goto exit;
+
+		if (field->usage->hid == HID_DC_BATTERYSTRENGTH &&
+			hid->ll_driver->battery_level_ind &&
+			value[n] != hid->battery_level) {
+			hid->battery_level = value[n];
+			hid_info(hid, "new battery level is %d", hid->battery_level);
+			/* Convert New Battery Level into Percentage */
+			hid->battery_level = ((hid->battery_level -
+						field->logical_minimum) * 100) /
+						(field->logical_maximum -
+						field->logical_minimum);
+			hid->ll_driver->battery_level_ind(hid, hid->battery_level);
+		}
 	}
 
 	for (n = 0; n < count; n++) {

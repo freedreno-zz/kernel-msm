@@ -775,6 +775,16 @@ static void hidp_stop(struct hid_device *hid)
 	hid->claimed = 0;
 }
 
+static void hidp_battery_level_ind(struct hid_device *hid,
+				unsigned int battery_level)
+{
+	struct hidp_session *session = hid->driver_data;
+
+	BT_DBG("new battery level is %d", battery_level);
+	mgmt_update_battery_info(session->conn->hdev->id,
+			&session->bdaddr, battery_level);
+}
+
 static struct hid_ll_driver hidp_hid_driver = {
 	.parse = hidp_parse,
 	.start = hidp_start,
@@ -782,6 +792,7 @@ static struct hid_ll_driver hidp_hid_driver = {
 	.open  = hidp_open,
 	.close = hidp_close,
 	.hidinput_input_event = hidp_hidinput_event,
+	.battery_level_ind = hidp_battery_level_ind,
 };
 
 static int hidp_setup_hid(struct hidp_session *session,
