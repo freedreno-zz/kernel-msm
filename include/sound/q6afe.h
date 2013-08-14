@@ -108,4 +108,5 @@ int afe_convert_virtual_to_portid(u16 port_id);
 
 int afe_pseudo_port_start_nowait(u16 port_id);
 int afe_pseudo_port_stop_nowait(u16 port_id);
+int afe_short_silence(u32 duration);
 #endif /* __Q6AFE_H__ */
