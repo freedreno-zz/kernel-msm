@@ -5266,8 +5266,6 @@ static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc = 0;
 
-	mutex_lock(&hdmi_msm_power_mutex);
-
 	if (enable) {
 		/*
 		 * Enable HPD only if the UI option is on or if
@@ -5287,7 +5285,6 @@ static int hdmi_msm_power_ctrl(boolean enable)
 			rc = hdmi_msm_hpd_on();
 			if (rc) {
 				DEV_ERR("%s: HPD ON FAILED\n", __func__);
-				mutex_unlock(&hdmi_msm_power_mutex);
 				return rc;
 			}
 		}
@@ -5304,7 +5301,6 @@ static int hdmi_msm_power_ctrl(boolean enable)
 
 		hdmi_msm_hpd_off();
 	}
-	mutex_unlock(&hdmi_msm_power_mutex);
 
 	return rc;
 }
