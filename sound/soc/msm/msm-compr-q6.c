@@ -47,7 +47,7 @@
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
 #define PLAYBACK_MAX_NUM_PERIODS	1024
 #define PLAYBACK_MIN_NUM_PERIODS	2
-#define PLAYBACK_MAX_PERIOD_SIZE	(160 * 1024)
+#define PLAYBACK_MAX_PERIOD_SIZE	(160 * 1024 * 6)
 #define PLAYBACK_MIN_PERIOD_SIZE        320
 
 static struct audio_locks the_locks;
