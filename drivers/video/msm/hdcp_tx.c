@@ -60,6 +60,7 @@ static ssize_t hdcp_tx_read_user_bin(struct file *filp,
 				char *buf, loff_t off, size_t count)
 {
 	int ret = 0;
+	int sink = 0;
 
 	if (!hdcp_state)
 		return -EFAULT;
@@ -71,7 +72,7 @@ static ssize_t hdcp_tx_read_user_bin(struct file *filp,
 		buf[MSG_ID_IDX] = hdcp_state->cur_msg;
 
 		ret = hdcp_state->tx_ops->
-			request_topology_op((void *)(buf+HEADER_LEN));
+			request_topology_op((void *)(buf+HEADER_LEN), &sink);
 
 		/* user task interrupted by signal */
 		if (ret == (-ERESTARTSYS))
@@ -81,10 +82,15 @@ static ssize_t hdcp_tx_read_user_bin(struct file *filp,
 			buf[RET_CODE_IDX] = HDCP_NOT_AUTHED;
 			ret = HEADER_LEN;
 		} else {
-			buf[RET_CODE_IDX] = HDCP_AUTHED;
-			ret += HEADER_LEN;
-			pr_debug("%s readir succeed! length = %d buf[2] = %d\n",
+			if (sink == HDMI_PLUGOUT) {
+				buf[RET_CODE_IDX] = HDMI_DISCONNECTED;
+				ret = HEADER_LEN;
+			} else {
+				buf[RET_CODE_IDX] = HDCP_AUTHED;
+				ret += HEADER_LEN;
+				pr_debug("%s readir succeed! length = %d buf[2] = %d\n",
 					__func__, ret, buf[2]);
+			}
 		}
 
 		/* clear the flag once data is read back to user space*/

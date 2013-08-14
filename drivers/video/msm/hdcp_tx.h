@@ -29,7 +29,7 @@ void hdcp_tx_deinit(void);
  * > 0-- length of message.
  */
 struct hdmi_msm_apis {
-	int (*request_topology_op)(void *output);
+	int (*request_topology_op)(void *output, int *sink);
 };
 
 /* APIs supported by hdcp_tx module for hdmi_msm callbacking. */
@@ -47,7 +47,10 @@ enum RET_CODE {
 	HDCP_NOT_AUTHED,
 	HDCP_AUTHED,
 	HDCP_DISABLE,
+	HDMI_DISCONNECTED,
 };
+
+enum { HDMI_PLUGOUT = -1 };
 /*
  * Message sent back to user space via sysfs sys/../hdcpmanager binaryentry.
  * Encoded as following:
