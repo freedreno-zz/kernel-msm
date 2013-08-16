@@ -602,6 +602,9 @@ int hci_dev_open(__u16 dev)
 		if (!test_bit(HCI_SETUP, &hdev->flags) &&
 				hdev->dev_type == HCI_BREDR) {
 			hci_dev_lock_bh(hdev);
+			BT_INFO("%s: Configuring Interlaced Scan", __func__);
+			set_page_scan_type(hdev, INTERLACED_SCAN,
+				PAGE_SCAN_INTERVAL_300);
 			mgmt_powered(hdev->id, 1);
 			hci_dev_unlock_bh(hdev);
 		}

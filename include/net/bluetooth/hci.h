@@ -665,6 +665,21 @@ struct hci_rp_read_local_name {
 
 #define HCI_OP_WRITE_PG_TIMEOUT		0x0c18
 
+#define HCI_OP_WRITE_SCAN_ACTIVITY	0x0c1c
+	#define PAGE_SCAN_INTERVAL_1280	0x800
+	#define PAGE_SCAN_INTERVAL_300	0x1E0
+	#define PAGE_SCAN_INTERVAL_200	0x140
+	#define PAGE_SCAN_INTERVAL_100	0xA0
+
+struct hci_cp_write_page_scan_activity {
+	__u16   interval;
+	__u16   window;
+} __packed;
+
+#define HCI_OP_WRITE_PAGE_SCAN_TYPE	0x0c47
+	#define NORMAL_SCAN		0x0
+	#define INTERLACED_SCAN		0x1
+
 #define HCI_OP_WRITE_SCAN_ENABLE	0x0c1a
 	#define SCAN_DISABLED		0x00
 	#define SCAN_INQUIRY		0x01

@@ -52,6 +52,11 @@
 
 #define VERSION "1.2"
 
+#define HURLEY_VENDOR_ID	0x1949
+#define HURLEY_PRODUCT_ID	0x0401
+
+atomic_t num_of_hurley_connected;
+
 static DECLARE_RWSEM(hidp_session_sem);
 static LIST_HEAD(hidp_session_list);
 
@@ -615,6 +620,31 @@ static int hidp_session(void *arg)
 
 	down_write(&hidp_session_sem);
 
+	/* Check if this Hurley Device is being disconnected */
+	if (session && session->conn && session->conn->hdev &&
+		session->hid && session->hid->vendor &&
+		session->hid->product &&
+		session->hid->vendor == HURLEY_VENDOR_ID &&
+		session->hid->product == HURLEY_PRODUCT_ID) {
+		/*
+		 * Re-enable Interlace Page Scan and change
+		 * page scan interval to default 1.28 secs
+		 */
+		if (atomic_dec_and_test(&num_of_hurley_connected)) {
+			BT_INFO("%s: Enable Interlaced Page Scan",
+				__func__);
+			if (session->conn->hdev)
+				set_page_scan_type(session->conn->hdev,
+					INTERLACED_SCAN,
+					PAGE_SCAN_INTERVAL_300);
+			else
+				BT_INFO("%s: Failed to get HCI handle",
+					__func__);
+		}
+		BT_INFO(" No. of Connected Hurley device(s): %d",
+			atomic_read(&num_of_hurley_connected));
+	}
+
 	hidp_del_timer(session);
 
 	if (session->input) {
@@ -902,6 +932,24 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock, 
 
 	session->flags   = req->flags & (1 << HIDP_BLUETOOTH_VENDOR_ID);
 	session->idle_to = req->idle_to;
+
+	/* Check if this Hurley Device being connected */
+	if (req->vendor == HURLEY_VENDOR_ID &&
+		req->product == HURLEY_PRODUCT_ID) {
+		atomic_inc(&num_of_hurley_connected);
+		BT_INFO(" No. of Connected Hurley device(s): %d",
+			atomic_read(&num_of_hurley_connected));
+		if (atomic_read(&num_of_hurley_connected) == 1) {
+			/* Disable Interlace Page Scan & change scan interval */
+			BT_INFO("%s: Disable Interlace Page Scan", __func__);
+			if (session->conn->hdev)
+				set_page_scan_type(session->conn->hdev,
+					NORMAL_SCAN, PAGE_SCAN_INTERVAL_1280);
+			else
+				BT_INFO("%s: Failed to get HCI Device Handle",
+					__func__);
+		}
+	}
 
 	__hidp_link_session(session);
 
