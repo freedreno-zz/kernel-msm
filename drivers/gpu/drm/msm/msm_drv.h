@@ -179,6 +179,10 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 
 struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
 
+int dsi_init(struct drm_device *dev, struct drm_encoder *encoder);
+void __init dsi_register(void);
+void __exit dsi_unregister(void);
+
 int hdmi_init(struct drm_device *dev, struct drm_encoder *encoder);
 void __init hdmi_register(void);
 void __exit hdmi_unregister(void);

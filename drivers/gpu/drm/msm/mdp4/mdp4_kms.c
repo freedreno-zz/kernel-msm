@@ -126,8 +126,16 @@ out:
 static long mdp4_round_pixclk(struct msm_kms *kms, unsigned long rate,
 		struct drm_encoder *encoder)
 {
-	/* if we had >1 encoder, we'd need something more clever: */
-	return mdp4_dtv_round_pixclk(encoder, rate);
+	struct mdp4_kms *mdp4_kms = to_mdp4_kms(kms);
+	struct msm_drm_private *priv = mdp4_kms->dev->dev_private;
+
+	// XXX TODO something more clever:
+	if (encoder == priv->encoders[0])
+		return mdp4_dsi_round_pixclk(encoder, rate);
+	else if (encoder == priv->encoders[1])
+		return mdp4_dtv_round_pixclk(encoder, rate);
+
+	return 0; // XXX ??
 }
 
 static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
@@ -206,6 +214,21 @@ static int modeset_init(struct mdp4_kms *mdp4_kms)
 		goto fail;
 	}
 
+	crtc  = mdp4_crtc_init(dev, plane, priv->num_crtcs, 0, DMA_P);
+	if (IS_ERR(crtc)) {
+		dev_err(dev->dev, "failed to construct crtc for DMA_P\n");
+		ret = PTR_ERR(crtc);
+		goto fail;
+	}
+	priv->crtcs[priv->num_crtcs++] = crtc;
+
+	plane = mdp4_plane_init(dev, RGB2, true);
+	if (IS_ERR(plane)) {
+		dev_err(dev->dev, "failed to construct plane for RGB1\n");
+		ret = PTR_ERR(plane);
+		goto fail;
+	}
+
 	crtc  = mdp4_crtc_init(dev, plane, priv->num_crtcs, 1, DMA_E);
 	if (IS_ERR(crtc)) {
 		dev_err(dev->dev, "failed to construct crtc for DMA_E\n");
@@ -214,13 +237,31 @@ static int modeset_init(struct mdp4_kms *mdp4_kms)
 	}
 	priv->crtcs[priv->num_crtcs++] = crtc;
 
+	/* Create DSI encoder: */
+	encoder = mdp4_dsi_encoder_init(dev);
+	if (IS_ERR(encoder)) {
+		dev_err(dev->dev, "failed to construct DSI encoder\n");
+		ret = PTR_ERR(encoder);
+		goto fail;
+	}
+	encoder->possible_crtcs = 0x1;     /* DSI can be hooked to DMA_P */
+	priv->encoders[priv->num_encoders++] = encoder;
+
+	/* Create DSI connector/bridge: */
+	ret = dsi_init(dev, encoder);
+	if (ret) {
+		dev_err(dev->dev, "failed to initialize DSI\n");
+		goto fail;
+	}
+
+	/* Create DTV encoder: */
 	encoder = mdp4_dtv_encoder_init(dev);
 	if (IS_ERR(encoder)) {
 		dev_err(dev->dev, "failed to construct DTV encoder\n");
 		ret = PTR_ERR(encoder);
 		goto fail;
 	}
-	encoder->possible_crtcs = 0x1;     /* DTV can be hooked to DMA_E */
+	encoder->possible_crtcs = 0x2;     /* DTV can be hooked to DMA_E */
 	priv->encoders[priv->num_encoders++] = encoder;
 
 	/* Create HDMI connector/bridge: */

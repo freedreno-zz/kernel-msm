@@ -170,6 +170,9 @@ struct drm_crtc *mdp4_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, int id, int ovlp_id,
 		enum mdp4_dma dma_id);
 
+long mdp4_dsi_round_pixclk(struct drm_encoder *encoder, unsigned long rate);
+struct drm_encoder *mdp4_dsi_encoder_init(struct drm_device *dev);
+
 long mdp4_dtv_round_pixclk(struct drm_encoder *encoder, unsigned long rate);
 struct drm_encoder *mdp4_dtv_encoder_init(struct drm_device *dev);
 

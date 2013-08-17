@@ -770,6 +770,7 @@ static struct platform_driver msm_platform_driver = {
 static int __init msm_drm_register(void)
 {
 	DBG("init");
+	dsi_register();
 	hdmi_register();
 	a3xx_register();
 	return platform_driver_register(&msm_platform_driver);
@@ -779,8 +780,9 @@ static void __exit msm_drm_unregister(void)
 {
 	DBG("fini");
 	platform_driver_unregister(&msm_platform_driver);
-	hdmi_unregister();
 	a3xx_unregister();
+	hdmi_unregister();
+	dsi_unregister();
 }
 
 module_init(msm_drm_register);
