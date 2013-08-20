@@ -1806,8 +1806,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x000);
 
 		/* Clear suspend bit in GUSB2PHYCONFIG register */
+		/*
 		dwc3_msm_write_readback(mdwc->base, DWC3_GUSB2PHYCFG(0),
 								0x40, 0x0);
+		*/
 	} else {
 		/* Disable HV interrupt */
 		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
