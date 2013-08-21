@@ -21,6 +21,7 @@
 
 	qcom,mdss_dsi_sharp_qhd_video {
 		status = "ok";
+		qcom,cont-splash-enabled;
 	};
 
 	qcom,hdmi_tx@fd922100 {
@@ -488,13 +489,6 @@
 	};
 
 	gpio@e300 { /* GPIO 36 */
-		qcom,mode = <1>;  /* QPNP_PIN_MODE_DIG_OUT */
-		qcom,output-type = <0>; /* QPNP_PIN_OUT_BUF_CMOS */
-		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
-		qcom,vin-sel = <2>; /* QPNP_PIN_VIN2 */
-		qcom,out-strength = <3>; /* QPNP_PIN_OUT_STRENGTH_HIGH */
-		qcom,src-sel = <3>; /* QPNP_PIN_SEL_FUNC_2 */
-		qcom,master-en = <1>;
 	};
 };
 
@@ -566,10 +560,10 @@
 				qcom,default-state = "on";
 				qcom,max-current = <20>;
 				qcom,ctrl-delay-us = <0>;
-				qcom,boost-curr-lim = <3>;
+				qcom,boost-curr-lim = <2>;
 				qcom,cp-sel = <0>;
-				qcom,switch-freq = <2>;
-				qcom,ovp-val = <1>;
+				qcom,switch-freq = <0>;
+				qcom,ovp-val = <0>;
 				qcom,num-strings = <1>;
 				qcom,id = <0>;
 			};

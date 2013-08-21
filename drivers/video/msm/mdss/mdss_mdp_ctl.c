@@ -84,6 +84,19 @@ static u32 __mdss_mdp_ctrl_perf_ovrd_helper(struct mdss_mdp_mixer *mixer,
 	return ovrd;
 }
 
+/**
+ * mdss_mdp_ctrl_perf_ovrd() - Determines if performance override is needed
+ * @mdata:	Struct containing references to all MDP5 hardware structures
+ *		and status info such as interupts, target caps etc.
+ * @ab_quota:	Arbitrated bandwidth quota
+ * @ib_quota:	Instantaneous bandwidth quota
+ *
+ * Function calculates the minimum required MDP and BIMC clocks to avoid MDP
+ * underflow during portrait video playback. The calculations are based on the
+ * way MDP fetches (bandwidth requirement) and processes data through
+ * MDP pipeline (MDP clock requirement) based on frame size and scaling
+ * requirements.
+ */
 static void __mdss_mdp_ctrl_perf_ovrd(struct mdss_data_type *mdata,
 	u64 *ab_quota, u64 *ib_quota)
 {
@@ -108,10 +121,10 @@ static void __mdss_mdp_ctrl_perf_ovrd(struct mdss_data_type *mdata,
 
 	if (ovrd && (*ib_quota < MDSS_MDP_BUS_FLOOR_BW)) {
 		*ib_quota = MDSS_MDP_BUS_FLOOR_BW;
-		pr_debug("forcing the BIMC clock to 200 MHz : %llu",
+		pr_debug("forcing the BIMC clock to 200 MHz : %llu bytes",
 			*ib_quota);
 	} else {
-		pr_debug("ib quota : %llu", *ib_quota);
+		pr_debug("ib quota : %llu bytes", *ib_quota);
 	}
 }
 
@@ -147,7 +160,7 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
 		clk_rate = MDSS_MDP_CLK_FUDGE_FACTOR(clk_rate);
-		pr_debug("update clk rate = %lu\n", clk_rate);
+		pr_debug("update clk rate = %lu HZ\n", clk_rate);
 		mdss_mdp_set_clk_rate(clk_rate);
 	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
