@@ -48,7 +48,6 @@
 #define NUM_DCE_PLUG_DETECT 3
 #define NUM_DCE_PLUG_INS_DETECT 5
 #define NUM_ATTEMPTS_INSERT_DETECT 25
-#define NUM_ATTEMPTS_TO_REPORT 5
 
 #define FAKE_INS_LOW 10
 #define FAKE_INS_HIGH 80
@@ -2196,7 +2195,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	struct wcd9xxx_mbhc *mbhc;
 	struct snd_soc_codec *codec;
 	enum wcd9xxx_mbhc_plug_type plug_type = PLUG_TYPE_INVALID;
-	unsigned long timeout;
+	unsigned long timeout, hphreport;
 	int retry = 0, pt_gnd_mic_swap_cnt = 0;
 	bool correction = false;
 
@@ -2220,6 +2219,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	wcd9xxx_turn_onoff_override(codec, true);
 
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
+	hphreport = jiffies + HZ;
 	while (!time_after(jiffies, timeout)) {
 		++retry;
 		rmb();
@@ -2241,15 +2241,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 
 		pr_debug("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",
 			 __func__, retry, mbhc->current_plug, plug_type);
-		if (plug_type == PLUG_TYPE_INVALID) {
-			pr_debug("Invalid plug in attempt # %d\n", retry);
-			if (!mbhc->mbhc_cfg->detect_extn_cable &&
-			    retry == NUM_ATTEMPTS_TO_REPORT &&
-			    mbhc->current_plug == PLUG_TYPE_NONE) {
-				wcd9xxx_report_plug(mbhc, 1,
-						    SND_JACK_HEADPHONE);
-			}
-		} else if (plug_type == PLUG_TYPE_HEADPHONE) {
+		if (plug_type == PLUG_TYPE_HEADPHONE) {
 			pr_debug("Good headphone detected, continue polling\n");
 			if (mbhc->mbhc_cfg->detect_extn_cable) {
 				if (mbhc->current_plug != plug_type)
@@ -2259,9 +2251,16 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 				wcd9xxx_report_plug(mbhc, 1,
 						    SND_JACK_HEADPHONE);
 			}
-		} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
-			pr_debug("%s: High HPH detected, continue polling\n",
-				  __func__);
+		} else if (plug_type == PLUG_TYPE_HIGH_HPH ||
+			   plug_type == PLUG_TYPE_INVALID) {
+			pr_debug("%s: Continue polling, type %d\n",
+				 __func__, plug_type);
+			if (!mbhc->mbhc_cfg->detect_extn_cable &&
+			    time_after(jiffies, hphreport) &&
+			    mbhc->current_plug == PLUG_TYPE_NONE) {
+				wcd9xxx_report_plug(mbhc, 1,
+						    SND_JACK_HEADPHONE);
+			}
 		} else {
 			if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 				pt_gnd_mic_swap_cnt++;
