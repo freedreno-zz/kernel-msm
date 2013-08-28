@@ -1435,12 +1435,12 @@ static int hdmi_msm_if_abort_reauth(void)
 	int ret = 0;
 	uint32 value = 0;
 
+	if (hdmi_msm_state->auth_retries > AUTH_RETRIES_TIME)
+		return 0;
 	DEV_INFO("%s: trying reauth %d times\n",
 			__func__, hdmi_msm_state->auth_retries + 1);
-	if (++hdmi_msm_state->auth_retries == AUTH_RETRIES_TIME) {
-		cancel_work_sync(&hdmi_msm_state->hdcp_work);
-		del_timer_sync(&hdmi_msm_state->hdcp_timer);
 
+	if (++hdmi_msm_state->auth_retries == AUTH_RETRIES_TIME) {
 		/* notify hdcpmanager via uevent */
 		if (hdmi_msm_state->hdcp_tx_ops.check_topology_op)
 			hdmi_msm_state->hdcp_tx_ops.check_topology_op();
@@ -1448,16 +1448,6 @@ static int hdmi_msm_if_abort_reauth(void)
 		/* HDMI_CTRL */
 		value = HDMI_INP_ND(0x0000);
 		HDMI_OUTP(0x0000, value & (~0x00000004));
-
-		/* disable hdcp and hdmi data link without hdcp */
-		hdcp_deauthenticate();
-
-		mutex_lock(&hdcp_auth_state_mutex);
-		hdmi_msm_state->auth_retries = 0;
-		hdmi_msm_state->reauth = FALSE;
-		mutex_unlock(&hdcp_auth_state_mutex);
-
-		ret = -EFAULT;
 	}
 
 	return ret;
