@@ -230,6 +230,7 @@ struct msm_fb_data_type {
 	uint32 edid_fail_status;
 	uint32 vfmt_kernel;
 	uint32 vfmt_lk;
+	int do_hdmi_reset;
 };
 struct msm_fb_backup_type {
 	struct fb_info info;
