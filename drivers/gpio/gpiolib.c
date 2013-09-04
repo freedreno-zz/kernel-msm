@@ -1867,6 +1867,19 @@ EXPORT_SYMBOL_GPL(gpio_set_debounce);
  * that the GPIO was actually requested.
  */
 
+static int _gpiod_get_value(const struct gpio_desc *desc)
+{
+	struct gpio_chip	*chip;
+	int value;
+	int offset;
+
+	chip = desc->chip;
+	offset = gpio_chip_hwgpio(desc);
+	value = chip->get ? chip->get(chip, offset) : 0;
+	trace_gpio_value(desc_to_gpio(desc), 1, value);
+	return value;
+}
+
 /**
  * __gpio_get_value() - return a gpio's value
  * @gpio: gpio whose value will be returned
@@ -1878,19 +1891,11 @@ EXPORT_SYMBOL_GPL(gpio_set_debounce);
  */
 static int gpiod_get_value(const struct gpio_desc *desc)
 {
-	struct gpio_chip	*chip;
-	int value;
-	int offset;
-
 	if (!desc)
 		return 0;
-	chip = desc->chip;
-	offset = gpio_chip_hwgpio(desc);
 	/* Should be using gpio_get_value_cansleep() */
-	WARN_ON(chip->can_sleep);
-	value = chip->get ? chip->get(chip, offset) : 0;
-	trace_gpio_value(desc_to_gpio(desc), 1, value);
-	return value;
+	WARN_ON(desc->chip->can_sleep);
+	return _gpiod_get_value(desc);
 }
 
 int __gpio_get_value(unsigned gpio)
@@ -1955,6 +1960,20 @@ static void _gpio_set_open_source_value(struct gpio_desc *desc, int value)
 			  __func__, err);
 }
 
+static void _gpiod_set_value(struct gpio_desc *desc, int value)
+{
+	struct gpio_chip	*chip;
+
+	chip = desc->chip;
+	trace_gpio_value(desc_to_gpio(desc), 0, value);
+	if (test_bit(FLAG_OPEN_DRAIN, &desc->flags))
+		_gpio_set_open_drain_value(desc, value);
+	else if (test_bit(FLAG_OPEN_SOURCE, &desc->flags))
+		_gpio_set_open_source_value(desc, value);
+	else
+		chip->set(chip, gpio_chip_hwgpio(desc), value);
+}
+
 /**
  * __gpio_set_value() - assign a gpio's value
  * @gpio: gpio whose value will be assigned
@@ -1966,20 +1985,12 @@ static void _gpio_set_open_source_value(struct gpio_desc *desc, int value)
  */
 static void gpiod_set_value(struct gpio_desc *desc, int value)
 {
-	struct gpio_chip	*chip;
 
 	if (!desc)
 		return;
-	chip = desc->chip;
 	/* Should be using gpio_set_value_cansleep() */
-	WARN_ON(chip->can_sleep);
-	trace_gpio_value(desc_to_gpio(desc), 0, value);
-	if (test_bit(FLAG_OPEN_DRAIN, &desc->flags))
-		_gpio_set_open_drain_value(desc, value);
-	else if (test_bit(FLAG_OPEN_SOURCE, &desc->flags))
-		_gpio_set_open_source_value(desc, value);
-	else
-		chip->set(chip, gpio_chip_hwgpio(desc), value);
+	WARN_ON(desc->chip->can_sleep);
+	_gpiod_set_value(desc, value);
 }
 
 void __gpio_set_value(unsigned gpio, int value)
@@ -2044,18 +2055,10 @@ EXPORT_SYMBOL_GPL(__gpio_to_irq);
 
 static int gpiod_get_value_cansleep(const struct gpio_desc *desc)
 {
-	struct gpio_chip	*chip;
-	int value;
-	int offset;
-
 	might_sleep_if(extra_checks);
 	if (!desc)
 		return 0;
-	chip = desc->chip;
-	offset = gpio_chip_hwgpio(desc);
-	value = chip->get ? chip->get(chip, offset) : 0;
-	trace_gpio_value(desc_to_gpio(desc), 1, value);
-	return value;
+	return _gpiod_get_value(desc);
 }
 
 int gpio_get_value_cansleep(unsigned gpio)
@@ -2066,19 +2069,10 @@ EXPORT_SYMBOL_GPL(gpio_get_value_cansleep);
 
 static void gpiod_set_value_cansleep(struct gpio_desc *desc, int value)
 {
-	struct gpio_chip	*chip;
-
 	might_sleep_if(extra_checks);
 	if (!desc)
 		return;
-	chip = desc->chip;
-	trace_gpio_value(desc_to_gpio(desc), 0, value);
-	if (test_bit(FLAG_OPEN_DRAIN,  &desc->flags))
-		_gpio_set_open_drain_value(desc, value);
-	else if (test_bit(FLAG_OPEN_SOURCE,  &desc->flags))
-		_gpio_set_open_source_value(desc, value);
-	else
-		chip->set(chip, gpio_chip_hwgpio(desc), value);
+	_gpiod_set_value(desc, value);
 }
 
 void gpio_set_value_cansleep(unsigned gpio, int value)
