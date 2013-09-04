@@ -1573,11 +1573,14 @@ int hdmi_msm_process_hdcp_interrupts(void)
 		DEV_INFO("HDCP: AUTH_FAIL_INT received, LINK0_STATUS=0x%08x\n",
 			link_status);
 		if (hdmi_msm_state->full_auth_done) {
-			SWITCH_SET_HDMI_AUDIO(0, 0);
-
+			if ((HDMI_INP(0x0000) & BIT(2)) &&
+						(HDMI_INP(0x0110) & BIT(8))) {
+				DEV_ERR("%s:Encryption enabled stop audio\n",
+					__func__);
+				SWITCH_SET_HDMI_AUDIO(0, 0);
+			}
 			envp[0] = "HDCP_STATE=FAIL";
 			envp[1] = NULL;
-			DEV_INFO("HDMI HPD:QDSP OFF\n");
 			kobject_uevent_env(external_common_state->uevent_kobj,
 			KOBJ_CHANGE, envp);
 
@@ -1596,6 +1599,7 @@ int hdmi_msm_process_hdcp_interrupts(void)
 				queue_work(hdmi_work_queue,
 				    &hdmi_msm_state->hdcp_reauth_work);
 			} else {
+				SWITCH_SET_HDMI_AUDIO(0, 0);
 				DEV_INFO("HDCP: HDMI cable disconnected\n");
 			}
 		}
@@ -1908,7 +1912,7 @@ void hdmi_msm_encryt_en(u32 enable)
 		HDMI_OUTP(0x0110, hdcp_ctrl);
 	}
 	mutex_unlock(&hdmi_msm_power_mutex);
-	DEV_DBG("%s: %s", enable ? "Enable" : "Disable");
+	DEV_INFO("%s: %s", __func__, enable ? "Enable" : "Disable");
 }
 
 void hdmi_msm_set_mode(boolean power_on)
