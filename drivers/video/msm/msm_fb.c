@@ -3822,10 +3822,28 @@ static int msmfb_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata_ptr)
 {
 	int ret = 0;
+	int c = 0;
+	struct msm_fb_data_type *mfdtemp = NULL;
+
 	switch (metadata_ptr->op) {
 	case metadata_op_frame_rate:
 		metadata_ptr->data.panel_frame_rate =
 			mdp_get_panel_framerate(mfd);
+		break;
+	case metadata_op_resolution_info:
+		for (c = 0; c < fbi_list_index; ++c) {
+			mfdtemp = (struct msm_fb_data_type *)fbi_list[c]->par;
+			if (mfdtemp->panel.type == DTV_PANEL) {
+				metadata_ptr->data.res_cfg.vFmt =
+					mfdtemp->var_vic;
+				metadata_ptr->data.res_cfg.set_default_res =
+					mfdtemp->set_default_res;
+				pr_info("%s vic: %d res: %d\n",
+					__func__, mfdtemp->var_vic,
+					mfdtemp->set_default_res);
+				return ret;
+			}
+		}
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
