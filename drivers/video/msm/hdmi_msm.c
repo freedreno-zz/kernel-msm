@@ -489,6 +489,7 @@ void hdmi_msm_dump_cec_msg(struct hdmi_msm_cec_msg *msg)
 void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 {
 	int i;
+	uint32 cec_intr_status;
 	uint32 timeout_count = 1;
 	int retry = 10;
 
@@ -551,16 +552,32 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 		  | HDMI_MSM_CEC_CTRL_SEND_TRIG
 		  | HDMI_MSM_CEC_CTRL_ENABLE);
 
-	timeout_count = wait_for_completion_interruptible_timeout(
-		&hdmi_msm_state->cec_frame_wr_done, HZ);
+	retry = 8;
+	timeout_count = 0;
+	while (!HDMI_MSM_CEC_FRAME_WR_SUCCESS(HDMI_INP_ND(0x029C))
+		&& !timeout_count && retry--) {
+		timeout_count = wait_for_completion_interruptible_timeout(
+			&hdmi_msm_state->cec_frame_wr_done, HZ >> 2);
+	}
 
-	if (!timeout_count) {
-		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_TMOUT;
-		DEV_ERR("%s: timedout", __func__);
-		hdmi_msm_dump_cec_msg(msg);
-	} else {
+	if (retry > 0) {
 		DEV_DBG("CEC write frame done (frame len=%d)",
 			msg->frame_size);
+
+		cec_intr_status = HDMI_INP_ND(0x029C);
+		HDMI_OUTP(0x029C, cec_intr_status |
+			HDMI_MSM_CEC_INT_FRAME_WR_DONE_ACK);
+		mutex_lock(&hdmi_msm_state_mutex);
+		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_DONE;
+		hdmi_msm_state->first_monitor = 0;
+		del_timer(&hdmi_msm_state->cec_read_timer);
+		mutex_unlock(&hdmi_msm_state_mutex);
+		complete(&hdmi_msm_state->cec_frame_wr_done);
+
+		hdmi_msm_dump_cec_msg(msg);
+	} else {
+		hdmi_msm_state->cec_frame_wr_status |= CEC_STATUS_WR_TMOUT;
+		DEV_ERR("%s: timedout", __func__);
 		hdmi_msm_dump_cec_msg(msg);
 	}
 
