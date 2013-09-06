@@ -932,7 +932,7 @@ static ssize_t pm8xxx_led_lock_update_show(struct device *dev,
 
 	for (i = 0; i < pdata->num_configs; i++)
 	{
-		n += sprintf(&buf[n], "%s is %s\n",
+		n += snprintf(buf + n, PAGE_SIZE - n, "%s is %s\n",
 					leds[i].cdev.name,
 					(leds[i].lock_update ? "non-updatable" : "updatable"));
 	}
@@ -980,7 +980,8 @@ static ssize_t pm8xxx_led_grppwm_show(struct device *dev,
 
 	for (i = 0; i < pdata->num_configs; i++)
 	{
-		n += sprintf(&buf[n], "%s period_us is %d\n", leds[i].cdev.name, leds[i].pwm_grppwm);
+		n += snprintf(buf + n, PAGE_SIZE - n, "%s period_us is %d\n",
+			 leds[i].cdev.name, leds[i].pwm_grppwm);
 	}
 	return n;
 }
@@ -1026,7 +1027,8 @@ static ssize_t pm8xxx_led_grpfreq_show(struct device *dev,
 
 	for (i = 0; i < pdata->num_configs; i++)
 	{
-		n += sprintf(&buf[n], "%s freq %d\n", leds[i].cdev.name, leds[i].pwm_grpfreq);
+		n += snprintf(buf + n, PAGE_SIZE - n, "%s freq %d\n",
+			leds[i].cdev.name, leds[i].pwm_grpfreq);
 	}
 	return n;
 }
@@ -1076,7 +1078,7 @@ static ssize_t pm8xxx_led_blink_show(struct device *dev,
 		if (leds[i].blink)
 			blink |= 1 << i;
 	}
-	return sprintf(buf, "%d", blink);
+	return snprintf(buf, PAGE_SIZE, "%d", blink);
 }
 
 static ssize_t pm8xxx_led_blink_store(struct device *dev,
