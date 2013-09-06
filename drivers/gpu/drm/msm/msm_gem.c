@@ -210,6 +210,7 @@ static int map_range(struct iommu_domain *domain, unsigned int iova,
 	if (!domain || !sgt)
 		return -EINVAL;
 
+if (0) {
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		u32 pa = sg_phys(sg) - sg->offset;
 		size_t bytes = sg->length + sg->offset;
@@ -222,6 +223,9 @@ static int map_range(struct iommu_domain *domain, unsigned int iova,
 
 		da += bytes;
 	}
+} else {
+	return iommu_map_range(domain, iova, sgt->sgl, len, prot);
+}
 
 	return 0;
 
@@ -243,6 +247,7 @@ static void unmap_range(struct iommu_domain *domain, unsigned int iova,
 	unsigned int da = iova;
 	int i;
 
+if (0) {
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		size_t bytes = sg->length + sg->offset;
 		size_t unmapped;
@@ -257,6 +262,9 @@ static void unmap_range(struct iommu_domain *domain, unsigned int iova,
 
 		da += bytes;
 	}
+} else {
+	iommu_unmap_range(domain, iova, len);
+}
 }
 
 /* should be called under struct_mutex.. although it can be called
