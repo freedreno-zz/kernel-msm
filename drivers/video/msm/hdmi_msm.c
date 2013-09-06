@@ -1525,6 +1525,7 @@ static void hdmi_msm_hdcp_reauth_work(struct work_struct *work)
 
 static void hdmi_msm_hdcp_work(struct work_struct *work)
 {
+	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 	if (!hdmi_msm_state->hdcp_enable) {
 		DEV_DBG("%s: HDCP not enabled\n", __func__);
 		return;
@@ -1552,6 +1553,15 @@ static void hdmi_msm_hdcp_work(struct work_struct *work)
 		hdmi_msm_state->reauth = FALSE;
 	}
 	mutex_unlock(&hdmi_msm_power_mutex);
+
+	if (hdmi_msm_state->full_auth_done &&
+			external_common_state->hdcp_active &&
+				external_common_state->hpd_state) {
+			/*If already in a secure session*/
+			if (mfd->sec_active && mfd->sec_mapped) {
+				hdmi_msm_encryt_en(true);
+			}
+	}
 }
 
 int hdmi_msm_process_hdcp_interrupts(void)
