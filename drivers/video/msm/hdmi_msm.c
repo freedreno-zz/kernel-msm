@@ -1937,8 +1937,10 @@ void hdmi_msm_encryt_en(u32 enable)
 	hdmi_ctrl = HDMI_INP_ND(0x0000);
 	if (enable) {
 		if (!hdmi_msm_state->full_auth_done ||
-			!external_common_state->hdcp_active)
+			!external_common_state->hdcp_active) {
+			mutex_unlock(&hdmi_msm_power_mutex);
 			return;
+		}
 
 		hdcp_ctrl |= 0x101;
 		hdmi_ctrl |= 0x00000004;
