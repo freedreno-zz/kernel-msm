@@ -1319,6 +1319,7 @@ static int hdmi_msm_reinit_panel_info(void)
 	struct fb_info *fbi;
 	int i, ret = 0, mode_change = 0;
 	static int intf_switch = 1;
+	static int first_hpd = 1;
 
 	for (i = 0; i < num; i++) {
 		uint32 best_format = external_common_state->best_video_format;
@@ -1372,14 +1373,17 @@ static int hdmi_msm_reinit_panel_info(void)
 	* If there is a resolution change or
 	* if there is a switch between DVI/HDMI
 	* then reset the panel.
+
+	* first_hpd : first time need to call reset.
 	*/
-	if (mode_change ||
+	if (first_hpd || mode_change ||
 		(intf_switch != external_common_state->hdmi_sink)) {
 		ret = 1;
 	} else {
 		ret = 0;
 	}
 	intf_switch = external_common_state->hdmi_sink;
+	first_hpd = 0;
 
 	return ret;
 }
