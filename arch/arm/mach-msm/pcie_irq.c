@@ -73,11 +73,9 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-uint32_t __init msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
+void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
 {
-	int i, rc;
-
-	PCIE_DBG("\n");
+	int i = 0;
 
 	/* program MSI controller and enable all interrupts */
 	writel_relaxed(MSM_PCIE_MSI_PHY, dev->pcie20 + PCIE20_MSI_CTRL_ADDR);
@@ -85,10 +83,15 @@ uint32_t __init msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 
 	for (i = 0; i < PCIE20_MSI_CTRL_MAX; i++)
 		writel_relaxed(~0, dev->pcie20 +
-			       PCIE20_MSI_CTRL_INTR_EN + (i * 12));
+				PCIE20_MSI_CTRL_INTR_EN + (i * 12));
 
 	/* ensure that hardware is configured before proceeding */
 	wmb();
+}
+
+uint32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
+{
+	int rc;
 
 	/* register handler for physical MSI interrupt line */
 	rc = request_irq(PCIE20_INT_MSI, handle_msi_irq, IRQF_TRIGGER_RISING,
@@ -109,13 +112,11 @@ uint32_t __init msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 
 	enable_irq_wake(dev->wake_n);
 
-	/* PCIE_WAKE_N should be enabled only during system suspend */
-	disable_irq(dev->wake_n);
 out:
 	return rc;
 }
 
-void __exit msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
+void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
 	free_irq(PCIE20_INT_MSI, dev);
 	free_irq(dev->wake_n, dev);

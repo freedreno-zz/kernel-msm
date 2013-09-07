@@ -140,7 +140,9 @@
 /* PCIe pmic gpios */
 #define PCIE_WAKE_N_PMIC_GPIO 12
 #define PCIE_PWR_EN_PMIC_GPIO 13
+#define PCIE_CLK_EN_PMIC_GPIO 22
 #define PCIE_RST_N_PMIC_MPP 1
+#define PCIE_WAKE_N_PMIC_MPP 3
 
 #ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 static unsigned msm_contig_mem_size = MSM_CONTIG_MEM_SIZE;
@@ -2387,13 +2389,14 @@ static void __init apq8064_init_buses(void)
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 	{"rst_n", PM8921_MPP_PM_TO_SYS(PCIE_RST_N_PMIC_MPP), 0},
 	{"pwr_en", PM8921_GPIO_PM_TO_SYS(PCIE_PWR_EN_PMIC_GPIO), 1},
+	{"clk_src", PM8921_GPIO_PM_TO_SYS(PCIE_CLK_EN_PMIC_GPIO), 1},
 };
 
 static struct msm_pcie_platform msm_pcie_platform_data = {
 	.gpio = msm_pcie_gpio_info,
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
-	.wake_n = PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PCIE_WAKE_N_PMIC_GPIO),
+	.wake_n = PM8921_MPP_IRQ(PM8921_IRQ_BASE, PCIE_WAKE_N_PMIC_MPP),	
 };
 
 static int __init mpq8064_pcie_enabled(void)
