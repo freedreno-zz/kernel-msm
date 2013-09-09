@@ -1544,16 +1544,17 @@ static void hdmi_msm_hdcp_work(struct work_struct *work)
 	mutex_lock(&hdmi_msm_power_mutex);
 	/* Only re-enable if cable still connected */
 	mutex_lock(&external_common_state_hpd_mutex);
+
 	if (external_common_state->hpd_state &&
 	   !hdmi_msm_state->full_auth_done   &&
 	   !hdmi_msm_state->hdcp_activating) {
 		mutex_unlock(&external_common_state_hpd_mutex);
-		if (hdmi_msm_state->reauth == TRUE) {
-			DEV_DBG("%s: Starting HDCP re-authentication\n",
-					__func__);
+		if (hdmi_msm_state->reauth == TRUE &&
+		!hdmi_msm_state->panel_power_on) {
 			hdmi_msm_turn_on();
 		} else {
-			DEV_DBG("%s: Starting HDCP authentication\n", __func__);
+			DEV_DBG("%s: Starting HDCP re-authentication\n",
+					__func__);
 			hdmi_msm_hdcp_enable();
 		}
 	} else {
@@ -5136,6 +5137,7 @@ static void hdmi_msm_turn_on(void)
 	}
 	mutex_unlock(&hdmi_msm_state_mutex);
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
+	hdmi_msm_state->panel_power_on = true;
 	DEV_INFO("HDMI Core: Initialized\n");
 }
 
