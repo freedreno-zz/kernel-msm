@@ -18,6 +18,11 @@
 #include "msm_drv.h"
 #include "msm_gpu.h"
 
+#ifndef __CHECKER__
+#define CREATE_TRACE_POINTS
+#include "msm_trace.h"
+#endif
+
 #include <mach/iommu.h>
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
@@ -538,10 +543,10 @@ int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 		else
 			remaining_jiffies = timeout_jiffies - start_jiffies;
 
+		trace_msm_fence_wait_request(fence);
 		ret = wait_event_interruptible_timeout(priv->fence_event,
 				fence_completed(dev, fence),
 				remaining_jiffies);
-
 		if (ret == 0) {
 			DBG("timeout waiting for fence: %u (completed: %u)",
 					fence, priv->completed_fence);
@@ -549,6 +554,7 @@ int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 		} else if (ret != -ERESTARTSYS) {
 			ret = 0;
 		}
+		trace_msm_fence_wait_complete(fence, ret);
 	}
 
 	return ret;
