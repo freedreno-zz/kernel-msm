@@ -552,7 +552,7 @@ void hdmi_msm_cec_msg_send(struct hdmi_msm_cec_msg *msg)
 		  | HDMI_MSM_CEC_CTRL_SEND_TRIG
 		  | HDMI_MSM_CEC_CTRL_ENABLE);
 
-	retry = 8;
+	retry = 4;
 	timeout_count = 0;
 	while (!HDMI_MSM_CEC_FRAME_WR_SUCCESS(HDMI_INP_ND(0x029C))
 		&& !timeout_count && retry--) {
