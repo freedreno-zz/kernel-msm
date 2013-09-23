@@ -1164,57 +1164,6 @@ static struct v4l2_subdev_info ov5640_subdev_info[] = {
 	/* more can be supported, to be added later */
 };
 
-#define SETTLE_CNT	(0x01)
-
-static struct msm_camera_csi_params ov5640_csic_params = {
-	.data_format = CSI_8BIT,
-	.lane_cnt = 2,
-	.lane_assign = 0xe4,
-	.dpcm_scheme = 0,
-	.settle_cnt = SETTLE_CNT,
-};
-
-static struct msm_camera_csi_params *ov5640_csic_params_array[] = {
-	&ov5640_csic_params,
-	&ov5640_csic_params,
-};
-
-static struct msm_camera_csid_vc_cfg ov5640_cid_cfg[] = {
-	{0, CSI_YUV422_8, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params ov5640_csi_params = {
-	.csid_params = {
-		.lane_cnt = 2,
-		.lut_params = {
-			.num_cid = ARRAY_SIZE(ov5640_cid_cfg),
-			.vc_cfg = ov5640_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 2,
-		.settle_cnt = SETTLE_CNT,
-	},
-};
-
-static struct msm_camera_csi2_params *ov5640_csi_params_array[] = {
-	&ov5640_csi_params,
-	&ov5640_csi_params,
-};
-
-static struct msm_sensor_output_reg_addr_t ov5640_reg_addr = {
-	.x_output = 0x3808,
-	.y_output = 0x380A,
-	.line_length_pclk = 0x380C,
-	.frame_length_lines = 0x380E,
-};
-
-static struct msm_sensor_id_info_t ov5640_id_info = {
-	.sensor_id_reg_addr = 0x300A,
-	.sensor_id = 0x5640,
-};
-
-#endif
 static const struct i2c_device_id ov5640_i2c_id[] = {
 	{OV5640_SENSOR_NAME, (kernel_ulong_t)&ov5640_s_ctrl},
 	{ }
