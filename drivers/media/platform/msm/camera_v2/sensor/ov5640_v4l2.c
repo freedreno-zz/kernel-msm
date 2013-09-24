@@ -1119,9 +1119,9 @@ struct ov5640_resolution_table_t {
 };
 /* This table has to be in the same order as they are in the sensor lib */
 static struct ov5640_resolution_table_t ov5640_resolutions[] = {
+	{"5MP 15fps", ov5640_5MP_15_settings, ARRAY_SIZE(ov5640_5MP_15_settings)},
 	{"1080p30", ov5640_1080p30_settings, ARRAY_SIZE(ov5640_1080p30_settings)},
 	{"720p60",  ov5640_720p60_settings,  ARRAY_SIZE(ov5640_720p60_settings)},
-	{"5MP 15fps", ov5640_5MP_15_settings, ARRAY_SIZE(ov5640_5MP_15_settings)},
 	{"VGA @ 90fps", ov5640_VGA_90_settings, ARRAY_SIZE(ov5640_VGA_90_settings)},
 };
 
