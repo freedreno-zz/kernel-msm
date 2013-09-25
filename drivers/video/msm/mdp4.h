@@ -1008,7 +1008,7 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
 int mdp4_overlay_reset(struct msm_fb_data_type *mfd);
 void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd, u32 *release_busy);
 void mdp4_vg_csc_restore(void);
-void hdmi_msm_encryt_en(u32 enable);
+void hdmi_msm_encrypt_en(u32 enable);
 
 #ifndef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 static inline void mdp4_wfd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
