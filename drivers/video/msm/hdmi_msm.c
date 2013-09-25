@@ -1352,6 +1352,9 @@ static int hdmi_msm_reinit_panel_info(void)
 		mfd->var_yres         = mfd->panel_info.yres;
 		mfd->var_frame_rate   = mfd->panel_info.frame_rate;
 		mfd->var_pixclock     = mfd->panel_info.clk_rate;
+
+		if ((fbi->var.xres < 1920) && (fbi->var.yres < 1080))
+			mfd->set_default_res = 1;
 	}
 	/*store the global value of vic not the local*/
 	mfd->var_vic = external_common_state->video_resolution + 1;

@@ -549,7 +549,13 @@ enum {
 	metadata_op_none,
 	metadata_op_base_blend,
 	metadata_op_frame_rate,
+	metadata_op_resolution_info,
 	metadata_op_max
+};
+
+struct mdp_res_cfg {
+	uint32_t vFmt;
+	uint32_t set_default_res;
 };
 
 struct mdp_blend_cfg {
@@ -562,6 +568,7 @@ struct msmfb_metadata {
 	union {
 		struct mdp_blend_cfg blend_cfg;
 		uint32_t panel_frame_rate;
+		struct mdp_res_cfg res_cfg;
 	} data;
 };
 
