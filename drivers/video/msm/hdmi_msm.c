@@ -1328,26 +1328,13 @@ static int hdmi_msm_reinit_panel_info(void)
 			external_common_state->best_video_format = list[i];
 	}
 
-	if (external_common_state->native_video_format) {
-		if (external_common_state->video_resolution !=
-			external_common_state->native_video_format) {
-				external_common_state->video_resolution =
-				external_common_state->native_video_format;
-				mode_change = 1;
-		}
-	} else {
-		/*No preferred mode go for best mode*/
-		if (external_common_state->best_video_format !=
-			external_common_state->video_resolution) {
-				external_common_state->video_resolution =
-				external_common_state->best_video_format;
-				mode_change = 1;
-		}
-	}
-	mfd->vfmt_kernel = external_common_state->video_resolution + 1;
+	if (external_common_state->best_video_format !=
+	    external_common_state->video_resolution) {
+		external_common_state->video_resolution =
+			external_common_state->best_video_format;
 
-	if (mode_change) {
 		hdmi_common_init_panel_info(&mfd->panel_info);
+		mode_change =  1;
 
 		fbi = mfd->fbi;
 
@@ -1370,11 +1357,10 @@ static int hdmi_msm_reinit_panel_info(void)
 	mfd->var_vic = external_common_state->video_resolution + 1;
 
 	/*
-	* If there is a resolution change or
-	* if there is a switch between DVI/HDMI
-	* then reset the panel.
-
-	* first_hpd : first time need to call reset.
+	 1) If there is a resolution change
+	 2) if there is a switch between DVI/HDMI
+	 3) On first hpd
+	 we need to reset the panel.
 	*/
 	if (first_hpd || mode_change ||
 		(intf_switch != external_common_state->hdmi_sink)) {
