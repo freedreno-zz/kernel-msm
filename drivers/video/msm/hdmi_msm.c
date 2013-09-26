@@ -1312,15 +1312,13 @@ static bool hdmi_ready(void)
 					hdmi_msm_state->hpd_initialized;
 }
 
-static int hdmi_msm_reinit_panel_info(void)
+static void hdmi_msm_reinit_panel_info(void)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(hdmi_msm_pdev);
 	uint32 num   = external_common_state->disp_mode_list.num_of_elements;
 	uint32 *list = external_common_state->disp_mode_list.disp_mode_list;
 	struct fb_info *fbi;
-	int i, ret = 0, mode_change = 0;
-	static int intf_switch = 1;
-	static int first_hpd = 1;
+	int i, mode_change = 0;
 
 	for (i = 0; i < num; i++) {
 		uint32 best_format = external_common_state->best_video_format;
@@ -1360,22 +1358,6 @@ static int hdmi_msm_reinit_panel_info(void)
 	/*store the global value of vic not the local*/
 	mfd->var_vic = external_common_state->video_resolution + 1;
 
-	/*
-	 1) If there is a resolution change
-	 2) if there is a switch between DVI/HDMI
-	 3) On first hpd
-	 we need to reset the panel.
-	*/
-	if (first_hpd || mode_change ||
-		(intf_switch != external_common_state->hdmi_sink)) {
-		ret = 1;
-	} else {
-		ret = 0;
-	}
-	intf_switch = external_common_state->hdmi_sink;
-	first_hpd = 0;
-
-	return ret;
 }
 
 static void hdmi_msm_send_event(boolean on)
@@ -1396,7 +1378,7 @@ static void hdmi_msm_send_event(boolean on)
 		HDMI_OUTP(0x0210, HDMI_INP(0x0210) & ~(BIT(4)));
 		/* Build EDID table */
 		hdmi_msm_read_edid();
-		mfd->do_hdmi_reset = hdmi_msm_reinit_panel_info();
+		hdmi_msm_reinit_panel_info();
 		switch_set_state(&external_common_state->sdev, 1);
 		DEV_INFO("%s: hdmi state switched to %d\n", __func__,
 				external_common_state->sdev.state);
@@ -5075,8 +5057,7 @@ static void hdmi_msm_turn_on(void)
 			"AUDIO CFG is %08x", i, audio_pkt_ctrl, audio_cfg);
 		msleep(20);
 	}
-	if (mfd->cont_splash_done &&
-			(mfd->do_hdmi_reset || mfd->suspend.op_suspend)) {
+	if (mfd->cont_splash_done) {
 		hdmi_msm_set_mode(FALSE);
 		mutex_lock(&hdcp_auth_state_mutex);
 		hdmi_msm_reset_core();
@@ -5090,7 +5071,6 @@ static void hdmi_msm_turn_on(void)
 
 		hdmi_msm_video_setup(external_common_state->video_resolution);
 	}
-	mfd->do_hdmi_reset = 1;
 	if (!hdmi_msm_is_dvi_mode()) {
 		hdmi_msm_audio_setup();
 
