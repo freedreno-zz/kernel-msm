@@ -112,7 +112,8 @@ static int dtv_off(struct platform_device *pdev)
 	 * This is needed since we need to wait for the audio engine
 	 * to shutdown first before we turn off the DTV device.
 	 */
-	if (!mfd->suspend.op_suspend) {
+	if (!mfd->suspend.op_suspend &&
+			!external_common_state->hpd_state) {
 		pr_debug("%s: Queuing work to turn off HDMI core\n", __func__);
 		queue_work(dtv_work_queue, &dtv_off_work);
 	} else {
