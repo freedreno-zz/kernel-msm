@@ -45,6 +45,10 @@ extern int mdp_rev;
 extern int mdp_iommu_split_domain;
 extern struct mdp_csc_cfg mdp_csc_convert[4];
 extern struct mdp_csc_cfg_data csc_cfg_matrix[];
+extern struct mdp_csc_cfg csc_cfg_601_yuv2rgb;
+extern struct mdp_csc_cfg csc_cfg_709_yuv2rgb;
+extern struct mdp_csc_cfg csc_cfg_rgb2srgb_full;
+extern struct mdp_csc_cfg csc_cfg_rgb2srgb_limited;
 extern struct workqueue_struct *mdp_hist_wq;
 
 extern uint32 mdp_intr_mask;

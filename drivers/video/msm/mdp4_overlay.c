@@ -999,9 +999,27 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 							(uint32_t) vg_base);
 		}
 	}
+
 	/* not RGB use VG pipe, pure VG pipe */
-	if (ptype != OVERLAY_TYPE_RGB)
+	if (ptype != OVERLAY_TYPE_RGB) {
 		pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
+		/* Update only when Resolution changed */
+		if (pipe->is_csc_dirty) {
+			if ((pipe->src_height > 576) &&
+				(pipe->src_width > 720))
+				memcpy(&pipe->pp_cfg.csc_cfg,
+					&csc_cfg_709_yuv2rgb,
+					sizeof(struct mdp_csc_cfg));
+			else
+				memcpy(&pipe->pp_cfg.csc_cfg,
+					&csc_cfg_601_yuv2rgb,
+					sizeof(struct mdp_csc_cfg));
+
+			mdp4_csc_write(&pipe->pp_cfg.csc_cfg,
+				(uint32_t) (vg_base + MDP4_VIDEO_CSC_OFF));
+			pipe->is_csc_dirty = 0;
+		}
+	}
 
 #ifdef MDP4_IGC_LUT_ENABLE
 	pipe->op_mode |= MDP4_OP_IGC_LUT_EN;
@@ -2675,6 +2693,12 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE_BASE;
 	else
 		pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE0;
+
+	if (((req->id == MSMFB_NEW_REQUEST)) &&
+		(ptype == OVERLAY_TYPE_VIDEO) &&
+		(((req->src.width & 0x1fff) != pipe->src_width) ||
+		((req->src.height & 0x1fff) != pipe->src_height)))
+			pipe->is_csc_dirty = 1;
 
 	pipe->src_width = req->src.width & 0x1fff;	/* source img width */
 	pipe->src_height = req->src.height & 0x1fff;	/* source img height */
