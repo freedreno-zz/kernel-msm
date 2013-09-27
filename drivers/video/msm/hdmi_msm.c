@@ -4307,10 +4307,14 @@ int hdmi_msm_audio_info_setup(bool enabled, u32 num_of_channels,
 }
 EXPORT_SYMBOL(hdmi_msm_audio_info_setup);
 
-static void hdmi_msm_en_gc_packet(boolean av_mute_is_requested)
+void hdmi_msm_en_gc_packet(boolean av_mute_is_requested)
 {
+	pr_info("%s: av mute request=%d\n", __func__, av_mute_is_requested);
 	/* HDMI_GC[0x0040] */
-	HDMI_OUTP(0x0040, av_mute_is_requested ? 1 : 0);
+	if (av_mute_is_requested)
+		HDMI_OUTP(0x0040, HDMI_INP(0x0040) | BIT(0));
+	else
+		HDMI_OUTP(0x0040, HDMI_INP(0x0040) & ~BIT(0));
 
 	/* GC packet enable (every frame) */
 	/* HDMI_VBI_PKT_CTRL[0x0028] */
@@ -4381,8 +4385,6 @@ static void hdmi_msm_en_acp_packet(uint32 byte1)
 
 static void hdmi_msm_audio_setup(void)
 {
-	/* (0) for clr_avmute, (1) for set_avmute */
-	hdmi_msm_en_gc_packet(0);
 	/* (0) for isrc1 only, (1) for isrc1 and isrc2 */
 	hdmi_msm_en_isrc_packet(1);
 	/* arbitrary bit pattern for byte1 */
@@ -4408,10 +4410,10 @@ static void hdmi_msm_audio_setup(void)
 	DEV_INFO("HDMI Audio: Enabled\n");
 }
 
-static int hdmi_msm_audio_off(boolean check)
+static int hdmi_msm_audio_off(boolean check, int timeout)
 {
 	uint32 audio_cfg;
-	int i, timeout_val = 50;
+	int i, timeout_val = timeout;
 
 	if (check) {
 		for (i = 0; (i < timeout_val) &&
@@ -4451,7 +4453,7 @@ void hdmi_msm_audio_reconfig(uint8 sample_rate, uint8 channel_num,
 	}
 
 	if (!hdmi_msm_is_dvi_mode()) {
-		hdmi_msm_audio_off(0);
+		hdmi_msm_audio_off(0, 0);
 
 		hdmi_msm_state->hdmi_audio.sample_rate = sample_rate;
 		hdmi_msm_state->hdmi_audio.channel_num = channel_num;
@@ -5071,6 +5073,7 @@ static void hdmi_msm_turn_on(void)
 
 		hdmi_msm_video_setup(external_common_state->video_resolution);
 	}
+	hdmi_msm_en_gc_packet(0);
 	if (!hdmi_msm_is_dvi_mode()) {
 		hdmi_msm_audio_setup();
 
@@ -5477,6 +5480,12 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 		goto error;
 	}
 
+	/*Set AVMUTE if already not done*/
+	if (!(HDMI_INP(0x0040) & BIT(0))) {
+		hdmi_msm_en_gc_packet(1);
+		usleep(2 * mfd->disp_frame_period);
+	}
+
 	if (hdmi_msm_state->hdcp_enable) {
 		if (hdmi_msm_state->hdcp_activating) {
 			/*
@@ -5500,6 +5509,7 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 
 		hdcp_deauthenticate();
 	}
+
 	SWITCH_SET_HDMI_AUDIO(0, 0);
 
 	afe_short_silence(100);
@@ -5508,9 +5518,9 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 		if (external_common_state->hpd_state &&
 			!mfd->suspend.op_suspend) {
 			/*case: Resolution switch*/
-				hdmi_msm_audio_off(0);
+				hdmi_msm_audio_off(1, 10);
 		} else {
-			hdmi_msm_audio_off(1);
+			hdmi_msm_audio_off(1, 50);
 		}
 	}
 

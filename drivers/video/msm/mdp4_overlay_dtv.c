@@ -868,6 +868,16 @@ static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe)
 	outpdw(overlay_base + 0x001c, addr);
 }
 
+void mdp_dtv_avmute(struct platform_device *pdev, unsigned int avmute_req)
+{
+	struct msm_fb_data_type *mfd;
+	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	pr_info("%s: ioctl requested: %d\n", __func__, avmute_req);
+
+	hdmi_msm_en_gc_packet(avmute_req);
+	usleep(2 * mfd->disp_frame_period);
+}
+
 static void mdp4_dtv_blt_dmae_update(struct mdp4_overlay_pipe *pipe)
 {
 	uint32 off, addr;

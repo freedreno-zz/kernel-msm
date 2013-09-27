@@ -3857,6 +3857,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct msm_fb_panel_data *pdata = NULL;
 	void __user *argp = (void __user *)arg;
 	struct fb_cursor cursor;
 	struct fb_cmap cmap;
@@ -3873,6 +3874,8 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_buf_sync buf_sync;
 	struct msmfb_metadata mdp_metadata;
 	int ret = 0;
+	unsigned int avmute = 0;
+	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 	msm_fb_pan_idle(mfd);
 
 	switch (cmd) {
@@ -4159,6 +4162,18 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret == 1)
 			ret = copy_to_user(argp, &mdp_pp, sizeof(mdp_pp));
 		break;
+
+	case MSMFB_EXTERNAL_MUTE:
+		ret = copy_from_user(&avmute, argp, sizeof(avmute));
+		if (ret) {
+			MSM_FB_ERR("%s: AVMUTE IOCTL call failed! %d\n",
+								__func__, ret);
+			return ret;
+		}
+
+		pdata->dtv_avmute(mfd->pdev, avmute);
+		break;
+
 	case MSMFB_BUFFER_SYNC:
 		ret = copy_from_user(&buf_sync, argp, sizeof(buf_sync));
 		if (ret)

@@ -202,6 +202,8 @@ struct msm_fb_panel_data {
 	int (*clk_func) (int enable);
 	int (*fps_level_change) (struct platform_device *pdev,
 					u32 fps_level);
+	void (*dtv_avmute) (struct platform_device *pdev,
+					unsigned int avmute_req);
 };
 
 /*===========================================================================

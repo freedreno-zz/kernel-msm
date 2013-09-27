@@ -691,6 +691,8 @@ void mdp4_overlay_solidfill_init(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_stage_splash(int mixer);
 void mdp4_overlay_check_splash(struct msm_fb_data_type *mfd, int ndx);
 
+void mdp_dtv_avmute(struct platform_device *pdev, unsigned int avmute_req);
+
 #ifndef CONFIG_FB_MSM_MIPI_DSI
 void mdp4_mddi_dma_busy_wait(struct msm_fb_data_type *mfd);
 void mdp4_mddi_overlay_restore(void);
