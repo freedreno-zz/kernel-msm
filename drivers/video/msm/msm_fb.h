@@ -229,7 +229,6 @@ struct msm_fb_data_type {
 	uint32 cache_reg_en;
 	uint32 edid_fail_status;
 	uint32 vfmt_lk;
-	int do_hdmi_reset;
 	uint32 set_default_res;
 	bool use_csc_limited;
 };
