@@ -1045,12 +1045,17 @@ u32 mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync)
 
 	vctrl = &vsync_ctrl_db[0];
 
+	mdp4_dtv_vsync_irq_ctrl(0, 1);
+
 	ret = wait_event_interruptible_timeout(
 			vctrl->vsync_queue,
 			(expect_vsync == vctrl->vsync_cnt),
 			timeout);
 	if (ret <= 0)
 		pr_err("%s fails: %d", __func__, ret);
+
+	mdp4_dtv_vsync_irq_ctrl(0, 0);
+
 	return vctrl->vsync_cnt;
 }
 
