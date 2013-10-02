@@ -458,6 +458,7 @@ void mdp4_dtv_wait4vsync(int cndx)
 static void mdp4_dtv_wait4dmae(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
+	int ret;
 
 	if (cndx >= MAX_CONTROLLER) {
 		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
@@ -469,8 +470,13 @@ static void mdp4_dtv_wait4dmae(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	wait_for_completion_interruptible_timeout(&vctrl->dmae_comp,
+	ret = wait_for_completion_interruptible_timeout(&vctrl->dmae_comp,
 		msecs_to_jiffies(VSYNC_PERIOD * 2));
+	if (ret <= 0) {
+		spin_lock(&vctrl->spin_lock);
+		vsync_irq_disable(INTR_DMA_E_DONE, MDP_DMA_E_TERM);
+		spin_unlock(&vctrl->spin_lock);
+	}
 }
 
 ssize_t mdp4_dtv_show_event(struct device *dev,
@@ -761,6 +767,17 @@ static void mdp4_dtv_tg_off(struct vsycn_ctrl *vctrl)
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
 	msleep(40);
+}
+
+/* timing generator off */
+void mdp4_dtv_mute(u32 enable)
+{
+	if (enable) {
+		MDP_OUTP(MDP_BASE + DTV_BASE + 0x5c, 0);
+		MDP_OUTP(MDP_BASE + DTV_BASE + 0x4c, 0xF0000000);
+	} else {
+		MDP_OUTP(MDP_BASE + DTV_BASE + 0x4c, 0);
+	}
 }
 
 int mdp4_dtv_off(struct platform_device *pdev)
