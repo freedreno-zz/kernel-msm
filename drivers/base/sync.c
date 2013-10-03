@@ -984,6 +984,7 @@ late_initcall(sync_debugfs_init);
 
 #define DUMP_CHUNK 256
 static char sync_dump_buf[64 * 1024];
+void msm_fb_print_fence_log(void);
 void sync_dump(void)
 {
        struct seq_file s = {
@@ -1005,6 +1006,7 @@ void sync_dump(void)
                        pr_cont("%s", s.buf + i);
                }
        }
+      msm_fb_print_fence_log();
 }
 #else
 static void sync_dump(void)

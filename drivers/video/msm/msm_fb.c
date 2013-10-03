@@ -96,6 +96,10 @@ u32 msm_fb_msg_level = 7;
 /* Setting mddi_msg_level to 8 prints out ALL messages */
 u32 mddi_msg_level = 5;
 
+DEFINE_MUTEX(fence_log_mutex);
+static struct msmfb_fence_log fence_log[MDP_MAX_FENCE_LOG];
+static u32 fence_log_cnt;
+
 extern int32 mdp_block_power_cnt[MDP_MAX_BLOCK];
 extern unsigned long mdp_timer_duration;
 
@@ -120,6 +124,8 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 static void msm_fb_scale_bl(__u32 *bl_lvl);
 static void msm_fb_commit_wq_handler(struct work_struct *work);
 static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
+static void msm_fb_log_fence(u32 action_id,
+	struct msm_fb_data_type *mfd);
 
 #ifdef MSM_FB_ENABLE_DBGFS
 
@@ -1847,6 +1853,7 @@ int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 		sw_sync_timeline_inc(mfd->timeline, 1);
 		mfd->timeline_value++;
 	}
+	msm_fb_log_fence(ACTION_SIGNAL, mfd);
 	if (atomic_read(&mfd->commit_cnt) > 0)
 		atomic_dec(&mfd->commit_cnt);
 	mfd->last_rel_fence = mfd->cur_rel_fence;
@@ -1866,6 +1873,7 @@ void msm_fb_release_timeline(struct msm_fb_data_type *mfd)
 		sw_sync_timeline_inc(mfd->timeline, 4 + commit_cnt);
 		mfd->timeline_value += 4 + commit_cnt;
 	}
+	msm_fb_log_fence(ACTION_RELEASE, mfd);
 	mfd->last_rel_fence = 0;
 	mfd->cur_rel_fence = 0;
 	atomic_set(&mfd->commit_cnt, 0);
@@ -1963,6 +1971,8 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	memcpy(&fb_backup->disp_commit, disp_commit,
 		sizeof(struct mdp_display_commit));
 	mfd->is_committing = 1;
+	msm_fb_log_fence(ACTION_DISP_UPDATE, mfd);
+	mfd->update_cnt++;
 	INIT_COMPLETION(mfd->commit_comp);
 	atomic_inc(&mfd->commit_cnt);
 	schedule_work(&mfd->commit_work);
@@ -2139,6 +2149,7 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
 	while (atomic_read(&mfd->commit_cnt) > 0) {
+		msm_fb_log_fence(ACTION_KICKOFF, mfd);
 		fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
 		info = &fb_backup->info;
 		if (fb_backup->disp_commit.flags &
@@ -3785,6 +3796,7 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 		pr_err("%s:copy_to_user failed", __func__);
 		goto buf_sync_err_3;
 	}
+	msm_fb_log_fence(ACTION_FENCE_GEN, mfd);
 	mutex_unlock(&mfd->sync_mutex);
 	return ret;
 buf_sync_err_3:
@@ -4213,6 +4225,50 @@ static int msm_fb_register_driver(void)
 {
 	return platform_driver_register(&msm_fb_driver);
 }
+
+static void msm_fb_log_fence(u32 action_id,
+	struct msm_fb_data_type *mfd)
+{
+	u32 idx;
+	mutex_lock(&fence_log_mutex);
+	idx = fence_log_cnt & (MDP_MAX_FENCE_LOG - 1);
+	fence_log[idx].action_id = action_id;
+	fence_log[idx].fb_index = mfd->index;
+	fence_log[idx].commit_cnt = atomic_read(&mfd->commit_cnt);
+	fence_log[idx].timeline_value = mfd->timeline_value;
+	fence_log[idx].fence_id = (u32)mfd->cur_rel_fence;
+	fence_log[idx].timestamp = ktime_to_ms(ktime_get());
+	fence_log[idx].update_cnt = mfd->update_cnt;
+	fence_log_cnt++;
+	mutex_unlock(&fence_log_mutex);
+}
+void msm_fb_print_fence_log(void)
+{
+	u32 idx;
+	int i;
+	mutex_lock(&fence_log_mutex);
+	idx = (fence_log_cnt - 1) & (MDP_MAX_FENCE_LOG - 1);
+	pr_info("%s current idx is %d\n", __func__, idx);
+	for (i = idx; i >= 0; i--)
+		pr_info("a=%d fb=%d cmt=%d tl=%d fen=%x ts=%d cnt=%d",
+			fence_log[i].action_id, fence_log[i].fb_index,
+			fence_log[i].commit_cnt, fence_log[i].timeline_value,
+			fence_log[i].fence_id, fence_log[i].timestamp,
+			fence_log[i].update_cnt);
+
+	i = MDP_MAX_FENCE_LOG - 1;
+	while (i > idx) {
+		pr_err("a=%d fb=%d cmt=%d tl=%d fen=%x ts=%d cnt=%d",
+			fence_log[i].action_id, fence_log[i].fb_index,
+			fence_log[i].commit_cnt, fence_log[i].timeline_value,
+			fence_log[i].fence_id, fence_log[i].timestamp,
+			fence_log[i].update_cnt);
+		i--;
+	};
+
+	mutex_unlock(&fence_log_mutex);
+}
+EXPORT_SYMBOL(msm_fb_print_fence_log);
 
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 struct fb_info *msm_fb_get_writeback_fb(void)
