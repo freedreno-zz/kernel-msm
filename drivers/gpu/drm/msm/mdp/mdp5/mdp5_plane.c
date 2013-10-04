@@ -99,8 +99,8 @@ void mdp5_plane_install_properties(struct drm_plane *plane,
 	// XXX
 }
 
-int mdp5_plane_set_property(struct drm_plane *plane,
-		struct drm_property *property, uint64_t val)
+int mdp5_plane_set_property(struct drm_plane *plane, void *state,
+		struct drm_property *property, uint64_t val, void *blob_data)
 {
 	// XXX
 	return -EINVAL;
