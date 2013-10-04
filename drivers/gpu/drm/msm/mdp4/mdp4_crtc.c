@@ -263,7 +263,7 @@ static void blend_setup(struct drm_crtc *crtc)
 			int idx = idxs[pipe_id];
 			if (idx > 0) {
 				const struct mdp4_format *format =
-					to_mdp4_format(msm_framebuffer_format(plane->fb));
+					to_mdp4_format(msm_framebuffer_format(plane->state->fb));
 				alpha[idx-1] = format->alpha_enable;
 			}
 			mixer_cfg |= mixercfg(mdp4_crtc->mixer, pipe_id, stages[idx]);
