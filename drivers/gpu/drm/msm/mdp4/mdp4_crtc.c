@@ -424,8 +424,8 @@ static int mdp4_crtc_page_flip(struct drm_crtc *crtc,
 	return msm_gem_queue_inactive_cb(obj, &mdp4_crtc->pageflip_cb);
 }
 
-static int mdp4_crtc_set_property(struct drm_crtc *crtc,
-		struct drm_property *property, uint64_t val)
+static int mdp4_crtc_set_property(struct drm_crtc *crtc, void *state,
+		struct drm_property *property, uint64_t val, void *blob_data)
 {
 	// XXX
 	return -EINVAL;
