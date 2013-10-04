@@ -9275,6 +9275,7 @@ static const struct drm_crtc_funcs intel_crtc_funcs = {
 	.cursor_move = intel_crtc_cursor_move,
 	.gamma_set = intel_crtc_gamma_set,
 	.set_config = intel_crtc_set_config,
+	.set_property = drm_atomic_helper_crtc_set_property,
 	.destroy = intel_crtc_destroy,
 	.page_flip = intel_crtc_page_flip,
 };
