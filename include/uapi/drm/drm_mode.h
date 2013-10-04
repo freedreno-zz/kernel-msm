@@ -508,4 +508,6 @@ struct drm_mode_destroy_dumb {
 	uint32_t handle;
 };
 
+#define DRM_MODE_ATOMIC_NOLOCK    0x8000  /* only used internally */
+
 #endif

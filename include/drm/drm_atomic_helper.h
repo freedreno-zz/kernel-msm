@@ -65,6 +65,10 @@ struct drm_atomic_helper_funcs {
 	struct drm_plane_state *(*get_plane_state)(struct drm_plane *plane, void *state);
 	int (*check_plane_state)(struct drm_plane *plane, struct drm_plane_state *pstate);
 	int (*commit_plane_state)(struct drm_plane *plane, struct drm_plane_state *pstate);
+
+	struct drm_crtc_state *(*get_crtc_state)(struct drm_crtc *crtc, void *state);
+	int (*check_crtc_state)(struct drm_crtc *crtc, struct drm_crtc_state *cstate);
+	int (*commit_crtc_state)(struct drm_crtc *crtc, struct drm_crtc_state *cstate);
 };
 
 const extern struct drm_atomic_helper_funcs drm_atomic_helper_funcs;
@@ -108,6 +112,37 @@ drm_atomic_commit_plane_state(struct drm_plane *plane,
 	return funcs->commit_plane_state(plane, pstate);
 }
 
+int drm_atomic_helper_crtc_set_property(struct drm_crtc *crtc, void *state,
+		struct drm_property *property, uint64_t val, void *blob_data);
+void drm_atomic_helper_init_crtc_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *cstate, void *state);
+
+static inline struct drm_crtc_state *
+drm_atomic_get_crtc_state(struct drm_crtc *crtc, void *state)
+{
+	const struct drm_atomic_helper_funcs *funcs =
+			crtc->dev->driver->atomic_helpers;
+	return funcs->get_crtc_state(crtc, state);
+}
+
+static inline int
+drm_atomic_check_crtc_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *cstate)
+{
+	const struct drm_atomic_helper_funcs *funcs =
+			crtc->dev->driver->atomic_helpers;
+	return funcs->check_crtc_state(crtc, cstate);
+}
+
+static inline int
+drm_atomic_commit_crtc_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *cstate)
+{
+	const struct drm_atomic_helper_funcs *funcs =
+			crtc->dev->driver->atomic_helpers;
+	return funcs->commit_crtc_state(crtc, cstate);
+}
+
 /**
  * struct drm_atomic_helper_state - the state object used by atomic helpers
  */
@@ -117,6 +152,12 @@ struct drm_atomic_helper_state {
 	uint32_t flags;
 	struct drm_plane **planes;
 	struct drm_plane_state **pstates;
+	struct drm_crtc **crtcs;
+	struct drm_crtc_state **cstates;
+
+	struct ww_acquire_ctx ww_ctx;
+	struct list_head locked_crtcs;
+	bool locks_dropped;
 };
 
 static inline void

@@ -307,13 +307,13 @@ static void page_flip_worker(struct work_struct *work)
 	struct drm_display_mode *mode = &crtc->mode;
 	struct drm_gem_object *bo;
 
-	ww_mutex_lock(&crtc->mutex, NULL);
+	drm_modeset_lock_crtc(crtc, NULL);
 	omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
 			0, 0, mode->hdisplay, mode->vdisplay,
 			crtc->x << 16, crtc->y << 16,
 			mode->hdisplay << 16, mode->vdisplay << 16,
 			vblank_cb, crtc);
-	ww_mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock_crtc(crtc);
 
 	bo = omap_framebuffer_bo(crtc->fb, 0);
 	drm_gem_object_unreference_unlocked(bo);
@@ -367,14 +367,19 @@ static int omap_crtc_set_property(struct drm_crtc *crtc, void *state,
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct omap_drm_private *priv = crtc->dev->dev_private;
+	struct drm_crtc_state *cstate = drm_atomic_get_crtc_state(crtc, state);
+	int ret;
 
 	if (property == priv->rotation_prop) {
-		crtc->invert_dimensions =
+		cstate->invert_dimensions =
 				!!(val & ((1LL << DRM_ROTATE_90) | (1LL << DRM_ROTATE_270)));
 	}
 
-	return omap_plane_set_property(omap_crtc->plane, state,
+	ret = omap_plane_set_property(omap_crtc->plane, state,
 			property, val, blob_data);
+	if (ret)
+		ret = drm_crtc_set_property(crtc, cstate, property, val, blob_data);
+	return ret;
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
@@ -447,7 +452,7 @@ static void apply_worker(struct work_struct *work)
 	 * the callbacks and list modification all serialized
 	 * with respect to modesetting ioctls from userspace.
 	 */
-	ww_mutex_lock(&crtc->mutex, NULL);
+	drm_modeset_lock_crtc(crtc, NULL);
 	dispc_runtime_get();
 
 	/*
@@ -492,7 +497,7 @@ static void apply_worker(struct work_struct *work)
 
 out:
 	dispc_runtime_put();
-	ww_mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock_crtc(crtc);
 }
 
 int omap_crtc_apply(struct drm_crtc *crtc,

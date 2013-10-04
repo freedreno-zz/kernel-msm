@@ -292,11 +292,7 @@ void intel_fb_restore_mode(struct drm_device *dev)
 	if (INTEL_INFO(dev)->num_pipes == 0)
 		return;
 
-	drm_modeset_lock_all(dev);
-
-	ret = drm_fb_helper_restore_fbdev_mode(&dev_priv->fbdev->helper);
+	ret = drm_fb_helper_restore_fbdev_mode(&dev_priv->fbdev->helper, false);
 	if (ret)
 		DRM_DEBUG("failed to restore crtc mode\n");
-
-	drm_modeset_unlock_all(dev);
 }

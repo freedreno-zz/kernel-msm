@@ -37,6 +37,53 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_fourcc.h>
+#include <drm/drm_atomic_helper.h>
+
+/**
+ * drm_modeset_lock_crtc - take crtc modeset lock
+ * @crtc: crtc to lock
+ * @state: atomic state
+ *
+ * If state is not NULL, then then it's aquire context is used
+ * and the crtc does not need to be explicitly unlocked, it
+ * will be automatically unlocked when the atomic update is
+ * complete (ioctl returns)
+ */
+int drm_modeset_lock_crtc(struct drm_crtc *crtc, void *state)
+{
+	// ugg, this makes atomic_helper mandatory..  not really
+	// sure yet whether I should care, or just simplify things
+	// and require that drivers use or extend atomic_helper:
+	struct drm_atomic_helper_state *a = state;
+	struct ww_acquire_ctx *ww_ctx = NULL;
+	int ret;
+
+	if (a) {
+		if (a->flags & DRM_MODE_ATOMIC_NOLOCK)
+			return 0;
+		ww_ctx = &a->ww_ctx;
+	}
+
+	ret = ww_mutex_lock(&crtc->mutex, ww_ctx);
+	if (a && !ret) {
+		WARN_ON(!list_empty(&crtc->lock_head));
+		list_add(&crtc->lock_head, &a->locked_crtcs);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(drm_modeset_lock_crtc);
+
+/**
+ * drm_modeset_unlock_crtc - drop crtc modeset lock
+ * @crtc: crtc to unlock
+ */
+void drm_modeset_unlock_crtc(struct drm_crtc *crtc)
+{
+	list_del_init(&crtc->lock_head);
+	ww_mutex_unlock(&crtc->mutex);
+}
+EXPORT_SYMBOL(drm_modeset_unlock_crtc);
 
 /**
  * drm_modeset_lock_all - take all modeset locks
@@ -581,8 +628,6 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 	struct drm_device *dev = fb->dev;
 	struct drm_crtc *crtc;
 	struct drm_plane *plane;
-	struct drm_mode_set set;
-	int ret;
 
 	WARN_ON(!list_empty(&fb->filp_head));
 
@@ -602,6 +647,7 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 	 * in this manner.
 	 */
 	if (atomic_read(&fb->refcount.refcount) > 1) {
+		struct drm_mode_config *config = &fb->dev->mode_config;
 		void *state;
 
 		state = dev->driver->atomic_begin(dev, 0);
@@ -610,22 +656,12 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 			return;
 		}
 
-		/* TODO once CRTC is converted to state/properties, we can push the
-		 * locking down into drm_atomic_helper_commit(), since that is where
-		 * the actual changes take place..
-		 */
-		drm_modeset_lock_all(dev);
-
 		/* remove from any CRTC */
 		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 			if (crtc->fb == fb) {
 				/* should turn off the crtc */
-				memset(&set, 0, sizeof(struct drm_mode_set));
-				set.crtc = crtc;
-				set.fb = NULL;
-				ret = drm_mode_set_config_internal(&set);
-				if (ret)
-					DRM_ERROR("failed to reset crtc %p when fb was deleted\n", crtc);
+				drm_mode_crtc_set_obj_prop(crtc, state,
+					config->prop_fb_id, 0, NULL);
 			}
 		}
 
@@ -641,15 +677,13 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 			dev->driver->atomic_commit(dev, state);
 
 		dev->driver->atomic_end(dev, state);
-
-		drm_modeset_unlock_all(dev);
 	}
 
 	drm_framebuffer_unreference(fb);
 }
 EXPORT_SYMBOL(drm_framebuffer_remove);
 
-static DEFINE_WW_CLASS(crtc_ww_class);
+DEFINE_WW_CLASS(crtc_ww_class);
 
 /**
  * drm_crtc_init - Initialise a new CRTC object
@@ -665,25 +699,37 @@ static DEFINE_WW_CLASS(crtc_ww_class);
 int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 		   const struct drm_crtc_funcs *funcs)
 {
+	struct drm_mode_config *config = &dev->mode_config;
 	int ret;
+
+	if (!crtc->state)
+		crtc->state = kzalloc(sizeof(*crtc->state), GFP_KERNEL);
 
 	crtc->dev = dev;
 	crtc->funcs = funcs;
-	crtc->invert_dimensions = false;
+	crtc->state->invert_dimensions = false;
 
 	drm_modeset_lock_all(dev);
 	ww_mutex_init(&crtc->mutex, &crtc_ww_class);
 	mutex_lock_nest_lock(&crtc->mutex.base, &dev->mode_config.mutex);
+
+	INIT_LIST_HEAD(&crtc->lock_head);
 
 	ret = drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
 	if (ret)
 		goto out;
 
 	crtc->base.properties = &crtc->properties;
-	crtc->base.propvals = &crtc->propvals;
+	crtc->base.propvals = &crtc->state->propvals;
 
 	list_add_tail(&crtc->head, &dev->mode_config.crtc_list);
 	dev->mode_config.num_crtc++;
+
+	drm_object_attach_property(&crtc->base, config->prop_mode, 0);
+	drm_object_attach_property(&crtc->base, config->prop_connector_ids, 0);
+	drm_object_attach_property(&crtc->base, config->prop_fb_id, 0);
+	drm_object_attach_property(&crtc->base, config->prop_src_x, 0);
+	drm_object_attach_property(&crtc->base, config->prop_src_y, 0);
 
  out:
 	drm_modeset_unlock_all(dev);
@@ -707,11 +753,161 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
 	kfree(crtc->gamma_store);
 	crtc->gamma_store = NULL;
 
+	WARN_ON(!list_empty(&crtc->lock_head));
+
 	drm_mode_object_put(dev, &crtc->base);
 	list_del(&crtc->head);
 	dev->mode_config.num_crtc--;
 }
 EXPORT_SYMBOL(drm_crtc_cleanup);
+
+// XXX de-duplicate from drm_atomic_helper.c:
+// probably we want to stash the drm_display_mode as a ptr (transient data) on the state
+// so we only convert it once.. maybe in set_property()?
+static struct drm_display_mode *get_mode(struct drm_crtc *crtc, struct drm_crtc_state *cstate)
+{
+	struct drm_display_mode *mode = NULL;
+	if (cstate->mode_valid) {
+		struct drm_device *dev = crtc->dev;
+		int ret;
+
+		mode = drm_mode_create(dev);
+		if (!mode)
+			return ERR_PTR(-ENOMEM);
+
+		ret = drm_crtc_convert_umode(mode, &cstate->mode);
+		if (ret) {
+			DRM_DEBUG_KMS("Invalid mode\n");
+			drm_mode_destroy(dev, mode);
+			return ERR_PTR(ret);
+		}
+
+		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);
+	}
+	return mode;
+}
+
+
+int drm_crtc_check_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct drm_framebuffer *fb = state->fb;
+	int hdisplay, vdisplay;
+	struct drm_display_mode *mode = get_mode(crtc, state);
+
+	if (IS_ERR(mode))
+		return PTR_ERR(mode);
+
+	/* disabling the crtc is allowed: */
+	if (!(fb && state->mode_valid))
+		return 0;
+
+	hdisplay = state->mode.hdisplay;
+	vdisplay = state->mode.vdisplay;
+
+	if (mode && drm_mode_is_stereo(mode)) {
+		struct drm_display_mode adjusted = *mode;
+
+		drm_mode_set_crtcinfo(&adjusted, CRTC_STEREO_DOUBLE);
+		hdisplay = adjusted.crtc_hdisplay;
+		vdisplay = adjusted.crtc_vdisplay;
+	}
+
+	if (state->invert_dimensions)
+		swap(hdisplay, vdisplay);
+
+	/* For some reason crtc x/y offsets are signed internally. */
+	if (state->x > INT_MAX || state->y > INT_MAX)
+		return -ERANGE;
+
+	if (hdisplay > fb->width ||
+	    vdisplay > fb->height ||
+	    state->x > fb->width - hdisplay ||
+	    state->y > fb->height - vdisplay) {
+		DRM_DEBUG_KMS("Invalid fb size %ux%u for CRTC viewport %ux%u+%d+%d%s.\n",
+			      fb->width, fb->height, hdisplay, vdisplay,
+			      state->x, state->y,
+			      state->invert_dimensions ? " (inverted)" : "");
+		return -ENOSPC;
+	}
+
+	if (crtc->enabled && !state->set_config) {
+		if (crtc->state->fb->pixel_format != fb->pixel_format) {
+			DRM_DEBUG_KMS("Page flip is not allowed to "
+					"change frame buffer format.\n");
+			return -EINVAL;
+		}
+	}
+
+	if (state->num_connector_ids == 0) {
+		DRM_DEBUG_KMS("Count connectors is 0 but mode set\n");
+		return -EINVAL;
+	}
+
+	if (mode)
+		drm_mode_destroy(crtc->dev, mode);
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_crtc_check_state);
+
+void drm_crtc_commit_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	crtc->state = state;
+	crtc->base.propvals = &state->propvals;
+}
+EXPORT_SYMBOL(drm_crtc_commit_state);
+
+int drm_crtc_set_property(struct drm_crtc *crtc,
+		struct drm_crtc_state *state,
+		struct drm_property *property,
+		uint64_t value, void *blob_data)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_config *config = &dev->mode_config;
+
+	drm_object_property_set_value(&crtc->base,
+			&state->propvals, property, value, blob_data);
+
+	if (property == config->prop_mode) {
+		if (!blob_data) {
+			memset(&state->mode, 0, sizeof(state->mode));
+			state->mode_valid = false;
+		} else {
+			/* check size: */
+			if (value < sizeof(struct drm_mode_modeinfo))
+				return -EINVAL;
+			state->mode = *(struct drm_mode_modeinfo *)blob_data;
+			state->mode_valid = true;
+		}
+		state->set_config = true;
+	} else if (property == config->prop_connector_ids) {
+		state->num_connector_ids = value / sizeof(state->connector_ids[0]);
+		state->connector_ids = blob_data;
+		state->set_config = true;
+	} else if (property == config->prop_fb_id) {
+		state->new_fb = true;
+		state->fb = drm_framebuffer_lookup(dev, value);
+	} else if (property == config->prop_src_x) {
+		int x = *(int *)&value;
+		if (state->x != x) {
+			state->x = x;
+			state->set_config = true;
+		}
+	} else if (property == config->prop_src_y) {
+		int y = *(int *)&value;
+		if (state->y != y) {
+			state->y = y;
+			state->set_config = true;
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_crtc_set_property);
 
 /**
  * drm_mode_probed_add - add a mode to a connector's probed mode list
@@ -1098,7 +1294,14 @@ int drm_plane_set_property(struct drm_plane *plane,
 		state->fb = drm_framebuffer_lookup(dev, value);
 	} else if (property == config->prop_crtc_id) {
 		struct drm_mode_object *obj = drm_property_get_obj(property, value);
-		state->crtc = obj ? obj_to_crtc(obj) : NULL;
+		struct drm_crtc *crtc = obj ? obj_to_crtc(obj) : NULL;
+		/* take the lock of the incoming crtc as well, moving
+		 * plane between crtcs is synchronized on both incoming
+		 * and outgoing crtc.
+		 */
+		if (crtc)
+			drm_modeset_lock_crtc(crtc, state->state);
+		state->crtc = crtc;
 	} else if (property == config->prop_crtc_x) {
 		state->crtc_x = U642I64(value);
 	} else if (property == config->prop_crtc_y) {
@@ -1273,6 +1476,16 @@ static int drm_mode_create_standard_connector_properties(struct drm_device *dev)
 	if (!prop)
 		return -ENOMEM;
 	dev->mode_config.prop_crtc_id = prop;
+
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "CONNECTOR_IDS", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.prop_connector_ids = prop;
+
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "MODE", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.prop_mode = prop;
 
 	return 0;
 }
@@ -1538,7 +1751,7 @@ static void drm_crtc_convert_to_umode(struct drm_mode_modeinfo *out,
  * RETURNS:
  * Zero on success, errno on failure.
  */
-static int drm_crtc_convert_umode(struct drm_display_mode *out,
+int drm_crtc_convert_umode(struct drm_display_mode *out,
 				  const struct drm_mode_modeinfo *in)
 {
 	if (in->clock > INT_MAX || in->vrefresh > INT_MAX)
@@ -1787,11 +2000,11 @@ int drm_mode_getcrtc(struct drm_device *dev,
 	}
 	crtc = obj_to_crtc(obj);
 
-	crtc_resp->x = crtc->x;
-	crtc_resp->y = crtc->y;
+	crtc_resp->x = crtc->state->x;
+	crtc_resp->y = crtc->state->y;
 	crtc_resp->gamma_size = crtc->gamma_size;
-	if (crtc->fb)
-		crtc_resp->fb_id = crtc->fb->base.id;
+	if (crtc->state->fb)
+		crtc_resp->fb_id = crtc->state->fb->base.id;
 	else
 		crtc_resp->fb_id = 0;
 
@@ -2218,45 +2431,6 @@ int drm_mode_set_config_internal(struct drm_mode_set *set)
 }
 EXPORT_SYMBOL(drm_mode_set_config_internal);
 
-/*
- * Checks that the framebuffer is big enough for the CRTC viewport
- * (x, y, hdisplay, vdisplay)
- */
-static int drm_crtc_check_viewport(const struct drm_crtc *crtc,
-				   int x, int y,
-				   const struct drm_display_mode *mode,
-				   const struct drm_framebuffer *fb)
-
-{
-	int hdisplay, vdisplay;
-
-	hdisplay = mode->hdisplay;
-	vdisplay = mode->vdisplay;
-
-	if (drm_mode_is_stereo(mode)) {
-		struct drm_display_mode adjusted = *mode;
-
-		drm_mode_set_crtcinfo(&adjusted, CRTC_STEREO_DOUBLE);
-		hdisplay = adjusted.crtc_hdisplay;
-		vdisplay = adjusted.crtc_vdisplay;
-	}
-
-	if (crtc->invert_dimensions)
-		swap(hdisplay, vdisplay);
-
-	if (hdisplay > fb->width ||
-	    vdisplay > fb->height ||
-	    x > fb->width - hdisplay ||
-	    y > fb->height - vdisplay) {
-		DRM_DEBUG_KMS("Invalid fb size %ux%u for CRTC viewport %ux%u+%d+%d%s.\n",
-			      fb->width, fb->height, hdisplay, vdisplay, x, y,
-			      crtc->invert_dimensions ? " (inverted)" : "");
-		return -ENOSPC;
-	}
-
-	return 0;
-}
-
 /**
  * drm_mode_setcrtc - set CRTC configuration
  * @dev: drm device for the ioctl
@@ -2277,22 +2451,15 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 	struct drm_mode_crtc *crtc_req = data;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
-	struct drm_connector **connector_set = NULL, *connector;
-	struct drm_framebuffer *fb = NULL;
-	struct drm_display_mode *mode = NULL;
-	struct drm_mode_set set;
-	uint32_t __user *set_connectors_ptr;
+	uint32_t fb_id = -1;
+	uint32_t *connector_ids = NULL;
+	void *state = NULL;
 	int ret;
 	int i;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	/* For some reason crtc x/y offsets are signed internally. */
-	if (crtc_req->x > INT_MAX || crtc_req->y > INT_MAX)
-		return -ERANGE;
-
-	drm_modeset_lock_all(dev);
 	obj = drm_mode_object_find(dev, crtc_req->crtc_id,
 				   DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
@@ -2312,55 +2479,15 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 				ret = -EINVAL;
 				goto out;
 			}
-			fb = crtc->fb;
-			/* Make refcounting symmetric with the lookup path. */
-			drm_framebuffer_reference(fb);
+			fb_id = crtc->base.id;
 		} else {
-			fb = drm_framebuffer_lookup(dev, crtc_req->fb_id);
-			if (!fb) {
-				DRM_DEBUG_KMS("Unknown FB ID%d\n",
-						crtc_req->fb_id);
-				ret = -ENOENT;
-				goto out;
-			}
+			fb_id = crtc_req->fb_id;
 		}
-
-		mode = drm_mode_create(dev);
-		if (!mode) {
-			ret = -ENOMEM;
-			goto out;
-		}
-
-		ret = drm_crtc_convert_umode(mode, &crtc_req->mode);
-		if (ret) {
-			DRM_DEBUG_KMS("Invalid mode\n");
-			goto out;
-		}
-
-		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);
-
-		ret = drm_crtc_check_viewport(crtc, crtc_req->x, crtc_req->y,
-					      mode, fb);
-		if (ret)
-			goto out;
-
-	}
-
-	if (crtc_req->count_connectors == 0 && mode) {
-		DRM_DEBUG_KMS("Count connectors is 0 but mode set\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (crtc_req->count_connectors > 0 && (!mode || !fb)) {
-		DRM_DEBUG_KMS("Count connectors is %d but no mode or fb set\n",
-			  crtc_req->count_connectors);
-		ret = -EINVAL;
-		goto out;
 	}
 
 	if (crtc_req->count_connectors > 0) {
-		u32 out_id;
+		uint32_t __user *set_connectors_ptr =
+				(uint32_t __user *)(unsigned long)crtc_req->set_connectors_ptr;
 
 		/* Avoid unbounded kernel memory allocation */
 		if (crtc_req->count_connectors > config->num_connector) {
@@ -2368,54 +2495,52 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 			goto out;
 		}
 
-		connector_set = kmalloc(crtc_req->count_connectors *
-					sizeof(struct drm_connector *),
+		connector_ids = kmalloc(crtc_req->count_connectors *
+					sizeof(connector_ids[0]),
 					GFP_KERNEL);
-		if (!connector_set) {
+		if (!connector_ids) {
 			ret = -ENOMEM;
 			goto out;
 		}
 
 		for (i = 0; i < crtc_req->count_connectors; i++) {
-			set_connectors_ptr = (uint32_t __user *)(unsigned long)crtc_req->set_connectors_ptr;
+			u32 out_id;
+
 			if (get_user(out_id, &set_connectors_ptr[i])) {
 				ret = -EFAULT;
 				goto out;
 			}
-
-			obj = drm_mode_object_find(dev, out_id,
-						   DRM_MODE_OBJECT_CONNECTOR);
-			if (!obj) {
-				DRM_DEBUG_KMS("Connector id %d unknown\n",
-						out_id);
-				ret = -ENOENT;
-				goto out;
-			}
-			connector = obj_to_connector(obj);
-			DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
-					connector->base.id,
-					drm_get_connector_name(connector));
-
-			connector_set[i] = connector;
+			connector_ids[i] = out_id;
 		}
 	}
 
-	set.crtc = crtc;
-	set.x = crtc_req->x;
-	set.y = crtc_req->y;
-	set.mode = mode;
-	set.connectors = connector_set;
-	set.num_connectors = crtc_req->count_connectors;
-	set.fb = fb;
-	ret = drm_mode_set_config_internal(&set);
+	state = dev->driver->atomic_begin(dev, 0);
+	if (IS_ERR(state))
+		return PTR_ERR(state);
+
+	ret =
+		drm_mode_set_obj_prop(obj, state,
+			config->prop_mode, sizeof(crtc_req->mode), &crtc_req->mode) ||
+		drm_mode_set_obj_prop(obj, state,
+			config->prop_connector_ids,
+			crtc_req->count_connectors * sizeof(connector_ids[0]),
+			connector_ids) ||
+		drm_mode_set_obj_prop(obj, state,
+			config->prop_fb_id, fb_id, NULL) ||
+		drm_mode_set_obj_prop(obj, state,
+			config->prop_src_x, crtc_req->x, NULL) ||
+		drm_mode_set_obj_prop(obj, state,
+			config->prop_src_y, crtc_req->y, NULL) ||
+		dev->driver->atomic_check(dev, state);
+	if (ret)
+		goto out;
+
+	ret = dev->driver->atomic_commit(dev, state);
 
 out:
-	if (fb)
-		drm_framebuffer_unreference(fb);
-
-	kfree(connector_set);
-	drm_mode_destroy(dev, mode);
-	drm_modeset_unlock_all(dev);
+	if (state)
+		dev->driver->atomic_end(dev, state);
+	kfree(connector_ids);
 	return ret;
 }
 
@@ -2440,7 +2565,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 	}
 	crtc = obj_to_crtc(obj);
 
-	ww_mutex_lock(&crtc->mutex, NULL);
+	drm_modeset_lock_crtc(crtc, NULL);
 	if (req->flags & DRM_MODE_CURSOR_BO) {
 		if (!crtc->funcs->cursor_set && !crtc->funcs->cursor_set2) {
 			ret = -ENXIO;
@@ -2464,7 +2589,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 		}
 	}
 out:
-	ww_mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock_crtc(crtc);
 
 	return ret;
 
@@ -3524,9 +3649,6 @@ int drm_mode_crtc_set_obj_prop(struct drm_crtc *crtc,
 	if (crtc->funcs->set_property)
 		ret = crtc->funcs->set_property(crtc, state, property,
 				value, blob_data);
-	if (!ret)
-		drm_object_property_set_value(&crtc->base, &crtc->propvals,
-				property, value, NULL);
 
 	return ret;
 }
@@ -3852,15 +3974,60 @@ out:
 	return ret;
 }
 
+static struct drm_pending_vblank_event *create_vblank_event(
+		struct drm_device *dev, struct drm_file *file_priv, uint64_t user_data)
+{
+	struct drm_pending_vblank_event *e = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	if (file_priv->event_space < sizeof e->event) {
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		goto out;
+	}
+	file_priv->event_space -= sizeof e->event;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	e = kzalloc(sizeof *e, GFP_KERNEL);
+	if (e == NULL) {
+		spin_lock_irqsave(&dev->event_lock, flags);
+		file_priv->event_space += sizeof e->event;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		goto out;
+	}
+
+	e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
+	e->event.base.length = sizeof e->event;
+	e->event.user_data = user_data;
+	e->base.event = &e->event.base;
+	e->base.file_priv = file_priv;
+	e->base.destroy =
+		(void (*) (struct drm_pending_event *)) kfree;
+
+out:
+	return e;
+}
+
+static void destroy_vblank_event(struct drm_device *dev,
+		struct drm_file *file_priv, struct drm_pending_vblank_event *e)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	file_priv->event_space += sizeof e->event;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+	kfree(e);
+}
+
 int drm_mode_page_flip_ioctl(struct drm_device *dev,
 			     void *data, struct drm_file *file_priv)
 {
 	struct drm_mode_crtc_page_flip *page_flip = data;
+	struct drm_mode_config *config = &dev->mode_config;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
-	struct drm_framebuffer *fb = NULL, *old_fb = NULL;
 	struct drm_pending_vblank_event *e = NULL;
-	unsigned long flags;
+	void *state;
 	int ret = -EINVAL;
 
 	if (page_flip->flags & ~DRM_MODE_PAGE_FLIP_FLAGS ||
@@ -3875,92 +4042,37 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		return -ENOENT;
 	crtc = obj_to_crtc(obj);
 
-	ww_mutex_lock(&crtc->mutex, NULL);
-	if (crtc->fb == NULL) {
-		/* The framebuffer is currently unbound, presumably
-		 * due to a hotplug event, that userspace has not
-		 * yet discovered.
-		 */
-		ret = -EBUSY;
-		goto out;
+	state = dev->driver->atomic_begin(dev, page_flip->flags);
+	if (IS_ERR(state))
+		return PTR_ERR(state);
+
+	if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
+		e = create_vblank_event(dev, file_priv, page_flip->user_data);
+		if (!e) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		ret = dev->driver->atomic_set_event(dev, state, obj, e);
+		if (ret) {
+			goto out;
+		}
 	}
 
-	if (crtc->funcs->page_flip == NULL)
-		goto out;
-
-	fb = drm_framebuffer_lookup(dev, page_flip->fb_id);
-	if (!fb) {
-		ret = -ENOENT;
-		goto out;
-	}
-
-	ret = drm_crtc_check_viewport(crtc, crtc->x, crtc->y, &crtc->mode, fb);
+	ret = drm_mode_set_obj_prop(obj, state,
+			config->prop_fb_id, page_flip->fb_id, NULL);
 	if (ret)
 		goto out;
 
-	if (crtc->fb->pixel_format != fb->pixel_format) {
-		DRM_DEBUG_KMS("Page flip is not allowed to change frame buffer format.\n");
-		ret = -EINVAL;
+	ret = dev->driver->atomic_check(dev, state);
+	if (ret)
 		goto out;
-	}
 
-	if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
-		ret = -ENOMEM;
-		spin_lock_irqsave(&dev->event_lock, flags);
-		if (file_priv->event_space < sizeof e->event) {
-			spin_unlock_irqrestore(&dev->event_lock, flags);
-			goto out;
-		}
-		file_priv->event_space -= sizeof e->event;
-		spin_unlock_irqrestore(&dev->event_lock, flags);
-
-		e = kzalloc(sizeof *e, GFP_KERNEL);
-		if (e == NULL) {
-			spin_lock_irqsave(&dev->event_lock, flags);
-			file_priv->event_space += sizeof e->event;
-			spin_unlock_irqrestore(&dev->event_lock, flags);
-			goto out;
-		}
-
-		e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
-		e->event.base.length = sizeof e->event;
-		e->event.user_data = page_flip->user_data;
-		e->base.event = &e->event.base;
-		e->base.file_priv = file_priv;
-		e->base.destroy =
-			(void (*) (struct drm_pending_event *)) kfree;
-	}
-
-	old_fb = crtc->fb;
-	ret = crtc->funcs->page_flip(crtc, fb, e, page_flip->flags);
-	if (ret) {
-		if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
-			spin_lock_irqsave(&dev->event_lock, flags);
-			file_priv->event_space += sizeof e->event;
-			spin_unlock_irqrestore(&dev->event_lock, flags);
-			kfree(e);
-		}
-		/* Keep the old fb, don't unref it. */
-		old_fb = NULL;
-	} else {
-		/*
-		 * Warn if the driver hasn't properly updated the crtc->fb
-		 * field to reflect that the new framebuffer is now used.
-		 * Failing to do so will screw with the reference counting
-		 * on framebuffers.
-		 */
-		WARN_ON(crtc->fb != fb);
-		/* Unref only the old framebuffer. */
-		fb = NULL;
-	}
+	ret = dev->driver->atomic_commit(dev, state);
 
 out:
-	if (fb)
-		drm_framebuffer_unreference(fb);
-	if (old_fb)
-		drm_framebuffer_unreference(old_fb);
-	ww_mutex_unlock(&crtc->mutex);
-
+	if (ret && e)
+		destroy_vblank_event(dev, file_priv, e);
+	dev->driver->atomic_end(dev, state);
 	return ret;
 }
 

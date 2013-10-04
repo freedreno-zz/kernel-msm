@@ -432,9 +432,7 @@ void drm_fbdev_cma_restore_mode(struct drm_fbdev_cma *fbdev_cma)
 	if (fbdev_cma) {
 		struct drm_device *dev = fbdev_cma->fb_helper.dev;
 
-		drm_modeset_lock_all(dev);
-		drm_fb_helper_restore_fbdev_mode(&fbdev_cma->fb_helper);
-		drm_modeset_unlock_all(dev);
+		drm_fb_helper_restore_fbdev_mode(&fbdev_cma->fb_helper, false);
 	}
 }
 EXPORT_SYMBOL_GPL(drm_fbdev_cma_restore_mode);
