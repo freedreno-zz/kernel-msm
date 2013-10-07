@@ -585,10 +585,10 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	if (hdmi_prim_display) {
 		if (is_mdp4_hw_reset()) {
-			mdp4_dtv_csc_init(mfd);
 			mdp4_hw_init(mfd->cont_splash_done);
 			outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 		}
+		mdp4_dtv_csc_init(mfd);
 	}
 	mdp4_overlay_dmae_cfg(mfd, 0);
 
@@ -1340,6 +1340,7 @@ static int mdp4_dtv_csc_init(struct msm_fb_data_type *mfd)
 			break;
 		}
 	}
+	mdp4_csc_config(&csc_cfg_matrix[i]);
 
 	pr_debug("%s use_csc_limited: %d quant: %d ",
 		__func__, mfd->use_csc_limited,

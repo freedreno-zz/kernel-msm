@@ -4710,10 +4710,12 @@ static void hdmi_msm_avi_info_frame(void)
 	/* Data Byte 03: ITC EC2 EC1 EC0 Q1 Q0 SC1 SC0 */
 	aviInfoFrame[5]  = hdmi_msm_avi_iframe_lut[2][mode];
 
-	/* Limited Range: Q1 = 0 Q0 = 0, Full Range: Q1 = 0 Q0 = 1*/
+	/* Limited Range: Q1 = 0 Q0 = 1, Full Range: Q1 = 1 Q0 = 0*/
 	aviInfoFrame[5] &= ~(0x3 << 2);
-	if (!mfd->use_csc_limited)
+	if (mfd->use_csc_limited)
 		aviInfoFrame[5] |= BIT(2);
+	else
+		aviInfoFrame[5] |= BIT(3);
 
 	/* Data Byte 04: 0 VIC6 VIC5 VIC4 VIC3 VIC2 VIC1 VIC0 */
 	aviInfoFrame[6]  = hdmi_msm_avi_iframe_lut[3][mode];
