@@ -148,7 +148,12 @@ static int msm_get_sensor_info(
 
 	sdata = mctl->sdata;
 	D("%s: sensor_name %s\n", __func__, sdata->sensor_name);
-
+	if (sdata->camera_type == BACK_CAMERA_INT_3D)
+		info.support_3d = true;
+	else
+		info.support_3d = false;
+	if (info.support_3d == true)
+		printk(KERN_INFO "Sensor is supporting 3D interlaced\n");
 	memcpy(&info.name[0], sdata->sensor_name, MAX_SENSOR_NAME);
 	info.flash_enabled = sdata->flash_data->flash_type !=
 					MSM_CAMERA_FLASH_NONE;
@@ -442,8 +447,19 @@ static int msm_mctl_subdev_match_core(struct device *dev, void *data)
 		return 0;
 }
 
-static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
-	int core_index)
+static int msm_mctl_register_csi_subdevs(
+	struct msm_cam_media_controller *p_mctl, int core_index)
+{
+	int rc = -ENODEV;
+
+	rc = msm_csi_register_subdevs(p_mctl, core_index,
+			msm_mctl_subdev_match_core);
+	if (rc < 0)
+		pr_err("Error registering csi subdev\n");
+	return rc;
+}
+
+static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl)
 {
 	struct device_driver *driver;
 	struct device *dev;
@@ -454,11 +470,17 @@ static int msm_mctl_register_subdevs(struct msm_cam_media_controller *p_mctl,
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 	struct msm_camera_device_platform_data *pdata = sinfo->pdata;
 
-	rc = msm_csi_register_subdevs(p_mctl, core_index,
-				msm_mctl_subdev_match_core);
+	/* register ispif subdev */
+	driver = driver_find(MSM_ISPIF_DRV_NAME, &platform_bus_type);
+	if (!driver)
+		goto out;
 
-	if (rc < 0)
-			goto out;
+	dev = driver_find_device(driver, NULL, 0,
+			msm_mctl_subdev_match_core);
+	if (!dev)
+		goto out;
+
+	p_mctl->ispif_sdev = dev_get_drvdata(dev);
 
 	/* register vfe subdev */
 	driver = driver_find(MSM_VFE_DRV_NAME, &platform_bus_type);
@@ -533,6 +555,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
 	uint8_t csid_core;
+	uint8_t num_csi_core = sinfo->csi_if;
+	int i = 0;
 	D("%s\n", __func__);
 	if (!p_mctl) {
 		pr_err("%s: param is NULL", __func__);
@@ -546,8 +570,11 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		uint32_t csid_version;
 		wake_lock(&p_mctl->wake_lock);
 
+		for (i = 0; i < num_csi_core; i++)
+			csid_core = camdev[i].csid_core;
+
 		csid_core = camdev->csid_core;
-		rc = msm_mctl_register_subdevs(p_mctl, csid_core);
+		rc = msm_mctl_register_subdevs(p_mctl);
 		if (rc < 0) {
 			pr_err("%s: msm_mctl_register_subdevs failed:%d\n",
 				__func__, rc);
@@ -569,25 +596,32 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto act_power_up_failed;
 		}
 
-		if (p_mctl->csiphy_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-				VIDIOC_MSM_CSIPHY_INIT, NULL);
-			if (rc < 0) {
-				pr_err("%s: csiphy initialization failed %d\n",
+		for (i = 0; i < num_csi_core; i++) {
+			csid_core = camdev[i].csid_core;
+			rc = msm_mctl_register_csi_subdevs(p_mctl, csid_core);
+			if (p_mctl->csiphy_sdev) {
+				rc = v4l2_subdev_call(
+					p_mctl->csiphy_sdev[csid_core], core,
+					ioctl, VIDIOC_MSM_CSIPHY_INIT, NULL);
+				if (rc < 0) {
+					pr_err("%s: csiphy init failed %d\n",
 					__func__, rc);
-				goto csiphy_init_failed;
+					goto csiphy_init_failed;
+				}
 			}
-		}
-
-		if (p_mctl->csid_sdev) {
-			rc = v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-				VIDIOC_MSM_CSID_INIT, &csid_version);
-			if (rc < 0) {
-				pr_err("%s: csid initialization failed %d\n",
+			if (p_mctl->csid_sdev) {
+				rc = v4l2_subdev_call(
+					p_mctl->csid_sdev[csid_core],
+					core, ioctl, VIDIOC_MSM_CSID_INIT,
+							&csid_version);
+				if (rc < 0) {
+					pr_err("%s: csid init failed %d\n",
 					__func__, rc);
-				goto csid_init_failed;
+					goto csid_init_failed;
+				}
+				csi_info.is_csic = 0;
 			}
-			csi_info.is_csic = 0;
+			D("CSID_CORE Registered, =%d\n", csid_core);
 		}
 
 		if (p_mctl->csic_sdev) {
@@ -667,18 +701,25 @@ msm_csi_version:
 isp_open_failed:
 	if (p_mctl->csic_sdev)
 		if (v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-			VIDIOC_MSM_CSIC_RELEASE, NULL) < 0)
+				VIDIOC_MSM_CSIC_RELEASE, NULL) < 0)
 			pr_err("%s: csic release failed %d\n", __func__, rc);
 csic_init_failed:
-	if (p_mctl->csid_sdev)
-		if (v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-			VIDIOC_MSM_CSID_RELEASE, NULL) < 0)
-			pr_err("%s: csid release failed %d\n", __func__, rc);
+	for (i = 0; i < 2; i++) {
+		if (p_mctl->csid_sdev[i])
+			if (v4l2_subdev_call(p_mctl->csid_sdev[i], core, ioctl,
+					VIDIOC_MSM_CSID_RELEASE, NULL) < 0)
+				pr_err("%s: csid release failed %d\n",
+							__func__, rc);
+	}
 csid_init_failed:
-	if (p_mctl->csiphy_sdev)
-		if (v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE, NULL) < 0)
-			pr_err("%s: csiphy release failed %d\n", __func__, rc);
+	for (i = 0; i < 2; i++) {
+		if (p_mctl->csiphy_sdev[i])
+			if (v4l2_subdev_call(p_mctl->csiphy_sdev[i],
+				core, ioctl,
+				VIDIOC_MSM_CSIPHY_RELEASE, NULL) < 0)
+				pr_err("%s: csiphy release failed %d\n",
+					__func__, rc);
+	}
 csiphy_init_failed:
 	if (p_mctl->act_sdev)
 		if (v4l2_subdev_call(p_mctl->act_sdev, core,
@@ -697,6 +738,7 @@ register_sdev_failed:
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
+	int i = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
@@ -707,7 +749,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 	if (p_mctl->csic_sdev) {
 		v4l2_subdev_call(p_mctl->csic_sdev, core, ioctl,
-			VIDIOC_MSM_CSIC_RELEASE, NULL);
+				VIDIOC_MSM_CSIC_RELEASE, NULL);
 	}
 
 	if (camdev->is_vpe) {
@@ -724,14 +766,18 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 		p_mctl->isp_sdev->isp_release(p_mctl,
 			p_mctl->isp_sdev->sd);
 
-	if (p_mctl->csid_sdev) {
-		v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
-			VIDIOC_MSM_CSID_RELEASE, NULL);
+	for (i = 0; i < 2; i++) {
+		if (p_mctl->csid_sdev[i]) {
+			v4l2_subdev_call(p_mctl->csid_sdev[i], core, ioctl,
+					VIDIOC_MSM_CSID_RELEASE, NULL);
+		}
 	}
 
-	if (p_mctl->csiphy_sdev) {
-		v4l2_subdev_call(p_mctl->csiphy_sdev, core, ioctl,
-			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
+	for (i = 0; i < 2; i++) {
+		if (p_mctl->csiphy_sdev[i]) {
+			v4l2_subdev_call(p_mctl->csiphy_sdev[i], core, ioctl,
+					VIDIOC_MSM_CSIPHY_RELEASE, NULL);
+		}
 	}
 
 	pm_qos_update_request(&p_mctl->pm_qos_req_list,

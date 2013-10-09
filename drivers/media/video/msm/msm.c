@@ -581,6 +581,11 @@ static int msm_server_streamoff(struct msm_cam_v4l2_device *pcam, int idx)
 	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.queue_idx = pcam->server_queue_idx;
 	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
+	D("ctrlcmd.type = %d\n", ctrlcmd.type);
+	D("ctrlcmd.stream_type = %d\n", ctrlcmd.stream_type);
+	D("ctrlcmd.vnode_id = %d\n", ctrlcmd.vnode_id);
+	D("ctrlcmd.queue_idx = %d\n", ctrlcmd.queue_idx);
+	D("ctrlcmd.config_ident = %d\n", ctrlcmd.config_ident);
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, &ctrlcmd);
@@ -2951,7 +2956,7 @@ config_setup_fail:
 	kfree(config_cam);
 	return rc;
 }
-
+int core_change;
 static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 				unsigned int notification, void *arg)
 {
@@ -2961,14 +2966,22 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	struct msm_camera_device_platform_data *camdev;
 	uint8_t csid_core = 0;
 
+	if (notification == NOTIFY_MODE_CHANGE) {
+		core_change = *((int *)arg);
+		D("Core change = %d\n", core_change);
+	}
+
 	if (notification == NOTIFY_PCLK_CHANGE ||
-		notification == NOTIFY_CSIPHY_CFG ||
-		notification == NOTIFY_CSID_CFG ||
-		notification == NOTIFY_CSIC_CFG) {
+			notification == NOTIFY_CSIPHY_CFG ||
+			notification == NOTIFY_CSID_CFG ||
+			notification == NOTIFY_CSIC_CFG ||
+			notification == NOTIFY_MODE_CHANGE) {
 		s_ctrl = get_sctrl(sd);
 		sinfo = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
 		camdev = sinfo->pdata;
 		csid_core = camdev->csid_core;
+		csid_core = core_change;
+		D("Kernel:Coming from csid_core %d\n", csid_core);
 	}
 
 	switch (notification) {
@@ -3027,6 +3040,11 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	case NOTIFY_CSIC_CFG:
 		rc = v4l2_subdev_call(g_server_dev.csic_device[csid_core],
 			core, ioctl, VIDIOC_MSM_CSIC_CFG, arg);
+	case NOTIFY_ISPIF_MODE_CHANGE:
+		rc = v4l2_subdev_call(g_server_dev.ispif_device,
+			core, ioctl, VIDIOC_MSM_ISPIF_MODE,
+				(struct ispif_cfg_data *)arg);
+		D("Return value is %d\n", rc);
 		break;
 	case NOTIFY_GESTURE_EVT:
 		rc = v4l2_subdev_call(g_server_dev.gesture_device,

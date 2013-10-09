@@ -73,14 +73,19 @@ enum msm_cpu {
 	MSM_CPU_7X25AA,
 	MSM_CPU_7X25AB,
 	MSM_CPU_8064,
+	MSM_CPU_8064AB,
+	MSM_CPU_8064AA,
 	MSM_CPU_8930,
 	MSM_CPU_8930AA,
+	MSM_CPU_8930AB,
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 	MSM_CPU_COPPER,
 	MSM_CPU_8627,
 	MSM_CPU_8625,
-	MSM_CPU_9625
+	MSM_CPU_9625,
+	MSM_CPU_8092,
+	MSM_CPU_8226
 };
 
 enum msm_cpu socinfo_get_msm_cpu(void);
@@ -264,6 +269,24 @@ static inline int cpu_is_apq8064(void)
 #endif
 }
 
+static inline int cpu_is_apq8064ab(void)
+{
+#ifdef CONFIG_ARCH_APQ8064
+	return read_msm_cpu_type() == MSM_CPU_8064AB;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_apq8064aa(void)
+{
+#ifdef CONFIG_ARCH_APQ8064
+	return read_msm_cpu_type() == MSM_CPU_8064AA;
+#else
+	return 0;
+#endif
+}
+
 static inline int cpu_is_msm8930(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
@@ -277,6 +300,15 @@ static inline int cpu_is_msm8930aa(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
 	return read_msm_cpu_type() == MSM_CPU_8930AA;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8930ab(void)
+{
+#ifdef CONFIG_ARCH_MSM8930
+	return read_msm_cpu_type() == MSM_CPU_8930AB;
 #else
 	return 0;
 #endif
@@ -328,4 +360,59 @@ static inline int cpu_is_msm8625(void)
 #endif
 }
 
+static inline int cpu_is_mpq8092(void)
+{
+#ifdef CONFIG_ARCH_MPQ8092
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8092;
+#else
+	return 0;
+#endif
+
+}
+
+static inline int cpu_is_msm8226(void)
+{
+#ifdef CONFIG_ARCH_MSM8226
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8226;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_krait_v3(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x512F04D0:
+	case 0x511F06F0:
+	case 0x511F06F1:
+	case 0x510F05D0:
+		return 1;
+
+	default:
+		return 0;
+	};
+}
+
+static inline int soc_class_is_msm8960(void)
+{
+	return cpu_is_msm8960() || cpu_is_msm8960ab();
+}
+
+static inline int soc_class_is_apq8064(void)
+{
+	return cpu_is_apq8064() || cpu_is_apq8064ab() ||
+		cpu_is_apq8064aa();
+}
+
+static inline int soc_class_is_msm8930(void)
+{
+	return cpu_is_msm8930() || cpu_is_msm8930aa() ||
+		cpu_is_msm8930ab() || cpu_is_msm8627();
+}
 #endif

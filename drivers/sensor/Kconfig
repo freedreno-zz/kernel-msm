@@ -1,0 +1,53 @@
+#
+# Sensor  drivers configuration
+#
+menuconfig SENSORS_CORE
+	bool "Sensor devices"
+	help
+	  Say Y here, and a list of sensors drivers will be displayed.
+	  Everything that didn't fit into the other categories is here. This option
+	  doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if SENSORS_CORE
+
+config SENSORS_L3GD20
+	depends on I2C
+	tristate "STMicro Gyro L3GD20 driver"
+	default n
+	help
+	  Driver for STMicro Gyro L3GD20
+
+config SENSORS_LSM303DLHC
+	tristate "ST LSM303DLHC 3-axis accelerometer and 3-axis magnetometer"
+	depends on I2C
+	default n
+	help
+	  This driver provides support for the LSM303DLHC chip which includes a
+	  3-axis accelerometer and a 3-axis magnetometer.
+
+	  This driver can also be built as modules.  If so, the module for
+	  accelerometer will be called lsm303dlhc_a and for magnetometer it will
+	  be called lsm303dlhc_m.
+
+	  Say Y here if you have a device containing lsm303dlhc chip.
+
+
+config SENSORS_LSM303DLHC_INPUT_DEVICE
+	bool "ST LSM303DLHC INPUT DEVICE"
+	depends on SENSORS_LSM303DLHC
+	default n
+	help
+	  This driver allows device to be used as an input device with
+	  interrupts, need to be enabled only when input device support
+	  is required.
+
+
+config SENSORS_LPS331
+	tristate "STMicro LPS331 driver"
+	default n
+	depends on I2C
+	help
+	  Driver for STMicro LPS331
+endif

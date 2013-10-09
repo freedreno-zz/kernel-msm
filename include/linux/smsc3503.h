@@ -43,6 +43,8 @@
 
 struct smsc_hub_platform_data {
 	unsigned hub_reset;
+	unsigned hub_connect;
+	unsigned hub_interrupt;
 };
 
 #endif

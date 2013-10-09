@@ -1329,9 +1329,11 @@ static void __init msm8930_init_buses(void)
 #endif
 }
 
+#ifndef CONFIG_BSTEM_FPGA
 static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
 	.max_clock_speed = 15060000,
 };
+#endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
@@ -1961,10 +1963,12 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi9_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+#ifndef CONFIG_BSTEM_FPGA
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi10_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
+#endif
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi12_pdata = {
 	.clk_freq = 100000,
@@ -2114,11 +2118,15 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_riva,
 	&msm_pil_tzapps,
 	&msm_pil_vidc,
+#ifndef CONFIG_BSTEM_FPGA
 	&msm8960_device_qup_spi_gsbi1,
+#endif
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
 	&msm8960_device_qup_i2c_gsbi9,
+#ifndef CONFIG_BSTEM_FPGA
 	&msm8960_device_qup_i2c_gsbi10,
+#endif
 	&msm8960_device_qup_i2c_gsbi12,
 	&msm_slim_ctrl,
 	&msm_device_wcnss_wlan,
@@ -2237,10 +2245,10 @@ static void __init msm8930_i2c_init(void)
 
 	msm8960_device_qup_i2c_gsbi9.dev.platform_data =
 					&msm8960_i2c_qup_gsbi9_pdata;
-
+#ifndef CONFIG_BSTEM_FPGA
 	msm8960_device_qup_i2c_gsbi10.dev.platform_data =
 					&msm8960_i2c_qup_gsbi10_pdata;
-
+#endif
 	msm8960_device_qup_i2c_gsbi12.dev.platform_data =
 					&msm8960_i2c_qup_gsbi12_pdata;
 }
@@ -2465,8 +2473,10 @@ static void __init msm8930_cdp_init(void)
 	android_usb_pdata.swfi_latency =
 			msm_rpmrs_levels[0].latency_us;
 	msm8930_init_gpiomux();
+#ifndef CONFIG_BSTEM_FPGA
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
+#endif
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 
 	/*
@@ -2498,7 +2508,9 @@ static void __init msm8930_cdp_init(void)
 	msm8930_pm8038_gpio_mpp_init();
 #endif
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+#ifdef CONFIG_MSM_CAMERA
 	msm8930_init_cam();
+#endif
 	msm8930_init_mmc();
 	acpuclk_init(&acpuclk_8930_soc_data);
 	mxt_init_vkeys_8930();

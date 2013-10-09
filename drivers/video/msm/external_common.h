@@ -13,7 +13,7 @@
 #ifndef __EXTERNAL_COMMON_H__
 #define __EXTERNAL_COMMON_H__
 #include <linux/switch.h>
-
+#define DEBUG
 #ifdef DEBUG
 #ifndef DEV_DBG_PREFIX
 #define DEV_DBG_PREFIX "EXT_INTERFACE: "

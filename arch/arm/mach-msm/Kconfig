@@ -193,7 +193,7 @@ config ARCH_MSM8930
 	select MSM_QDSP6_APR
 	select MSM_QDSP6_CODECS
 	select MSM_PIL
-	select MSM_AUDIO_QDSP6 if SND_SOC
+#	select MSM_AUDIO_QDSP6 if SND_SOC
 	select CPU_HAS_L2_PMU
 	select MSM_SPM_V2
 	select MSM_L2_SPM
@@ -211,7 +211,7 @@ config ARCH_MSM8930
 	select ARCH_MEMORY_PROBE if ENABLE_DMM
 	select ARCH_MEMORY_REMOVE if ENABLE_DMM
 	select FIX_MOVABLE_ZONE if ENABLE_DMM
-	select MSM_ULTRASOUND
+#	select MSM_ULTRASOUND
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
@@ -229,7 +229,7 @@ config ARCH_APQ8064
 	select MSM_PIL
 	select MSM_QDSP6_APR
 	select MSM_QDSP6_CODECS
-	select MSM_AUDIO_QDSP6 if SND_SOC
+#	select MSM_AUDIO_QDSP6 if SND_SOC
 	select MULTI_IRQ_HANDLER
 	select MSM_RPM
 	select MSM_SPM_V2
@@ -770,6 +770,18 @@ config MACH_MSM8960_LIQUID
 	help
 	  Support for the Qualcomm MSM8960 LIQUID device.
 
+config MACH_APQ8060A_DRAGON
+	depends on ARCH_MSM8960
+	bool "APQ8060A Based Dragonboard"
+	help
+	  Support for the Qualcomm APQ8060A/MSM8960 based device
+
+config MACH_APQ8060A_BSTEM
+	depends on ARCH_MSM8960
+	bool "APQ8060A Based bSTEM board"
+	help
+	  Support for the Qualcomm APQ8060A based bSTEM board device
+
 config MACH_MSM8930_CDP
 	depends on ARCH_MSM8930
 	bool "MSM8930 CDP"
@@ -1008,14 +1020,6 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8960 devices.
-
-	config DEBUG_MSM8930_UART
-		bool "Kernel low-level debugging messages via MSM 8930 UART"
-		depends on ARCH_MSM8930 && DEBUG_LL
-		select MSM_HAS_DEBUG_UART_HS
-		help
-		Say Y here if you want the debug print routines to direct
-		their output to the serial port on MSM 8930 devices.
 
 	config DEBUG_APQ8064_UART
 		bool "Kernel low-level debugging messages via APQ 8064 UART"

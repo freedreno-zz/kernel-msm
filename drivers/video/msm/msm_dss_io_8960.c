@@ -127,6 +127,7 @@ void mipi_dsi_clk_deinit(struct device *dev)
 		clk_put(dsi_esc_clk);
 }
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI
 static void mipi_dsi_clk_ctrl(struct dsi_clk_desc *clk, int clk_en)
 {
 	char	*cc, *ns, *md;
@@ -230,7 +231,7 @@ static void mipi_dsi_ahb_en(void)
 	pr_debug("%s: ahb=%x %x\n",
 		__func__, (int) ahb, MIPI_INP_SECURE(ahb));
 }
-
+#endif
 void mipi_dsi_lane_cfg(void)
 {
 	int i, ln_offset;
@@ -604,6 +605,7 @@ void cont_splash_clk_ctrl(int enable)
 	}
 }
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI
 void mipi_dsi_prepare_clocks(void)
 {
 	clk_prepare(amp_pclk);
@@ -710,6 +712,33 @@ void mipi_dsi_phy_ctrl(int on)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0118, 0);
 	}
 }
+
+#else
+void mipi_dsi_clk_enable(void)
+{
+	/* empty */
+}
+void mipi_dsi_clk_disable(void)
+{
+	/* empty */
+}
+void mipi_dsi_prepare_clocks(void)
+{
+	/* empty */
+}
+void mipi_dsi_unprepare_clocks(void)
+{
+	/* empty */
+}
+void mipi_dsi_ahb_ctrl(u32 enable)
+{
+	/* empty */
+}
+void mipi_dsi_phy_ctrl(int on)
+{
+	/* empty */
+}
+#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 void hdmi_phy_reset(void)

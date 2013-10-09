@@ -3957,6 +3957,11 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe_cmd_stats_buf *scfg = NULL;
 	struct msm_pmem_region   *regptr = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
+
+	if (cmd == NULL) {
+		CDBG("Null parameters passed");
+		return 0;
+	}
 	if (cmd->cmd_type == CMD_VFE_PROCESS_IRQ) {
 		vfe32_process_irq((uint32_t) data);
 		return rc;

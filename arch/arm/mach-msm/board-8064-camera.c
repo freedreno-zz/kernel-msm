@@ -21,6 +21,7 @@
 #include "devices.h"
 #include "board-8064.h"
 
+#ifdef CONFIG_MSM_CAMERA
 static struct gpiomux_setting cam_settings[] = {
 	{
 		.func = GPIOMUX_FUNC_GPIO, /*suspend*/
@@ -193,7 +194,7 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 
 static struct msm_gpiomux_config apq8064_cam_2d_configs[] = {
 };
-
+#endif
 #ifdef CONFIG_MSM_CAMERA
 
 static struct msm_bus_vectors cam_init_vectors[] = {

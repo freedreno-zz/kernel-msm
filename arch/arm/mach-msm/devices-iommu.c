@@ -1003,7 +1003,8 @@ static int __init iommu_init(void)
 				ARRAY_SIZE(msm_iommu_common_devs));
 
 	/* Initialize soc-specific devs */
-	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+	if (cpu_is_msm8x60() || cpu_is_msm8960() ||
+			cpu_is_msm8960ab()) {
 		platform_add_devices(msm_iommu_jpegd_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_devs));
 		platform_add_devices(msm_iommu_gfx2d_devs,

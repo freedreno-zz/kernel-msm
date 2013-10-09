@@ -952,11 +952,33 @@ static void msm_fb_copyarea(struct fb_info *info,
 	}
 }
 
+struct timer_list sync_screen_timer;
+static int sync_screen_timer_not_completed = 0;
+
+void sync_screen_timer_func(unsigned long data)
+{
+	struct fb_info *info = (struct fb_info *)data;
+
+	dma_cache_pre_ops(info->screen_base, info->var.xres * info->var.yres * info->var.bits_per_pixel, DMA_TO_DEVICE);
+	sync_screen_timer_not_completed = 0;
+}
+
 static void msm_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
 	cfb_imageblit(info, image);
+
+	if (!sync_screen_timer_not_completed)
+	{
+		sync_screen_timer_not_completed=1;
+		init_timer(&sync_screen_timer);
+		sync_screen_timer.function = sync_screen_timer_func;
+		sync_screen_timer.data = (unsigned long)info;
+		sync_screen_timer.expires = jiffies + (10 * HZ / 1000); //10ms
+		add_timer(&sync_screen_timer);
+	}
+	
 	if (!mfd->hw_refresh && (info->var.yoffset == 0) &&
 		!mfd->sw_currently_refreshing) {
 		struct fb_var_screeninfo var;
@@ -1035,6 +1057,9 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	else
 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
+
+pr_err("msm_fb_mmap: mode %d\n",mfd->mdp_fb_page_protection);
+
 	/* Remap the frame buffer I/O range */
 	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
 				vma->vm_end - vma->vm_start,
@@ -1107,7 +1132,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->yoffset = 0,	/* resolution */
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
-	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
+	var->activate = FB_ACTIVATE_NOW,	/* activate it at vsync */
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
 	var->accel_flags = 0,	/* acceleration flags */
@@ -1600,8 +1625,30 @@ static int msm_fb_open(struct fb_info *info, int user)
 	}
 
 	if (info->node == 0 && !(mfd->cont_splash_done)) {	/* primary */
-			mfd->ref_cnt++;
-			return 0;
+		// This hack turns on the display.  Turning an overlay on turns on
+		// the external clock and the rest of the display hardware.
+
+		struct mdp_overlay req = {{0}};
+
+		mdp_set_dma_pan_info(info, NULL, TRUE);
+		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {
+			pr_err("%s: can't turn on display!\n", __func__);
+			return -EINVAL;
+		}
+
+		// We emulate an overlay which X would/will create.
+		req.src.width = req.src.height = req.dst_rect.w = req.dst_rect.h = req.src_rect.w = req.src_rect.h = 10;
+		req.src.format = 2;
+		req.alpha = 255;
+		req.transp_mask = -1;
+		req.id = -1;
+		mdp4_overlay_set(info, &req);
+		// immediately turn off the overlay because X will create another one
+		// however, the display stays on.
+		mdp4_overlay_unset(info, req.id);
+
+		mfd->ref_cnt++;
+		return 0;
 	}
 
 	if (!mfd->ref_cnt) {
@@ -1739,7 +1786,7 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 	}
 
 	mdp_set_dma_pan_info(info, dirtyPtr,
-			     (var->activate == FB_ACTIVATE_VBL));
+			     (var->activate == FB_ACTIVATE_NOW));
 	mdp_dma_pan_update(info);
 	up(&msm_fb_pan_sem);
 

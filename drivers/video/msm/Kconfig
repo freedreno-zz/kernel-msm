@@ -211,6 +211,11 @@ config FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
 	  and up to WUXGA 1920x1200 18-bit
 	  using a dual LVDS link.
 
+config FB_MSM_MIPI_DSI_WINTEK
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
 config FB_MSM_LCDC_ST15_WXGA
     bool
     select FB_MSM_LCDC_PANEL
@@ -390,6 +395,27 @@ config FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_DSI_SIMULATOR
 	default n
 
+config FB_MSM_MIPI_WINTEK_VIDEO_WVGA
+	bool
+	select FB_MSM_MIPI_DSI_WINTEK
+	default n
+	---help---
+	  Support for Wintek WVGA (800x480) panel.
+
+config FB_MSM_MIPI_WINTEK_VIDEO_WVGA_BL_LEVELS
+	int "Define number of backlight levels."
+	depends on FB_MSM_MIPI_WINTEK_VIDEO_WVGA
+	range 1 255
+	default 1
+	---help---
+	  Define number of backlight levels. Depends on HW configuration:
+	  If R204 is stuffed, GPIO 24 turns on/off backlight. Select 1 level
+	  If R205 is stuffed, LCD controller generates PWM signal to control
+	  backlight. Select 1...255. Suggested value is 15.
+
+
+
+
 config FB_MSM_OVERLAY0_WRITEBACK
 	depends on FB_MSM_OVERLAY
         bool "MDP overlay0 write back mode enable"
@@ -524,6 +550,7 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
+	select FB_MSM_MIPI_WINTEK_VIDEO_WVGA
 	---help---
 	  Support for MIPI panel auto detect
 
@@ -583,6 +610,7 @@ config FB_MSM_LVDS_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
+	select FB_MSM_MIPI_WINTEK_VIDEO_WVGA
 	---help---
 	  Support for LVDS + MIPI panel auto detect
 
@@ -683,6 +711,10 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT_PANEL
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
+
+config FB_MSM_MIPI_WINTEK_VIDEO_PANEL
+	bool "MIPI Wintek Video Panel"
+	select FB_MSM_MIPI_WINTEK_VIDEO_WVGA
 
 config FB_MSM_EBI2_TMD_QVGA_EPSON_QCIF
 	bool "EBI2 TMD QVGA Epson QCIF Dual Panel"

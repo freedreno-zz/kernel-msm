@@ -134,4 +134,6 @@ source "drivers/clocksource/Kconfig"
 
 source "drivers/gud/Kconfig"
 
+source "drivers/sensor/Kconfig"
+
 endmenu

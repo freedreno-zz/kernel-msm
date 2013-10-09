@@ -36,6 +36,7 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 };
 
 static const struct platform_suspend_ops *suspend_ops;
+int how_pm_transit;
 
 /**
  *	suspend_set_ops - Set the global suspend method table.
@@ -165,7 +166,7 @@ static int suspend_enter(suspend_state_t state)
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
-
+	how_pm_transit = 0;
 	error = syscore_suspend();
 	if (!error) {
 		if (!(suspend_test(TEST_CORE) || pm_wakeup_pending())) {
@@ -174,7 +175,7 @@ static int suspend_enter(suspend_state_t state)
 		}
 		syscore_resume();
 	}
-
+	how_pm_transit = 0;
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
@@ -190,7 +191,7 @@ static int suspend_enter(suspend_state_t state)
  Platform_finish:
 	if (suspend_ops->finish)
 		suspend_ops->finish();
-
+	how_pm_transit = 1;
 	return error;
 }
 

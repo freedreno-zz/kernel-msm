@@ -129,3 +129,6 @@ obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
 
 #MobiCore
 obj-$(CONFIG_MOBICORE_SUPPORT)  += gud/
+
+#Sensors
+obj-$(CONFIG_SENSORS_CORE)	+= sensor/

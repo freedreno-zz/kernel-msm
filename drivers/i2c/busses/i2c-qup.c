@@ -1189,6 +1189,8 @@ blsp_core_init:
 	}
 
 	/* We support frequencies upto FAST Mode(400KHz) */
+	pdata->clk_freq = 400000;
+	dev_err(&pdev->dev, "hard coding clock frequency to %dHz\n", pdata->clk_freq);
 	if (pdata->clk_freq <= 0 ||
 			pdata->clk_freq > 400000) {
 		dev_err(&pdev->dev, "clock frequency not supported\n");

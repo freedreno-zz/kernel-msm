@@ -1298,6 +1298,7 @@ static struct msm_sensor_ctrl_t mt9m114_s_ctrl = {
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(mt9m114_subdev_info),
 	.sensor_v4l2_subdev_ops = &mt9m114_subdev_ops,
 	.func_tbl = &mt9m114_func_tbl,
+	.clk_rate = MSM_SENSOR_MCLK_24HZ,
 };
 
 module_init(msm_sensor_init_module);

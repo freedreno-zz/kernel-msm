@@ -246,6 +246,7 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	struct csiphy_cfg_params cfg_params;
 	struct csiphy_device *csiphy_dev = v4l2_get_subdevdata(sd);
 	mutex_lock(&csiphy_dev->mutex);
+	CDBG("%s, device id is =%d\n", __func__, csiphy_dev->pdev->id);
 	switch (cmd) {
 	case VIDIOC_MSM_CSIPHY_CFG:
 		cfg_params.subdev = sd;

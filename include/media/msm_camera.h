@@ -1156,7 +1156,7 @@ struct csi_lane_params_t {
 	uint8_t csi_lane_assign;
 	uint8_t csi_lane_mask;
 	uint8_t csi_if;
-	uint8_t csid_core;
+	uint8_t csid_core[2];
 	uint32_t csid_version;
 };
 
@@ -1241,6 +1241,18 @@ enum ispif_cfg_type_t {
 	ISPIF_SET_OFF_FRAME_BOUNDARY,
 	ISPIF_SET_OFF_IMMEDIATELY,
 	ISPIF_RELEASE,
+	ISPIF_MODE,
+};
+
+enum msm_cam_mode {
+	CAM_MODE_L,
+	CAM_MODE_R,
+	CAM_MODE_DUAL,
+};
+
+struct msm_ispif_cam_info {
+	enum msm_cam_mode mode;
+	uint16_t x_output_size;
 };
 
 struct ispif_cfg_data {
@@ -1249,6 +1261,7 @@ struct ispif_cfg_data {
 		uint32_t csid_version;
 		int cmd;
 		struct msm_ispif_params_list ispif_params;
+		struct msm_ispif_cam_info caminfo;
 	} cfg;
 };
 
@@ -1396,6 +1409,7 @@ enum af_camera_name {
 	ACTUATOR_MAIN_CAM_3,
 	ACTUATOR_MAIN_CAM_4,
 	ACTUATOR_MAIN_CAM_5,
+	ACTUATOR_MAIN_CAM_6,
 	ACTUATOR_WEB_CAM_0,
 	ACTUATOR_WEB_CAM_1,
 	ACTUATOR_WEB_CAM_2,

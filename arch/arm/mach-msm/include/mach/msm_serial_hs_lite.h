@@ -14,6 +14,11 @@
 #ifndef __ASM_ARCH_MSM_SERIAL_HS_LITE_H
 #define __ASM_ARCH_MSM_SERIAL_HS_LITE_H
 
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+#define UART_RS485_TXEN    32
+#define UART_RS485_RXEN    33
+#endif
+
 struct msm_serial_hslite_platform_data {
 	unsigned config_gpio;
 	unsigned uart_tx_gpio;

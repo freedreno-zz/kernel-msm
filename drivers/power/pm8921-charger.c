@@ -1310,7 +1310,7 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 		percent_soc = voltage_based_capacity(chip);
 
 	if (percent_soc <= 10)
-		pr_warn("low battery charge = %d%%\n", percent_soc);
+		pr_debug("low battery charge = %d%%\n", percent_soc);
 
 	chip->recent_reported_soc = percent_soc;
 	return percent_soc;
@@ -2232,7 +2232,7 @@ static irqreturn_t chgfail_irq_handler(int irq, void *data)
 	if (ret)
 		pr_err("Failed to write CHG_FAILED_CLEAR bit\n");
 
-	pr_err("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
+	pr_debug("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
 			get_prop_batt_present(chip),
 			pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ),
 			pm_chg_get_fsm_state(data));

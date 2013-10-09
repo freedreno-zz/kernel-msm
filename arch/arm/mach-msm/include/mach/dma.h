@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/dma.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,7 +35,10 @@ struct msm_dmov_cmd {
 			      unsigned int result,
 			      struct msm_dmov_errdata *err);
 	void (*exec_func)(struct msm_dmov_cmd *cmd);
+	struct work_struct work;
+	unsigned id;    /* For internal use */
 	void *user;	/* Pointer for caller's reference */
+	u8 toflush;
 };
 
 struct msm_dmov_pdata {
@@ -185,6 +188,12 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_HSUART_GSBI6_RX_CHAN	8
 #define DMOV_HSUART_GSBI6_RX_CRCI	11
 
+#define DMOV_HSUART_GSBI8_TX_CHAN	7
+#define DMOV_HSUART_GSBI8_TX_CRCI	10
+
+#define DMOV_HSUART_GSBI8_RX_CHAN	8
+#define DMOV_HSUART_GSBI8_RX_CRCI	9
+
 #define DMOV_HSUART_GSBI9_TX_CHAN	4
 #define DMOV_HSUART_GSBI9_TX_CRCI	13
 
@@ -260,6 +269,22 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV8064_CE_OUT_CHAN       1
 #define DMOV8064_CE_OUT_CRCI       15
 
+#define DMOV8064_TSIF_CHAN         2
+#define DMOV8064_TSIF_CRCI         1
+
+/* channels for APQ8064 SGLTE*/
+#define DMOV_APQ8064_HSUART_GSBI4_TX_CHAN	11
+#define DMOV_APQ8064_HSUART_GSBI4_TX_CRCI	8
+
+#define DMOV_APQ8064_HSUART_GSBI4_RX_CHAN	10
+#define DMOV_APQ8064_HSUART_GSBI4_RX_CRCI	7
+
+/* channels for MPQ8064 */
+#define DMOV_MPQ8064_HSUART_GSBI6_TX_CHAN	7
+#define DMOV_MPQ8064_HSUART_GSBI6_TX_CRCI	6
+
+#define DMOV_MPQ8064_HSUART_GSBI6_RX_CHAN	6
+#define DMOV_MPQ8064_HSUART_GSBI6_RX_CRCI	11
 
 /* no client rate control ifc (eg, ram) */
 #define DMOV_NONE_CRCI        0

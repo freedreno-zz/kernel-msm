@@ -3308,6 +3308,47 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	return pdata;
 }
 
+static ssize_t otg_control_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct msm_otg *motg = dev_get_drvdata(dev);
+	struct otg_transceiver *otg = &motg->otg;
+
+	if (!strncmp(buf, "suspend", 7)) {
+		if (otg->state == OTG_STATE_A_HOST)
+			msm_hsusb_vbus_power(motg, 0);
+		else
+			msm_otg_set_vbus_state(0);
+	} else if (!strncmp(buf, "resume", 6)) {
+		if (otg->state == OTG_STATE_A_WAIT_BCON)
+			msm_hsusb_vbus_power(motg, 1);
+		else
+			msm_otg_set_vbus_state(1);
+	}
+	return size;
+}
+
+static struct device_attribute attributes[] = {
+
+	__ATTR(otg_control, 0222, NULL, otg_control_set),
+};
+
+static int create_sysfs_interfaces(struct device *dev)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		if (device_create_file(dev, attributes + i))
+			goto error;
+	return 0;
+
+error:
+	for ( ; i >= 0; i--)
+		device_remove_file(dev, attributes + i);
+	dev_err(dev, "%s:Unable to create interface\n", __func__);
+	return -EINVAL;
+}
+
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3509,7 +3550,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	otg->start_hnp = msm_otg_start_hnp;
 	otg->start_srp = msm_otg_start_srp;
 	otg->set_suspend = msm_otg_set_suspend;
-	
+
 	if (pdata->otg_control == OTG_PHY_CONTROL && pdata->mpm_otgsessvld_int)
 		msm_mpm_enable_pin(pdata->mpm_otgsessvld_int, 1);
 
@@ -3545,6 +3586,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, motg);
 	device_init_wakeup(&pdev->dev, 1);
 	motg->mA_port = IUNIT;
+
+	dev_set_drvdata(&pdev->dev, motg);
+
+	ret = create_sysfs_interfaces(&pdev->dev);
+	if (ret < 0) {
+		dev_dbg(&pdev->dev, "%s msm_otg_control file is not available\n",
+			"msm_otg_control");
+	}
 
 	ret = msm_otg_debugfs_init(motg);
 	if (ret)

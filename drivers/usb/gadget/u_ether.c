@@ -959,7 +959,8 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	if (get_ether_addr(dev_addr, net->dev_addr))
 		dev_warn(&g->dev,
 			"using random %s ethernet address\n", "self");
-	if (get_ether_addr(host_addr, dev->host_mac))
+	dev_warn(&g->dev,"using hard coded HOST MAC address\n");
+	if (get_ether_addr("3e:6a:09:bb:26:01", dev->host_mac))
 		dev_warn(&g->dev,
 			"using random %s ethernet address\n", "host");
 

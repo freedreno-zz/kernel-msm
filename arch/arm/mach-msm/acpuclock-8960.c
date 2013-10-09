@@ -898,7 +898,7 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 	int rc;
 
 	if (!skip_regulators) {
-		if (cpu_is_msm8960()) {
+		if (cpu_is_msm8960() || cpu_is_msm8960ab()) {
 			rc = rpm_vreg_set_voltage(
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_voter,
@@ -955,7 +955,7 @@ static void hfpll_disable(struct scalable *sc, bool skip_regulators)
 			pr_err("%s regulator enable failed (%d)\n",
 				sc->vreg[VREG_HFPLL_B].name, rc);
 
-		if (cpu_is_msm8960()) {
+		if (cpu_is_msm8960() || cpu_is_msm8960ab()) {
 			rc = rpm_vreg_set_voltage(
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_id,
 					sc->vreg[VREG_HFPLL_A].rpm_vreg_voter,
@@ -1568,7 +1568,7 @@ static void __init select_freq_plan(void)
 	struct acpu_level *l;
 
 	/* Select frequency tables. */
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() || cpu_is_msm8960ab()) {
 		enum pvs pvs_id = get_pvs();
 
 		scalable = scalable_8960;

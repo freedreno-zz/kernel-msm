@@ -85,7 +85,7 @@ static int msm8960_headset_gpios_configured;
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
-static bool hs_detect_use_gpio;
+static bool hs_detect_use_gpio = 1;
 module_param(hs_detect_use_gpio, bool, 0444);
 MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
 
@@ -1707,7 +1707,7 @@ static int __init msm8960_audio_init(void)
 {
 	int ret;
 
-	if (!cpu_is_msm8960()) {
+	if (!cpu_is_msm8960() && !cpu_is_msm8960ab()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
 	}
@@ -1772,7 +1772,7 @@ module_init(msm8960_audio_init);
 
 static void __exit msm8960_audio_exit(void)
 {
-	if (!cpu_is_msm8960()) {
+	if (!cpu_is_msm8960() && !cpu_is_msm8960ab()) {
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}

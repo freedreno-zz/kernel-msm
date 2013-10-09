@@ -33,7 +33,7 @@ int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
 	if (!dev)
 		goto out;
 
-	p_mctl->csiphy_sdev = dev_get_drvdata(dev);
+	p_mctl->csiphy_sdev[core_index] = dev_get_drvdata(dev);
 
 	/* register csid subdev */
 	driver = driver_find(MSM_CSID_DRV_NAME, &platform_bus_type);
@@ -45,19 +45,8 @@ int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
 	if (!dev)
 		goto out;
 
-	p_mctl->csid_sdev = dev_get_drvdata(dev);
+	p_mctl->csid_sdev[core_index] = dev_get_drvdata(dev);
 
-	/* register ispif subdev */
-	driver = driver_find(MSM_ISPIF_DRV_NAME, &platform_bus_type);
-	if (!driver)
-		goto out;
-
-	dev = driver_find_device(driver, NULL, 0,
-			msm_mctl_subdev_match_core);
-	if (!dev)
-		goto out;
-
-	p_mctl->ispif_sdev = dev_get_drvdata(dev);
 	rc = 0;
 	return rc;
 out:

@@ -24,6 +24,9 @@
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#include <linux/spi/flash.h>
+#endif
 #include <linux/slimbus/slimbus.h>
 #include <linux/bootmem.h>
 #include <linux/msm_kgsl.h>
@@ -43,6 +46,11 @@
 #include <linux/memory.h>
 #include <linux/memblock.h>
 #include <linux/msm_thermal.h>
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/partitions.h>
+#include <linux/mtd/physmap.h>
+#endif
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -77,6 +85,16 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#include <linux/sensor/l3gd20_gyro.h>
+#include <linux/sensor/lps331ap.h>
+#include <linux/sensor/lsm303dlhc.h>
+#endif
+
+#if defined(CONFIG_RFKILL) || defined(CONFIG_RFKILL_GPIO_MODULE)
+#include <linux/rfkill.h>
+#include <linux/rfkill-gpio.h>
+#endif
 
 #include <linux/smsc3503.h>
 #include <linux/ion.h>
@@ -103,6 +121,10 @@
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
+
+#ifdef CONFIG_TOUCHSCREEN_SITRONIX_I2C_TOUCH
+#include <../../../drivers/input/touchscreen/sitronix_i2c_touch.h>
+#endif
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -310,7 +332,9 @@ static void __init size_pmem_devices(void)
 	android_pmem_adsp_pdata.size = pmem_adsp_size;
 
 	if (!pmem_param_set) {
-		if (machine_is_msm8960_liquid())
+		if (machine_is_msm8960_liquid() ||
+			machine_is_apq8060a_dragon() ||
+			machine_is_apq8060a_bstem())
 			pmem_size = MSM_LIQUID_PMEM_SIZE;
 		if (msm8960_hdmi_as_primary_selected())
 			pmem_size = MSM_HDMI_PRIM_PMEM_SIZE;
@@ -481,13 +505,17 @@ static void __init adjust_mem_for_liquid(void)
 	unsigned int i;
 
 	if (!pmem_param_set) {
-		if (machine_is_msm8960_liquid())
+		if (machine_is_msm8960_liquid() ||
+			machine_is_apq8060a_dragon() ||
+			machine_is_apq8060a_bstem())
 			msm_ion_sf_size = MSM_LIQUID_ION_SF_SIZE;
 
 		if (msm8960_hdmi_as_primary_selected())
 			msm_ion_sf_size = MSM_HDMI_PRIM_ION_SF_SIZE;
 
 		if (machine_is_msm8960_liquid() ||
+			machine_is_apq8060a_dragon() ||
+			machine_is_apq8060a_bstem() ||
 			msm8960_hdmi_as_primary_selected()) {
 			for (i = 0; i < msm8960_ion_pdata.nr; i++) {
 				if (msm8960_ion_pdata.heaps[i].id ==
@@ -1407,20 +1435,44 @@ static void __init msm8960_init_buses(void)
 	msm_bus_rpm_set_mt_mask();
 	msm_bus_8960_apps_fabric_pdata.rpm_enabled = 1;
 	msm_bus_8960_sys_fabric_pdata.rpm_enabled = 1;
-	msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
 	msm_bus_apps_fabric.dev.platform_data =
 		&msm_bus_8960_apps_fabric_pdata;
 	msm_bus_sys_fabric.dev.platform_data = &msm_bus_8960_sys_fabric_pdata;
-	msm_bus_mm_fabric.dev.platform_data = &msm_bus_8960_mm_fabric_pdata;
+	if (cpu_is_msm8960ab()) {
+		printk(KERN_INFO "msm8960ab pro version RPM bus\n");
+		msm_bus_8960_sg_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric.dev.platform_data =
+			&msm_bus_8960_sg_mm_fabric_pdata;
+	} else {
+		msm_bus_8960_mm_fabric_pdata.rpm_enabled = 1;
+		msm_bus_mm_fabric.dev.platform_data =
+			&msm_bus_8960_mm_fabric_pdata;
+	}
 	msm_bus_sys_fpb.dev.platform_data = &msm_bus_8960_sys_fpb_pdata;
 	msm_bus_cpss_fpb.dev.platform_data = &msm_bus_8960_cpss_fpb_pdata;
 #endif
 }
 
+#ifdef CONFIG_BSTEM_FPGA
 static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
-	.max_clock_speed = 15060000,
-	.infinite_mode	 = 1
+   .max_clock_speed = 10800000,
 };
+static struct msm_spi_platform_data msm8960_qup_spi_gsbi8_pdata = {
+   .max_clock_speed = 10800000,
+};
+static struct msm_spi_platform_data msm8960_qup_spi_gsbi10_pdata = {
+   .max_clock_speed = 10800000,
+};
+#else
+static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+   .max_clock_speed = 10800000,
+#else
+   .max_clock_speed = 15060000,
+   .infinite_mode  = 1
+#endif
+};
+#endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
@@ -1496,7 +1548,9 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
+#define HSIC_HUB_CONNECT_GPIO	90
 #define HSIC_HUB_RESET_GPIO	91
+#define HSIC_HUB_INTERRUPT_GPIO	92
 static struct msm_hsic_host_platform_data msm_hsic_pdata = {
 	.strobe		= 150,
 	.data		= 151,
@@ -1504,6 +1558,8 @@ static struct msm_hsic_host_platform_data msm_hsic_pdata = {
 
 static struct smsc_hub_platform_data hsic_hub_pdata = {
 	.hub_reset		= HSIC_HUB_RESET_GPIO,
+	.hub_connect		= HSIC_HUB_CONNECT_GPIO,
+	.hub_interrupt		= HSIC_HUB_INTERRUPT_GPIO,
 };
 #else
 static struct msm_hsic_host_platform_data msm_hsic_pdata;
@@ -1586,6 +1642,11 @@ static uint8_t spm_wfi_cmd_sequence[] __initdata = {
 			0x03, 0x0f,
 };
 
+static uint8_t spm_retention_cmd_sequence[] __initdata = {
+			0x00, 0x05, 0x03, 0x0D,
+			0x0B, 0x00, 0x0f,
+};
+
 static uint8_t spm_power_collapse_without_rpm[] __initdata = {
 			0x00, 0x24, 0x54, 0x10,
 			0x09, 0x03, 0x01,
@@ -1598,6 +1659,29 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 			0x09, 0x07, 0x01, 0x0B,
 			0x10, 0x54, 0x30, 0x0C,
 			0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_retention_with_krait_v3_cmd_sequence[] __initdata = {
+			0x42, 0x1B, 0x00,
+			0x05, 0x03, 0x0D, 0x0B,
+			0x00, 0x42, 0x1B,
+			0x0f,
+};
+
+
+/* 8960AB has a different command to assert apc_pdn */
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
 };
 
 static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
@@ -1946,6 +2030,60 @@ static struct i2c_board_info cyttsp_info[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_TOUCHSCREEN_SITRONIX_I2C_TOUCH
+
+#define SITRONIX_TS_INT_GPIO   46
+#define SITRONIX_TS_RESET_GPIO 52
+
+
+
+static int sitronix_config_gpio(void)
+{
+	int rc = 0;
+	rc = gpio_request(SITRONIX_TS_INT_GPIO, "sitronix_ts_int");
+	if (rc) {
+		pr_err("%s: gpio_request(%d) failed\n", __func__,
+		SITRONIX_TS_INT_GPIO);
+		return rc;
+	}
+
+	rc = gpio_direction_input(SITRONIX_TS_INT_GPIO);
+	if (rc) {
+		pr_err("%s: gpio_direction_input(%d) failed\n", __func__,
+		SITRONIX_TS_INT_GPIO);
+		return rc;
+	}
+
+	rc = gpio_request(SITRONIX_TS_RESET_GPIO, "sitronix_ts_reset");
+	if (rc) {
+		pr_err("%s: gpio_request(%d) failed\n", __func__,
+		SITRONIX_TS_RESET_GPIO);
+		return rc;
+	}
+
+	rc = gpio_direction_output(SITRONIX_TS_RESET_GPIO, 1);
+	if (rc) {
+		pr_err("%s: gpio_direction_input(%d) failed\n", __func__,
+		SITRONIX_TS_RESET_GPIO);
+		return rc;
+	}
+
+	return rc;
+}
+
+struct sitronix_i2c_touch_platform_data touch_i2c_conf = {
+	/* For future use */
+};
+
+
+static struct i2c_board_info sitronix_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(SITRONIX_I2C_TOUCH_DRV_NAME, 0x55),
+		.irq		   = MSM_GPIO_TO_INT(SITRONIX_TS_INT_GPIO),
+		.platform_data = &touch_i2c_conf,
+	},
+};
+#endif
 /* configuration data for mxt1386 */
 static const u8 mxt1386_config_data[] = {
 	/* T6 Object */
@@ -2320,10 +2458,19 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi3_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi5_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+#endif
+
+#ifndef CONFIG_BSTEM_FPGA
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi10_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
+#endif
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi12_pdata = {
 	.clk_freq = 100000,
@@ -2336,12 +2483,63 @@ static struct msm_pm_sleep_status_data msm_pm_slp_sts_data = {
 	.mask = 1UL << 13,
 };
 
+#ifndef CONFIG_BSTEM_FPGA
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+static struct mtd_partition dragonboard_spiflash_part[] = {
+	[0] = {
+		.name = "firmware",
+		.offset	= 0,
+		.size = SZ_512K,
+	},
+};
+static struct flash_platform_data dragonboard_spiflash_data = {
+	.name = "m25p80",
+	.parts = dragonboard_spiflash_part,
+	.nr_parts = ARRAY_SIZE(dragonboard_spiflash_part),
+};
+#else
 static struct ks8851_pdata spi_eth_pdata = {
 	.irq_gpio = KS8851_IRQ_GPIO,
 	.rst_gpio = KS8851_RST_GPIO,
 };
+#endif
+#endif
 
 static struct spi_board_info spi_board_info[] __initdata = {
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#ifdef CONFIG_BSTEM_FPGA
+    {
+      .modalias         = "spi1_dev",
+      .max_speed_hz     = 10800000,
+      .bus_num          = 1,
+      .chip_select      = 0,
+      .mode             = SPI_MODE_0,
+   },
+   {
+      .modalias         = "spi8_dev",
+      .max_speed_hz     = 10800000,
+      .bus_num          = 8,
+      .chip_select      = 0,
+      .mode             = SPI_MODE_0,
+   },
+   {
+      .modalias         = "spi10_dev",
+      .max_speed_hz     = 10800000,
+      .bus_num          = 10,
+      .chip_select      = 0,
+      .mode             = SPI_MODE_0,
+   },
+#else
+	{
+		.modalias		= "m45pe40",
+		.max_speed_hz		= 10800000,
+		.bus_num          = 0,
+		.chip_select		= 0,
+		.mode			= SPI_MODE_0,
+		.platform_data		= &dragonboard_spiflash_data,
+	},
+#endif
+#else
 	{
 		.modalias               = "ks8851",
 		.irq                    = MSM_GPIO_TO_INT(KS8851_IRQ_GPIO),
@@ -2358,6 +2556,7 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.chip_select            = 1,
 		.mode                   = SPI_MODE_0,
 	},
+#endif
 };
 
 static struct platform_device msm_device_saw_core0 = {
@@ -2391,7 +2590,7 @@ static struct platform_device msm_tsens_device = {
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 0,
 	.poll_ms = 1000,
-	.limit_temp = 60,
+	.limit_temp = 80,
 	.temp_hysteresis = 10,
 	.limit_freq = 918000,
 };
@@ -2475,6 +2674,40 @@ static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
+#ifdef CONFIG_RFKILL_GPIO_MODULE
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+static struct rfkill_gpio_platform_data ath6234_rfkill_pdata[] = {
+	{
+		.name		= "WIFI",
+		.reset_gpio	= -1,
+		.shutdown_gpio	= 89,
+		.type		= RFKILL_TYPE_WLAN,
+	},
+	{
+		.name		= "BT",
+		.reset_gpio	= -1,
+		.shutdown_gpio	= 121,
+		.type		= RFKILL_TYPE_BLUETOOTH,
+	},
+};
+static struct platform_device ath6234_rfkill_wifi = {
+	.name		= "rfkill_gpio",
+	.id		= 0,
+	.dev	= {
+		.platform_data = &ath6234_rfkill_pdata[0],
+	},
+};
+static struct platform_device ath6234_rfkill_bt = {
+	.name		= "rfkill_gpio",
+	.id		= 1,
+	.dev	= {
+		.platform_data = &ath6234_rfkill_pdata[1],
+	},
+};
+#endif /* CONFIG_MACH_APQ8060A_BSTEM */
+#endif /* CONFIG_RFKILL */
+
+
 static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
@@ -2485,10 +2718,19 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_device_ext_5v_vreg,
 	&msm8960_device_ssbi_pmic,
 	&msm8960_device_ext_otg_sw_vreg,
-	&msm8960_device_qup_spi_gsbi1,
+#ifdef CONFIG_BSTEM_FPGA
+   &msm8960_device_qup_spi_gsbi1,
+   &msm8960_device_qup_spi_gsbi8,
+   &msm8960_device_qup_spi_gsbi10,
+#else
+   &msm8960_device_qup_spi_gsbi1,
+   &msm8960_device_qup_i2c_gsbi10,
+#endif
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
-	&msm8960_device_qup_i2c_gsbi10,
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	&msm8960_device_qup_i2c_gsbi5,
+#endif
 #ifndef CONFIG_MSM_DSPS
 	&msm8960_device_qup_i2c_gsbi12,
 #endif
@@ -2521,7 +2763,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_android_pmem_audio_device,
 #endif
 #endif
-	&msm_device_vidc,
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
@@ -2558,16 +2799,24 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_cache_dump_device,
 	&msm8960_iommu_domain_device,
 	&msm_tsens_device,
+#ifdef CONFIG_RFKILL_GPIO_MODULE
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	&ath6234_rfkill_wifi,
+	&ath6234_rfkill_bt,
+#endif
+#endif
 };
 
 static struct platform_device *sim_devices[] __initdata = {
 	&msm8960_device_uart_gsbi5,
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   &msm8960_device_uart_gsbi7,
+#endif
 	&msm8960_device_otg,
 	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
 	&msm_device_hsic_host,
 	&android_usb_device,
-	&msm_device_vidc,
 	&msm_bus_apps_fabric,
 	&msm_bus_sys_fabric,
 	&msm_bus_mm_fabric,
@@ -2610,6 +2859,9 @@ static struct platform_device *sim_devices[] __initdata = {
 
 static struct platform_device *rumi3_devices[] __initdata = {
 	&msm8960_device_uart_gsbi5,
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   &msm8960_device_uart_gsbi7,
+#endif
 	&msm_kgsl_3d0,
 	&msm_kgsl_2d0,
 	&msm_kgsl_2d1,
@@ -2678,6 +2930,22 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_bus_cpss_fpb,
 };
 
+static void __init msm8960_dualmode_i2c_init(void)
+{
+
+#define GSBI_DUAL_MODE_CODE	0x60
+#define MSM_GSBI5_PHYS		0x16400000
+	void __iomem *gsbi_mem;
+	gsbi_mem = ioremap_nocache(MSM_GSBI5_PHYS, 4);
+	writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+	/* Ensure protocol code is written before proceeding */
+	wmb();
+	iounmap(gsbi_mem);
+	msm8960_i2c_qup_gsbi5_pdata.use_gsbi_shared_mode = 1;
+	msm8960_device_qup_i2c_gsbi5.dev.platform_data =
+		&msm8960_i2c_qup_gsbi5_pdata;
+}
+
 static void __init msm8960_i2c_init(void)
 {
 	msm8960_device_qup_i2c_gsbi4.dev.platform_data =
@@ -2685,10 +2953,13 @@ static void __init msm8960_i2c_init(void)
 
 	msm8960_device_qup_i2c_gsbi3.dev.platform_data =
 					&msm8960_i2c_qup_gsbi3_pdata;
-
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	msm8960_dualmode_i2c_init();
+#endif
+#ifndef CONFIG_BSTEM_FPGA
 	msm8960_device_qup_i2c_gsbi10.dev.platform_data =
 					&msm8960_i2c_qup_gsbi10_pdata;
-
+#endif
 	msm8960_device_qup_i2c_gsbi12.dev.platform_data =
 					&msm8960_i2c_qup_gsbi12_pdata;
 }
@@ -2800,6 +3071,8 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 #define I2C_SIM  (1 << 3)
 #define I2C_FLUID (1 << 4)
 #define I2C_LIQUID (1 << 5)
+#define I2C_DRAGON (1 << 6)
+#define I2C_BSTEM  (1 << 7)
 
 struct i2c_registry {
 	u8                     machs;
@@ -2857,10 +3130,13 @@ static void __init msm8960_init_smsc_hub(void)
 {
 	uint32_t version = socinfo_get_version();
 
-	if (SOCINFO_VERSION_MAJOR(version) == 1)
+	if (SOCINFO_VERSION_MAJOR(version) == 1 &&
+		!cpu_is_msm8960ab())
 		return;
 
-	if (machine_is_msm8960_liquid())
+	if (machine_is_msm8960_liquid() ||
+		machine_is_apq8060a_dragon() ||
+		machine_is_apq8060a_bstem())
 		platform_device_register(&smsc_hub_device);
 }
 
@@ -2869,10 +3145,13 @@ static void __init msm8960_init_hsic(void)
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 	uint32_t version = socinfo_get_version();
 
-	if (SOCINFO_VERSION_MAJOR(version) == 1)
+	if (SOCINFO_VERSION_MAJOR(version) == 1 &&
+		!cpu_is_msm8960ab())
 		return;
 
-	if (machine_is_msm8960_liquid())
+	if (machine_is_msm8960_liquid() ||
+			machine_is_apq8060a_dragon() ||
+			machine_is_apq8060a_bstem())
 		platform_device_register(&msm_device_hsic_host);
 #endif
 }
@@ -2904,6 +3183,82 @@ static struct i2c_board_info liquid_io_expander_i2c_info[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#define GYRO_INT_N_GPIO		(69)
+#define GYRO_DRDY_GPIO		(46)
+static struct l3gd20_gyro_platform_data l3gd20_gyro_platform_data = {
+	.gpio_int1 = GYRO_INT_N_GPIO,
+	.gpio_DRDY = GYRO_DRDY_GPIO,
+	.negate_x  = 1,
+	.negate_y  = 1,
+	.negate_z  = 1,
+};
+
+static struct i2c_board_info l3gd20_gyro_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(L3GD20_GYRO_DEV_NAME, 0x6b),
+		.platform_data = &l3gd20_gyro_platform_data,
+		.irq = MSM_GPIO_TO_INT(GYRO_DRDY_GPIO),
+	},
+};
+
+#define LPS331AP_PRESSURE_INT1	(70)
+#define LPS331AP_PRESSURE_INT2	(48)
+static struct lps331ap_platform_data lps331_platform_data = {
+	.gpio_int1 = LPS331AP_PRESSURE_INT1,
+	.gpio_int2 = LPS331AP_PRESSURE_INT2,
+};
+
+static struct i2c_board_info lps331_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO( LPS331AP_PRS_DEV_NAME, 0x5d),
+		.platform_data = &lps331_platform_data,
+		.irq = MSM_GPIO_TO_INT(LPS331AP_PRESSURE_INT1),
+	},
+};
+
+static struct lsm303dlhc_platform_data lsm303dlhc_platform_data = {
+
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+	.negative_x = 0,
+	.negative_y = 0,
+	.negative_z = 0,
+	.irq_a1 = 10,
+	.irq_a2 = 67,
+	.irq_m = 49,
+};
+
+#define LSM303DLHC_ACC_INT1	(10)
+#define LSM303DLHC_ACC_INT2	(67)
+struct lsm303dlhc_acc_platform_data lsm303dlhc_acc_platform_data = {
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+	.negate_x = 0,
+	.negate_y = 0,
+	.negate_z = 0,
+	.gpio_int1 = LSM303DLHC_ACC_INT1,
+	.gpio_int2 = LSM303DLHC_ACC_INT2,
+};
+
+static struct i2c_board_info lsm303dlhc_acc_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO( LSM303DLHC_ACC_DEV_NAME, 0x19),
+		.platform_data = &lsm303dlhc_acc_platform_data,
+		.irq = MSM_GPIO_TO_INT(LSM303DLHC_ACC_INT2),
+	},
+};
+#define LSM303DLHC_MAGNETIC_DRDY	(49)
+static struct i2c_board_info lsm303dlhc_mag_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(LSM303DHLC_MAG_DEV_NAME, 0x1e),
+		.platform_data = &lsm303dlhc_platform_data,
+		.irq = MSM_GPIO_TO_INT(LSM303DLHC_MAGNETIC_DRDY),
+	},
+};
+#endif
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_ISL9519_CHARGER
 	{
@@ -2943,6 +3298,45 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		liquid_io_expander_i2c_info,
 		ARRAY_SIZE(liquid_io_expander_i2c_info),
 	},
+#ifdef CONFIG_TOUCHSCREEN_SITRONIX_I2C_TOUCH
+	{
+		I2C_SURF | I2C_DRAGON,
+		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
+		sitronix_info,
+		ARRAY_SIZE(sitronix_info),
+	},
+#endif
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+	/* L3GD20 ST Micro 3-axis gyro sensor */
+	{
+		I2C_LIQUID | I2C_SURF | I2C_DRAGON | I2C_BSTEM,
+		MSM_8960_GSBI12_QUP_I2C_BUS_ID,
+		l3gd20_gyro_device_info,
+		ARRAY_SIZE(l3gd20_gyro_device_info),
+	},
+	/* LPS331 ST Micro pressure sensor */
+	{
+		I2C_LIQUID | I2C_DRAGON | I2C_BSTEM,
+		MSM_8960_GSBI12_QUP_I2C_BUS_ID,
+		lps331_device_info,
+		ARRAY_SIZE(lps331_device_info),
+	},
+	/* LSM303DLHC ST Micro Accelerometer */
+	{
+		I2C_LIQUID | I2C_DRAGON | I2C_BSTEM,
+		MSM_8960_GSBI12_QUP_I2C_BUS_ID,
+		lsm303dlhc_acc_device_info,
+		ARRAY_SIZE(lsm303dlhc_acc_device_info),
+	},
+	/* LSM303DLHC ST Micro Magnetometer */
+	{
+		I2C_LIQUID | I2C_DRAGON | I2C_BSTEM,
+		MSM_8960_GSBI12_QUP_I2C_BUS_ID,
+		lsm303dlhc_mag_device_info,
+		ARRAY_SIZE(lsm303dlhc_mag_device_info),
+	},
+#endif
+
 };
 #endif /* CONFIG_I2C */
 
@@ -2953,7 +3347,8 @@ static void __init register_i2c_devices(void)
 	int i;
 #ifdef CONFIG_MSM_CAMERA
 	struct i2c_registry msm8960_camera_i2c_devices = {
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI |
+			I2C_DRAGON | I2C_BSTEM,
 		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
 		msm8960_camera_board_info.board_info,
 		msm8960_camera_board_info.num_i2c_board_info,
@@ -2973,6 +3368,10 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_LIQUID;
 	else if (machine_is_msm8960_mtp())
 		mach_mask = I2C_FFA;
+	else if (machine_is_apq8060a_dragon())
+		mach_mask = I2C_DRAGON;
+	else if (machine_is_apq8060a_bstem())
+		mach_mask = I2C_BSTEM;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
@@ -3005,6 +3404,46 @@ static void __init register_i2c_devices(void)
 #endif
 }
 
+static void __init msm8960ab_update_krait_spm(void)
+{
+	int i;
+
+	printk(KERN_INFO "Updating Krait SPM\n");
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_power_collapse_without_rpm)
+				pdata->modes[j].cmd =
+				   spm_power_collapse_without_rpm_krait_v3;
+			else if (pdata->modes[j].cmd ==
+					spm_power_collapse_with_rpm)
+				pdata->modes[j].cmd =
+				   spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
+
+static void __init msm8960ab_update_retention_spm(void)
+{
+	int i;
+	printk(KERN_INFO "Updating Krait retention SPM\n");
+	/* Update the SPM sequences for krait retention on all cores */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_retention_cmd_sequence) {
+				pdata->modes[j].cmd =
+				   spm_retention_with_krait_v3_cmd_sequence;
+			}
+		}
+	}
+}
+
 static void __init msm8960_sim_init(void)
 {
 	struct msm_watchdog_pdata *wdog_pdata = (struct msm_watchdog_pdata *)
@@ -3031,8 +3470,10 @@ static void __init msm8960_sim_init(void)
 	platform_add_devices(sim_devices, ARRAY_SIZE(sim_devices));
 	acpuclk_init(&acpuclk_8960_soc_data);
 
+#ifndef CONFIG_BSTEM_FPGA
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
+#endif
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 
 	msm8960_init_mmc();
@@ -3053,8 +3494,10 @@ static void __init msm8960_rumi3_init(void)
 	platform_device_register(&msm8960_device_rpm_regulator);
 	msm8960_init_gpiomux();
 	msm8960_init_pmic();
+#ifndef CONFIG_BSTEM_FPGA
 	msm8960_device_qup_spi_gsbi1.dev.platform_data =
 				&msm8960_qup_spi_gsbi1_pdata;
+#endif
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	msm8960_i2c_init();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
@@ -3094,7 +3537,9 @@ static void __init msm8960_cdp_init(void)
 	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
 		machine_is_msm8960_cdp()) {
 		msm_otg_pdata.phy_init_seq = wr_phy_init_seq;
-	} else if (machine_is_msm8960_liquid()) {
+	} else if (machine_is_msm8960_liquid() ||
+			machine_is_apq8060a_dragon() ||
+			machine_is_apq8060a_bstem()) {
 			msm_otg_pdata.phy_init_seq =
 				liquid_v1_phy_init_seq;
 	}
@@ -3102,11 +3547,19 @@ static void __init msm8960_cdp_init(void)
 		msm_rpmrs_levels[0].latency_us;
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2 &&
-					machine_is_msm8960_liquid())
+					(machine_is_msm8960_liquid() ||
+					machine_is_apq8060a_dragon() ||
+					machine_is_apq8060a_bstem()))
 		msm_device_hsic_host.dev.parent = &smsc_hub_device.dev;
 	msm8960_init_gpiomux();
-	msm8960_device_qup_spi_gsbi1.dev.platform_data =
-				&msm8960_qup_spi_gsbi1_pdata;
+	
+#ifdef CONFIG_BSTEM_FPGA
+   msm8960_device_qup_spi_gsbi1.dev.platform_data = &msm8960_qup_spi_gsbi1_pdata;
+   msm8960_device_qup_spi_gsbi8.dev.platform_data = &msm8960_qup_spi_gsbi8_pdata;
+   msm8960_device_qup_spi_gsbi10.dev.platform_data = &msm8960_qup_spi_gsbi10_pdata;
+#else
+   msm8960_device_qup_spi_gsbi1.dev.platform_data = &msm8960_qup_spi_gsbi1_pdata;
+#endif
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 
 	msm8960_init_pmic();
@@ -3115,10 +3568,22 @@ static void __init msm8960_cdp_init(void)
 		msm_isa1200_board_info[0].platform_data = &isa1200_1_pdata;
 	msm8960_i2c_init();
 	msm8960_gfx_init();
+	if (cpu_is_msm8960ab())
+		msm8960ab_update_krait_spm();
+	if (cpu_is_krait_v3())
+		msm8960ab_update_retention_spm();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8960_init_buses();
-	platform_add_devices(msm8960_footswitch, msm8960_num_footswitch);
+
+	if (cpu_is_msm8960ab()) {
+		platform_add_devices(msm8960ab_footswitch,
+			msm8960ab_num_footswitch);
+	} else {
+		platform_add_devices(msm8960_footswitch,
+			msm8960_num_footswitch);
+	}
+
 	if (machine_is_msm8960_liquid())
 		platform_device_register(&msm8960_device_ext_3p3v_vreg);
 	if (machine_is_msm8960_cdp())
@@ -3128,6 +3593,10 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm8960_device_uart_gsbi8);
 	else
 		platform_device_register(&msm8960_device_uart_gsbi5);
+   
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   platform_device_register(&msm8960_device_uart_gsbi7);
+#endif
 
 	/* For 8960 Fusion 2.2 Primary IPC */
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
@@ -3143,14 +3612,21 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&msm_8960_q6_mss_sw);
 	}
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
+	/* Add vidc device*/
+	msm8960_add_vidc_device();
 	msm8960_init_smsc_hub();
 	msm8960_init_hsic();
+#ifdef CONFIG_MSM_CAMERA
 	msm8960_init_cam();
+#endif
 	msm8960_init_mmc();
 	acpuclk_init(&acpuclk_8960_soc_data);
 	if (machine_is_msm8960_liquid())
 		mxt_init_hw_liquid();
 	register_i2c_devices();
+#ifdef CONFIG_TOUCHSCREEN_SITRONIX_I2C_TOUCH
+	sitronix_config_gpio();
+#endif
 	msm8960_init_fb();
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
@@ -3220,6 +3696,28 @@ MACHINE_START(MSM8960_FLUID, "QCT MSM8960 FLUID")
 MACHINE_END
 
 MACHINE_START(MSM8960_LIQUID, "QCT MSM8960 LIQUID")
+	.map_io = msm8960_map_io,
+	.reserve = msm8960_reserve,
+	.init_irq = msm8960_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = msm8960_cdp_init,
+	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
+MACHINE_END
+
+MACHINE_START(APQ8060A_DRAGON, "APQ8060A Dragonboard")
+	.map_io = msm8960_map_io,
+	.reserve = msm8960_reserve,
+	.init_irq = msm8960_init_irq,
+	.handle_irq = gic_handle_irq,
+	.timer = &msm_timer,
+	.init_machine = msm8960_cdp_init,
+	.init_early = msm8960_allocate_memory_regions,
+	.init_very_early = msm8960_early_memory,
+MACHINE_END
+
+MACHINE_START(APQ8060A_BSTEM, "APQ8060A bStem board")
 	.map_io = msm8960_map_io,
 	.reserve = msm8960_reserve,
 	.init_irq = msm8960_init_irq,

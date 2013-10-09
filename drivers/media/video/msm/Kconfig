@@ -61,11 +61,19 @@ config WEBCAM_OV7692_QRD
 	default n
 	---help---
 	  Omni Vision VGA YUV Sensor for QRD Devices
+
 config MT9M114
-        bool "Sensor MT9M114 (YUV 1.26M)"
-        depends on MSM_CAMERA
-        ---help---
-        APTINA 1.26 MP yuv Sensor
+	bool "Sensor MT9M114 (YUV 1.26M)"
+	depends on MSM_CAMERA
+	---help---
+	   APTINA 1.26 MP yuv Sensor
+
+config BSTEM_3D_CAPTURE
+	bool "bStem MT9M3D capture suport"
+	depends on MSM_CAMERA
+	---help---
+	   Enable this for bStem 3D image processing with MT9M114
+
 config WEBCAM_OV7692
 	bool "Sensor OV7692 (VGA YUV)"
 	depends on MSM_CAMERA && ARCH_MSM8X60 && !MSM_CAMERA_V4L2
@@ -287,6 +295,12 @@ config IMX091
 	---help---
 	  Sony 13MP sensor back camera that uses 4 mipi lanes,
 	  runs at 30 fps preview and 14 fps snapshot
+
+config S5K3H2
+	bool "Sensor s5k3h2 (Samsung 8MP)"
+	depends on MSM_CAMERA
+	---help---
+	  Samsung 8M with Autofocus
 
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"

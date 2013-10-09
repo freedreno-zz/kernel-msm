@@ -271,6 +271,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csid_config((struct csid_cfg_params *)&cfg_params);
 		break;
 	case VIDIOC_MSM_CSID_INIT:
+		CDBG("CSID core is %d\n", csid_dev->pdev->id);
 		rc = msm_csid_init(sd, (uint32_t *)arg);
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:

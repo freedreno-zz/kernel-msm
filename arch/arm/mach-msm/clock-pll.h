@@ -14,6 +14,7 @@
 
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_PLL_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_PLL_H
+#include <mach/clk-provider.h>
 
 /**
  * enum - For PLL IDs
@@ -34,7 +35,7 @@ enum {
  * @id: PLL ID
  * @mode_reg: enable register
  * @parent: clock source
- * @c: clk
+ * @c: clock
  */
 struct pll_shared_clk {
 	unsigned int id;
@@ -45,9 +46,9 @@ struct pll_shared_clk {
 
 extern struct clk_ops clk_ops_pll;
 
-static inline struct pll_shared_clk *to_pll_shared_clk(struct clk *clk)
+static inline struct pll_shared_clk *to_pll_shared_clk(struct clk *c)
 {
-	return container_of(clk, struct pll_shared_clk, c);
+	return container_of(c, struct pll_shared_clk, c);
 }
 
 /**
@@ -64,7 +65,7 @@ void msm_shared_pll_control_init(void);
  * @status_mask: ANDed with @status_reg to determine if PLL is active.
  * @status_reg: status register
  * @parent: clock source
- * @c: clk
+ * @c: clock
  */
 struct pll_vote_clk {
 	u32 *soft_vote;
@@ -81,9 +82,9 @@ struct pll_vote_clk {
 
 extern struct clk_ops clk_ops_pll_vote;
 
-static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *clk)
+static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
 {
-	return container_of(clk, struct pll_vote_clk, c);
+	return container_of(c, struct pll_vote_clk, c);
 }
 
 /**
@@ -105,21 +106,21 @@ struct pll_clk {
 
 extern struct clk_ops clk_ops_local_pll;
 
-static inline struct pll_clk *to_pll_clk(struct clk *clk)
+static inline struct pll_clk *to_pll_clk(struct clk *c)
 {
-	return container_of(clk, struct pll_clk, c);
+	return container_of(c, struct pll_clk, c);
 }
 
-int sr_pll_clk_enable(struct clk *clk);
-int copper_pll_clk_enable(struct clk *clk);
+int sr_pll_clk_enable(struct clk *c);
+int sr_hpm_lp_pll_clk_enable(struct clk *c);
 
 /*
  * PLL vote clock APIs
  */
-int pll_vote_clk_enable(struct clk *clk);
-void pll_vote_clk_disable(struct clk *clk);
-struct clk *pll_vote_clk_get_parent(struct clk *clk);
-int pll_vote_clk_is_enabled(struct clk *clk);
+int pll_vote_clk_enable(struct clk *c);
+void pll_vote_clk_disable(struct clk *c);
+struct clk *pll_vote_clk_get_parent(struct clk *c);
+int pll_vote_clk_is_enabled(struct clk *c);
 
 struct pll_config {
 	u32 l;
@@ -146,6 +147,8 @@ struct pll_config_regs {
 	void *const __iomem *base;
 };
 
-void __init configure_pll(struct pll_config *, struct pll_config_regs *, u32);
-
+void configure_sr_pll(struct pll_config *config, struct pll_config_regs *regs,
+				u32 ena_fsm_mode);
+void configure_sr_hpm_lp_pll(struct pll_config *config,
+				struct pll_config_regs *, u32 ena_fsm_mode);
 #endif

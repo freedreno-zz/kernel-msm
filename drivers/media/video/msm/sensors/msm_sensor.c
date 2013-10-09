@@ -284,13 +284,23 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
-
+	int core = -1;
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
 	msleep(30);
 	if (update_type == MSM_SENSOR_REG_INIT) {
 		s_ctrl->curr_csi_params = NULL;
 		msm_sensor_enable_debugfs(s_ctrl);
 		msm_sensor_write_init_settings(s_ctrl);
+		s_ctrl->cam_mode = MSM_SENSOR_MODE_2D_LEFT;
+		if (s_ctrl->cam_mode == MSM_SENSOR_MODE_2D_LEFT) {
+			core = 0;
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_MODE_CHANGE, &core);
+		} else {
+			core = 1;
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_MODE_CHANGE, &core);
+		}
 	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
 		msm_sensor_write_res_settings(s_ctrl, res);
 		if (s_ctrl->curr_csi_params != s_ctrl->csi_params[res]) {
@@ -355,19 +365,19 @@ int32_t msm_sensor_mode_init(struct msm_sensor_ctrl_t *s_ctrl,
 	int32_t rc = 0;
 	s_ctrl->fps_divider = Q10;
 	s_ctrl->cam_mode = MSM_SENSOR_MODE_INVALID;
-
 	CDBG("%s: %d\n", __func__, __LINE__);
 	if (mode != s_ctrl->cam_mode) {
 		s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
 		s_ctrl->cam_mode = mode;
 
 		if (s_ctrl->is_csic ||
-			!s_ctrl->sensordata->csi_if)
+			!s_ctrl->sensordata->csi_if) {
 			rc = s_ctrl->func_tbl->sensor_csi_setting(s_ctrl,
 				MSM_SENSOR_REG_INIT, 0);
-		else
+		} else {
 			rc = s_ctrl->func_tbl->sensor_setting(s_ctrl,
 				MSM_SENSOR_REG_INIT, 0);
+		}
 	}
 	return rc;
 }
@@ -392,6 +402,13 @@ int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
 	uint32_t delay = 0;
 	CDBG("%s called\n", __func__);
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+
+	if (s_ctrl->curr_frame_length_lines == 0 ||
+		s_ctrl->curr_line_length_pclk == 0) {
+		CDBG("will cause division by zero\n");
+		return 0;
+	}
+
 	if (s_ctrl->curr_res != MSM_SENSOR_INVALID_RES) {
 		fps = s_ctrl->msm_sensor_reg->
 			output_settings[s_ctrl->curr_res].vt_pixel_clk /
@@ -436,9 +453,29 @@ int32_t msm_sensor_get_csi_params(struct msm_sensor_ctrl_t *s_ctrl,
 	sensor_output_info->csi_lane_mask = s_ctrl->sensordata->
 		sensor_platform_info->csi_lane_params->csi_lane_mask;
 	sensor_output_info->csi_if = s_ctrl->sensordata->csi_if;
-	sensor_output_info->csid_core = s_ctrl->sensordata->
+	if (s_ctrl->cam_mode == MSM_SENSOR_MODE_2D_RIGHT) {
+		sensor_output_info->csid_core[0] = s_ctrl->sensordata->
+			pdata[1].csid_core;
+		sensor_output_info->csid_core[1] = -1;
+	} else if (s_ctrl->cam_mode == MSM_SENSOR_MODE_2D_LEFT) {
+		sensor_output_info->csid_core[0] = s_ctrl->sensordata->
 			pdata[0].csid_core;
+		sensor_output_info->csid_core[1] = -1;
+	} else if (s_ctrl->cam_mode == MSM_SENSOR_MODE_3D) {
+		sensor_output_info->csid_core[0] = s_ctrl->sensordata->
+			pdata[0].csid_core;
+		sensor_output_info->csid_core[1] = s_ctrl->sensordata->
+			pdata[1].csid_core;
+	}
 	sensor_output_info->csid_version = s_ctrl->csid_version;
+
+	CDBG("csi_if %d\n",  sensor_output_info->csi_if);
+	CDBG("csid_core is csid_core[%d, %d]\n",
+		sensor_output_info->csid_core[0],
+		sensor_output_info->csid_core[1]);
+	CDBG("csid_version is %d\n", sensor_output_info->csid_version);
+	CDBG("csi_lane_assing is %d\n", sensor_output_info->csi_lane_assign);
+	CDBG("csi_lane_mask %d\n", sensor_output_info->csi_lane_mask);
 	return 0;
 }
 
@@ -586,6 +623,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 
 static struct msm_cam_clk_info cam_clk_info[] = {
 	{"cam_clk", MSM_SENSOR_MCLK_24HZ},
+	{"cam1_clk", MSM_SENSOR_MCLK_24HZ},
 };
 
 int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)

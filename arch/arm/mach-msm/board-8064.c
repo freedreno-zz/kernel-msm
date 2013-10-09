@@ -2336,7 +2336,10 @@ static struct platform_device *common_devices[] __initdata = {
 	&apq8064_etm_device,
 	&apq_cpudai_slim_4_rx,
 	&apq_cpudai_slim_4_tx,
+
+#ifdef CONFIG_MSM_GEMINI
 	&msm8960_gemini_device,
+#endif
 	&apq8064_iommu_domain_device,
 	&msm_tsens_device,
 	&apq8064_cache_dump_device,
@@ -3135,8 +3138,9 @@ static void __init apq8064_cdp_init(void)
 	apq8064_init_fb();
 	apq8064_init_gpu();
 	platform_add_devices(apq8064_footswitch, apq8064_num_footswitch);
+#ifdef CONFIG_MSM_CAMERA
 	apq8064_init_cam();
-
+#endif
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
 		platform_device_register(&cdp_kp_pdev);
 

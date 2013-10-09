@@ -46,8 +46,8 @@ enum msm_sensor_reg_update {
 };
 
 enum msm_sensor_cam_mode_t {
-	MSM_SENSOR_MODE_2D_RIGHT,
 	MSM_SENSOR_MODE_2D_LEFT,
+	MSM_SENSOR_MODE_2D_RIGHT,
 	MSM_SENSOR_MODE_3D,
 	MSM_SENSOR_MODE_INVALID
 };

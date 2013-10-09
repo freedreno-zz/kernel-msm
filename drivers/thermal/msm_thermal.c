@@ -42,10 +42,10 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 
 	limited_max_freq = max_freq;
 	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
-		pr_info("msm_thermal: Limiting cpu%d max frequency to %d\n",
+		pr_err("msm_thermal: Limiting cpu%d max frequency to %d\n",
 				cpu, max_freq);
 	else
-		pr_info("msm_thermal: Max frequency reset for cpu%d\n", cpu);
+		pr_err("msm_thermal: Max frequency reset for cpu%d\n", cpu);
 
 	return ret;
 }

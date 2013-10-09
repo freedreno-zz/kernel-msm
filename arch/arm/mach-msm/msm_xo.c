@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,9 +233,9 @@ static int __msm_xo_mode_vote(struct msm_xo_voter *xo_voter, unsigned mode)
 	int ret;
 	struct msm_xo *xo = xo_voter->xo;
 	int is_d0 = xo == &msm_xo_sources[MSM_XO_TCXO_D0];
-	int needs_workaround = cpu_is_msm8960() || cpu_is_apq8064() ||
-			       cpu_is_msm8930() || cpu_is_msm8930aa() ||
-			       cpu_is_msm9615() || cpu_is_msm8627();
+	int needs_workaround = soc_class_is_msm8960() ||
+			       soc_class_is_apq8064() ||
+			       soc_class_is_msm8930() || cpu_is_msm9615();
 
 	if (xo_voter->mode == mode)
 		return 0;
@@ -258,9 +258,9 @@ static int __msm_xo_mode_vote(struct msm_xo_voter *xo_voter, unsigned mode)
 		}
 		/* Ignore transitions from pin to on or vice versa */
 		if (mode && xo_voter->mode == MSM_XO_MODE_OFF)
-			clk_enable(xo_clk);
+			clk_prepare_enable(xo_clk);
 		else if (!mode)
-			clk_disable(xo_clk);
+			clk_disable_unprepare(xo_clk);
 	}
 	xo_voter->mode = mode;
 out:

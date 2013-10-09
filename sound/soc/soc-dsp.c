@@ -808,8 +808,11 @@ int soc_dsp_fe_dai_prepare(struct snd_pcm_substream *substream)
 
 	/* there is no point preparing this FE if there are no BEs */
 	if (list_empty(&fe->dsp[stream].be_clients)) {
+      /* comment out this error message since we only enable stream 0 */
+      /*
 		dev_err(&fe->dev, "dsp: no backend DAIs enabled for %s\n",
 				fe->dai_link->name);
+      */
 		ret = -EINVAL;
 		goto out;
 	}

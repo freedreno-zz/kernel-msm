@@ -80,6 +80,12 @@ struct mmc_ios {
 #define MMC_SET_DRIVER_TYPE_D	3
 };
 
+/* states to represent load on the host */
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
+};
+
 struct mmc_host_ops {
 	/*
 	 * Hosts that support power saving can use the 'enable' and 'disable'

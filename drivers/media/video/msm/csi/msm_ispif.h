@@ -20,6 +20,7 @@
 struct ispif_irq_status {
 	uint32_t ispifIrqStatus0;
 	uint32_t ispifIrqStatus1;
+	uint32_t ispifIrqStatus2;
 };
 
 struct ispif_device {
@@ -40,10 +41,14 @@ struct ispif_isr_queue_cmd {
 	struct list_head list;
 	uint32_t    ispifInterruptStatus0;
 	uint32_t    ispifInterruptStatus1;
+	uint32_t    ispifInterruptStatus2;
 };
 
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct ispif_cfg_data*)
+
+#define VIDIOC_MSM_ISPIF_MODE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct ispif_cfg_data*)
 
 void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
 

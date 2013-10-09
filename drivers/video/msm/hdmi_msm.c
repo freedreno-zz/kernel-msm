@@ -11,6 +11,7 @@
  *
  */
 
+
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "HDMI: "
 /* #define REG_DUMP */
@@ -29,6 +30,7 @@
 
 #include "msm_fb.h"
 #include "hdmi_msm.h"
+#include "mdp4.h"
 
 /* Supported HDMI Audio channels */
 #define MSM_HDMI_AUDIO_CHANNEL_2		0
@@ -775,6 +777,9 @@ static void hdmi_msm_send_event(boolean on)
 	if (on) {
 		/* Build EDID table */
 		hdmi_msm_read_edid();
+
+		hdmi_msm_turn_on();
+
 		switch_set_state(&external_common_state->sdev, 1);
 		DEV_INFO("Hdmi state switched to %d: %s\n",
 			external_common_state->sdev.state,  __func__);
@@ -4078,12 +4083,15 @@ static void hdmi_msm_spd_infoframe_packetsetup(void)
 	HDMI_OUTP(0x0034, packet_control);
 }
 
+static int hdmi_msm_clk_on;
+
 int hdmi_msm_clk(int on)
 {
 	int rc;
 
 	DEV_DBG("HDMI Clk: %s\n", on ? "Enable" : "Disable");
 	if (on) {
+		hdmi_msm_clk_on = 1;
 		rc = clk_prepare_enable(hdmi_msm_state->hdmi_app_clk);
 		if (rc) {
 			DEV_ERR("'hdmi_app_clk' clock enable failed, rc=%d\n",
@@ -4105,9 +4113,13 @@ int hdmi_msm_clk(int on)
 			return rc;
 		}
 	} else {
-		clk_disable_unprepare(hdmi_msm_state->hdmi_app_clk);
-		clk_disable_unprepare(hdmi_msm_state->hdmi_m_pclk);
-		clk_disable_unprepare(hdmi_msm_state->hdmi_s_pclk);
+		if (hdmi_msm_clk_on)
+		{
+			clk_disable_unprepare(hdmi_msm_state->hdmi_app_clk);
+			clk_disable_unprepare(hdmi_msm_state->hdmi_m_pclk);
+			clk_disable_unprepare(hdmi_msm_state->hdmi_s_pclk);
+		}
+		hdmi_msm_clk_on = 0;
 	}
 
 	return 0;
@@ -4427,6 +4439,12 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	return 0;
 }
 
+static struct msm_fb_panel_data hdmi_msm_panel_data = {
+	.on = hdmi_msm_power_on,
+	.off = hdmi_msm_power_off,
+	.power_ctrl = hdmi_msm_power_ctrl,
+};
+
 static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -4438,6 +4456,7 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	}
 
 	external_common_state->dev = &pdev->dev;
+
 	DEV_DBG("probe\n");
 	if (pdev->id == 0) {
 		struct resource *res;
@@ -4555,6 +4574,19 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->cec_read_timer.expires = 0xffffffffL;
  #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
+	if (hdmi_prim_display) {
+		// hack the video driver to dynamically resize the display depending on the supported 
+		// video modes of the monitor
+		// turn on the hardware on, we turn it back off a few lines down.
+		hdmi_msm_hpd_on();
+
+		// read the monitor data
+		hdmi_msm_read_edid();
+
+		// set the hardware video mode to the resolution requested by the monitor
+		hdmi_common_init_panel_info(&hdmi_msm_panel_data.panel_info);
+	}
+
 	fb_dev = msm_fb_add_device(pdev);
 	if (fb_dev) {
 		rc = external_common_state_create(fb_dev);
@@ -4567,6 +4599,8 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
 	if (hdmi_prim_display) {
+		// turn the hardware back off, because the rest of the code from here assumes that it is off
+		hdmi_msm_hpd_off();
 		rc = hdmi_msm_hpd_on();
 		if (rc)
 			goto error;
@@ -4685,12 +4719,6 @@ static struct platform_driver this_driver = {
 	.driver.name = "hdmi_msm",
 };
 
-static struct msm_fb_panel_data hdmi_msm_panel_data = {
-	.on = hdmi_msm_power_on,
-	.off = hdmi_msm_power_off,
-	.power_ctrl = hdmi_msm_power_ctrl,
-};
-
 static struct platform_device this_device = {
 	.name = "hdmi_msm",
 	.id = 1,
@@ -4717,7 +4745,7 @@ static int __init hdmi_msm_init(void)
 	}
 
 	external_common_state = &hdmi_msm_state->common;
-	external_common_state->video_resolution = HDMI_VFRMT_1920x1080p60_16_9;
+	external_common_state->video_resolution = HDMI_VFRMT_640x480p60_4_3; // set to default resolution when no display is detected
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
 #endif

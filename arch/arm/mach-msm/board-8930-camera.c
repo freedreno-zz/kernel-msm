@@ -19,6 +19,7 @@
 #include "devices.h"
 #include "board-8930.h"
 
+#ifdef CONFIG_MSM_CAMERA
 #if (defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)) && \
 	defined(CONFIG_I2C)
 
@@ -182,7 +183,7 @@ static struct msm_gpiomux_config msm8930_cam_2d_configs[] = {
 		},
 	},
 };
-
+#endif
 #ifdef CONFIG_MSM_CAMERA
 #define VFE_CAMIF_TIMER1_GPIO 2
 #define VFE_CAMIF_TIMER2_GPIO 3

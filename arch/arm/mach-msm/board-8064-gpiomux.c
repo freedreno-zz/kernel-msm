@@ -682,7 +682,6 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
-#endif
 	{
 		.gpio      = 30,		/* FP CS */
 		.settings = {
@@ -695,6 +694,7 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
 		},
 	},
+#endif
 	{
 		.gpio      = 82,	/* GSBI7 UART2 TX */
 		.settings = {
@@ -708,7 +708,7 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 };
-
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct msm_gpiomux_config apq8064_non_mi2s_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 32,		/* EPM CS */
@@ -717,6 +717,7 @@ static struct msm_gpiomux_config apq8064_non_mi2s_gsbi_configs[] __initdata = {
 		},
 	},
 };
+#endif
 
 static struct msm_gpiomux_config apq8064_gsbi1_i2c_2ma_configs[] __initdata = {
 	{
@@ -1425,11 +1426,13 @@ void __init apq8064_init_gpiomux(void)
 
 		msm_gpiomux_install(apq8064_gsbi_configs,
 				ARRAY_SIZE(apq8064_gsbi_configs));
-
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 		if (!(machine_is_apq8064_mtp() &&
 		(SOCINFO_VERSION_MINOR(platform_version) == 1)))
 			msm_gpiomux_install(apq8064_non_mi2s_gsbi_configs,
 				ARRAY_SIZE(apq8064_non_mi2s_gsbi_configs));
+#endif
+
 	}
 	if (machine_is_apq8064_mtp() &&
 	(SOCINFO_VERSION_MINOR(platform_version) == 1)) {

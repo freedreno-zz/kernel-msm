@@ -1965,6 +1965,8 @@ int hdmi_common_read_edid(void)
 	hdmi_edid_get_display_mode(edid_buf,
 		&external_common_state->disp_mode_list, num_og_cea_blocks);
 
+	external_common_state->video_resolution = external_common_state->disp_mode_list.disp_mode_list[0];
+
 	return 0;
 
 error:

@@ -13,6 +13,7 @@
 
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
+#include <mach/clk-provider.h>
 
 struct clk_ops;
 extern struct clk_ops clk_ops_voter;
@@ -34,7 +35,6 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 		.c = { \
 			.dbg_name = #clk_name, \
 			.ops = &clk_ops_voter, \
-			.flags = CLKFLAG_SKIP_AUTO_OFF, \
 			.rate = _default_rate, \
 			CLK_INIT(clk_name.c), \
 		}, \
