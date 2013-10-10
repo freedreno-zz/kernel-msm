@@ -3973,7 +3973,8 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 		msm_fb_release_busy(mfd);
 		if (release_busy)
 			*release_busy = false;
-		time_out = mfd->disp_frame_period * (vsync_diff + 1);
+		time_out = mfd->disp_frame_period *
+			(vsync_diff + 1) / 1000;
 		cur_vsync_cnt = mdp4_wait_expect_vsync(mfd,
 			time_out, expect_vsync_cnt);
 	}
