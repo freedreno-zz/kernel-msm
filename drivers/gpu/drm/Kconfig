@@ -7,6 +7,8 @@
 menuconfig DRM
 	tristate "Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)"
 	depends on (AGP || AGP=n) && !EMULATED_CMPXCHG && MMU && HAS_DMA
+	# exclude M68K for now, since it doesn't have 8 byte get_user()
+	depends on !M68K
 	select HDMI
 	select I2C
 	select I2C_ALGOBIT
