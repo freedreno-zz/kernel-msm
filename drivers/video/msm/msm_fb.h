@@ -51,6 +51,7 @@
 #define MFD_KEY  0x11161126
 #define MSM_FB_MAX_DEV_LIST 32
 #define MDP_MAX_CACHED_REG 128
+#define MDP_MAX_FENCE_LOG 512
 
 struct disp_info_type_suspend {
 	boolean op_enable;
@@ -70,6 +71,24 @@ struct msmfb_writeback_data_list {
 	int state;
 };
 
+struct msmfb_fence_log {
+	u32 action_id;
+	u32 fb_index;
+	u32 fence_id;
+	u32 commit_cnt;
+	u32 timeline_value;
+	u32 timestamp;
+	u32 update_cnt;
+};
+
+enum ACTION_ID {
+	ACTION_NONE,
+	ACTION_FENCE_GEN,
+	ACTION_DISP_UPDATE,
+	ACTION_KICKOFF,
+	ACTION_SIGNAL,
+	ACTION_RELEASE,
+};
 
 struct msm_fb_data_type {
 	__u32 key;
@@ -216,6 +235,7 @@ struct msm_fb_data_type {
 	struct completion commit_comp;
 	u32 is_committing;
 	atomic_t commit_cnt;
+	u32 update_cnt;
 	struct work_struct commit_work;
 	void *msm_fb_backup;
 	boolean panel_driver_on;
