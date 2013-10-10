@@ -1440,3 +1440,39 @@ int hci_set_auth_info(struct hci_dev *hdev, void __user *arg)
 
 	return copy_to_user(arg, &req, sizeof(req)) ? -EFAULT : 0;
 }
+
+void set_page_scan_type(struct hci_dev *hdev, u8 pscan_type, u16 pscan_interval)
+{
+	int err;
+	struct hci_cp_write_page_scan_activity ps_activity;
+
+	/*
+	 * Configure Page Page Scan Interval:
+	 * Requested page scan interval should fall within the mandatory
+	 * range whcih is between: 0x0012 to 0x1000 (11.25ms to 2.560secs)
+	 */
+	if (pscan_interval >= 0x0012  && pscan_interval <= 0x1000)
+		ps_activity.interval = pscan_interval;
+	else {
+		BT_INFO("%s: Invalid page scan interval 0x%x requested!",
+			__func__, pscan_interval);
+		return ;
+	}
+	/* Configure default page-scan window value (11.25ms) */
+	ps_activity.window   = 0x0012;
+	err = hci_send_cmd(hdev, HCI_OP_WRITE_SCAN_ACTIVITY,
+		sizeof(ps_activity), &ps_activity);
+	if (err < 0) {
+		BT_INFO("%s: Failed to set Page-Scan Interval!", __func__);
+	} else
+		BT_INFO("%s: Page-Scan Interval configured to: %d", __func__,
+			ps_activity.interval);
+
+	/* Configure Page Scan type */
+	err = hci_send_cmd(hdev, HCI_OP_WRITE_PAGE_SCAN_TYPE, 1, &pscan_type);
+	if (err < 0)
+		BT_INFO("%s: Failed to set Page-Scan Type!", __func__);
+	else
+		BT_INFO("%s: Page-Scan Type set to: %d", __func__, pscan_type);
+}
+EXPORT_SYMBOL(set_page_scan_type);

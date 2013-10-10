@@ -2105,8 +2105,8 @@ static inline void hci_remote_version_evt(struct hci_dev *hdev, struct sk_buff *
 	struct hci_ev_remote_version *ev = (void *) skb->data;
 	struct hci_cp_read_remote_features cp;
 	struct hci_conn *conn;
-	BT_DBG("%s status %d", hdev->name, ev->status);
 
+	BT_DBG("%s status %d", hdev->name, ev->status);
 	hci_dev_lock(hdev);
 	cp.handle = ev->handle;
 	hci_send_cmd(hdev, HCI_OP_READ_REMOTE_FEATURES,

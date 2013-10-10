@@ -1033,6 +1033,9 @@ void hci_si_event(struct hci_dev *hdev, int type, int dlen, void *data);
 void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb,
 							struct sock *skip_sk);
 
+void set_page_scan_type(struct hci_dev *hdev, u8 pscan_type,
+	u16 pscan_interval);
+
 /* Management interface */
 int mgmt_control(struct sock *sk, struct msghdr *msg, size_t len);
 int mgmt_index_added(u16 index);
