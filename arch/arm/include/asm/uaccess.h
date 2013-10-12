@@ -100,6 +100,7 @@ static inline void set_fs(mm_segment_t fs)
 extern int __get_user_1(void *);
 extern int __get_user_2(void *);
 extern int __get_user_4(void *);
+extern int __get_user_8(void *);
 
 #define __get_user_x(__r2,__p,__e,__s,__i...)				\
 	   __asm__ __volatile__ (					\
@@ -112,7 +113,7 @@ extern int __get_user_4(void *);
 #define get_user(x,p)							\
 	({								\
 		register const typeof(*(p)) __user *__p asm("r0") = (p);\
-		register unsigned long __r2 asm("r2");			\
+		register typeof(x) __r2 asm("r2");			\
 		register int __e asm("r0");				\
 		switch (sizeof(*(__p))) {				\
 		case 1:							\
@@ -123,6 +124,12 @@ extern int __get_user_4(void *);
 			break;						\
 		case 4:							\
 	       		__get_user_x(__r2, __p, __e, 4, "lr");		\
+			break;						\
+		case 8:							\
+			if (sizeof((x)) < 8)		\
+				__get_user_x(__r2, __p, __e, 4, "lr", "cc");	\
+			else						\
+				__get_user_x(__r2, __p, __e, 8, "lr", "cc");	\
 			break;						\
 		default: __e = __get_user_bad(); break;			\
 		}							\
