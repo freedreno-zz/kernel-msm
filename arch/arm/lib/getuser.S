@@ -59,6 +59,18 @@ ENTRY(__get_user_4)
 	mov	pc, lr
 ENDPROC(__get_user_4)
 
+ENTRY(__get_user_8)
+#ifdef CONFIG_THUMB2_KERNEL
+5: TUSER(ldr)	r2, [r0]
+6: TUSER(ldr)	r3, [r0, #4]
+#else
+5: TUSER(ldr)	r2, [r0], #4
+6: TUSER(ldr)	r3, [r0]
+#endif
+	mov	r0, #0
+	mov	pc, lr
+ENDPROC(__get_user_8)
+
 __get_user_bad:
 	mov	r2, #0
 	mov	r0, #-EFAULT
@@ -70,4 +82,6 @@ ENDPROC(__get_user_bad)
 	.long	2b, __get_user_bad
 	.long	3b, __get_user_bad
 	.long	4b, __get_user_bad
+	.long	5b, __get_user_bad
+	.long	6b, __get_user_bad
 .popsection
