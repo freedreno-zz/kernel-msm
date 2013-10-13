@@ -95,6 +95,9 @@ struct msm_drm_private {
 
 	unsigned int num_connectors;
 	struct drm_connector *connectors[8];
+
+	/* crtc's pending atomic update: */
+	uint32_t pending_crtcs;
 };
 
 struct msm_format {
@@ -134,6 +137,7 @@ struct msm_kms_funcs {
 	const struct msm_format *(*get_format)(struct msm_kms *kms, uint32_t format);
 	long (*round_pixclk)(struct msm_kms *kms, unsigned long rate,
 			struct drm_encoder *encoder);
+	void (*flush)(struct msm_kms *kms, struct drm_crtc *crtc);
 	/* cleanup: */
 	void (*preclose)(struct msm_kms *kms, struct drm_file *file);
 	void (*destroy)(struct msm_kms *kms);
@@ -151,10 +155,14 @@ int msm_iommu_attach(struct drm_device *dev, struct iommu_domain *iommu,
 
 int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 		struct timespec *timeout);
+int msm_queue_fence_cb(struct drm_device *dev,
+		struct msm_fence_cb *cb, uint32_t fence);
 void msm_update_fence(struct drm_device *dev, uint32_t fence);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
+
+int msm_atomic_commit(struct drm_device *dev, void *state);
 
 int msm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);

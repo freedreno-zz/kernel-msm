@@ -18,6 +18,7 @@ msm-y := \
 	mdp4/mdp4_irq.o \
 	mdp4/mdp4_kms.o \
 	mdp4/mdp4_plane.o \
+	msm_atomic.o \
 	msm_drv.o \
 	msm_fb.o \
 	msm_gem.o \

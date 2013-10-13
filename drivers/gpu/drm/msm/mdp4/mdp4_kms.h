@@ -206,6 +206,7 @@ enum mdp4_pipe mdp4_plane_pipe(struct drm_plane *plane);
 struct drm_plane *mdp4_plane_init(struct drm_device *dev,
 		enum mdp4_pipe pipe_id, bool private_plane);
 
+void mdp4_crtc_flush(struct drm_crtc *crtc);
 uint32_t mdp4_crtc_vblank(struct drm_crtc *crtc);
 void mdp4_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 void mdp4_crtc_set_config(struct drm_crtc *crtc, uint32_t config);
