@@ -110,6 +110,9 @@ struct msm_drm_private {
 	unsigned int num_connectors;
 	struct drm_connector *connectors[8];
 
+	/* crtc's pending atomic update: */
+	uint32_t pending_crtcs;
+
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
 		unsigned long size;
@@ -143,10 +146,14 @@ int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
 int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 		struct timespec *timeout);
+int msm_queue_fence_cb(struct drm_device *dev,
+		struct msm_fence_cb *cb, uint32_t fence);
 void msm_update_fence(struct drm_device *dev, uint32_t fence);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
+
+int msm_atomic_commit(struct drm_device *dev, void *state);
 
 int msm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);

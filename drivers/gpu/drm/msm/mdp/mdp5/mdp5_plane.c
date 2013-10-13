@@ -48,11 +48,6 @@ static int mdp5_plane_update(struct drm_plane *plane,
 
 	mdp5_plane->enabled = true;
 
-	if (plane->fb)
-		drm_framebuffer_unreference(plane->fb);
-
-	drm_framebuffer_reference(fb);
-
 	return mdp5_plane_mode_set(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h,
 			src_x, src_y, src_w, src_h);

@@ -600,6 +600,26 @@ int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 	return ret;
 }
 
+int msm_queue_fence_cb(struct drm_device *dev,
+		struct msm_fence_cb *cb, uint32_t fence)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	int ret = 0;
+
+	mutex_lock(&dev->struct_mutex);
+	if (!list_empty(&cb->work.entry)) {
+		ret = -EINVAL;
+	} else if (fence > priv->completed_fence) {
+		cb->fence = fence;
+		list_add_tail(&cb->work.entry, &priv->fence_cbs);
+	} else {
+		queue_work(priv->wq, &cb->work);
+	}
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
+}
+
 /* called from workqueue */
 void msm_update_fence(struct drm_device *dev, uint32_t fence)
 {
@@ -815,7 +835,7 @@ static struct drm_driver msm_driver = {
 	.atomic_begin       = drm_atomic_begin,
 	.atomic_set_event   = drm_atomic_set_event,
 	.atomic_check       = drm_atomic_check,
-	.atomic_commit      = drm_atomic_commit,
+	.atomic_commit      = msm_atomic_commit,
 	.atomic_end         = drm_atomic_end,
 	.atomic_funcs       = &drm_atomic_funcs,
 #ifdef CONFIG_DEBUG_FS

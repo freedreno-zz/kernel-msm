@@ -35,7 +35,6 @@ struct mdp5_crtc {
 
 	/* if there is a pending flip, these will be non-null: */
 	struct drm_pending_vblank_event *event;
-	struct msm_fence_cb pageflip_cb;
 
 #define PENDING_CURSOR 0x1
 #define PENDING_FLIP   0x2
@@ -73,12 +72,16 @@ static void request_pending(struct drm_crtc *crtc, uint32_t pending)
 	mdp_irq_register(&get_kms(crtc)->base, &mdp5_crtc->vblank);
 }
 
-static void crtc_flush(struct drm_crtc *crtc)
+void mdp5_crtc_flush(struct drm_crtc *crtc)
 {
+	struct msm_drm_private *priv = crtc->dev->dev_private;
 	struct mdp5_crtc *mdp5_crtc = to_mdp5_crtc(crtc);
 	struct mdp5_kms *mdp5_kms = get_kms(crtc);
 	int id = mdp5_crtc->id;
 	uint32_t i, flush = 0;
+
+	if (priv->pending_crtcs & (1 << crtc->id))
+		return;
 
 	for (i = 0; i < ARRAY_SIZE(mdp5_crtc->planes); i++) {
 		struct drm_plane *plane = mdp5_crtc->planes[i];
@@ -124,7 +127,7 @@ static void update_scanout(struct drm_crtc *crtc, struct drm_framebuffer *fb)
 	 * so that we can safely queue unref to current fb (ie. next
 	 * vblank we know hw is done w/ previous scanout_fb).
 	 */
-	crtc_flush(crtc);
+	mdp5_crtc_flush(crtc);
 
 	if (mdp5_crtc->scanout_fb)
 		drm_flip_work_queue(&mdp5_crtc->unref_fb_work,
@@ -163,21 +166,6 @@ static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 		if (plane)
 			mdp5_plane_complete_flip(plane);
 	}
-}
-
-static void pageflip_cb(struct msm_fence_cb *cb)
-{
-	struct mdp5_crtc *mdp5_crtc =
-		container_of(cb, struct mdp5_crtc, pageflip_cb);
-	struct drm_crtc *crtc = &mdp5_crtc->base;
-	struct drm_framebuffer *fb = mdp5_crtc->fb;
-
-	if (!fb)
-		return;
-
-	drm_framebuffer_reference(fb);
-	mdp5_plane_set_scanout(mdp5_crtc->plane, fb);
-	update_scanout(crtc, fb);
 }
 
 static void unref_fb_worker(struct drm_flip_work *work, void *val)
@@ -324,7 +312,7 @@ static void mdp5_crtc_prepare(struct drm_crtc *crtc)
 static void mdp5_crtc_commit(struct drm_crtc *crtc)
 {
 	mdp5_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
-	crtc_flush(crtc);
+	mdp5_crtc_flush(crtc);
 	/* drop the ref to mdp clk's that we got in prepare: */
 	mdp5_disable(get_kms(crtc));
 }
@@ -366,23 +354,26 @@ static int mdp5_crtc_page_flip(struct drm_crtc *crtc,
 {
 	struct mdp5_crtc *mdp5_crtc = to_mdp5_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
-	struct drm_gem_object *obj;
 	unsigned long flags;
 
+	spin_lock_irqsave(&dev->event_lock, flags);
 	if (mdp5_crtc->event) {
 		dev_err(dev->dev, "already pending flip!\n");
+		spin_unlock_irqrestore(&dev->event_lock, flags);
 		return -EBUSY;
 	}
 
-	obj = msm_framebuffer_bo(new_fb, 0);
-
-	spin_lock_irqsave(&dev->event_lock, flags);
 	mdp5_crtc->event = event;
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 
 	update_fb(crtc, new_fb);
 
-	return msm_gem_queue_inactive_cb(obj, &mdp5_crtc->pageflip_cb);
+	/* grab extra ref for update_scanout() */
+	drm_framebuffer_reference(new_fb);
+	mdp5_plane_set_scanout(mdp5_crtc->plane, new_fb);
+	update_scanout(crtc, new_fb);
+
+	return 0;
 }
 
 static int mdp5_crtc_set_property(struct drm_crtc *crtc, void *state,
@@ -423,8 +414,13 @@ static void mdp5_crtc_vblank_irq(struct mdp_irq *irq, uint32_t irqstatus)
 	pending = atomic_xchg(&mdp5_crtc->pending, 0);
 
 	if (pending & PENDING_FLIP) {
-		complete_flip(crtc, NULL);
-		drm_flip_work_commit(&mdp5_crtc->unref_fb_work, priv->wq);
+		if (priv->pending_crtcs & (1 << crtc->id)) {
+			/* our update hasn't been flushed yet: */
+			request_pending(crtc, PENDING_FLIP);
+		} else {
+			complete_flip(crtc, NULL);
+			drm_flip_work_commit(&mdp5_crtc->unref_fb_work, priv->wq);
+		}
 	}
 }
 
@@ -433,7 +429,7 @@ static void mdp5_crtc_err_irq(struct mdp_irq *irq, uint32_t irqstatus)
 	struct mdp5_crtc *mdp5_crtc = container_of(irq, struct mdp5_crtc, err);
 	struct drm_crtc *crtc = &mdp5_crtc->base;
 	DBG("%s: error: %08x", mdp5_crtc->name, irqstatus);
-	crtc_flush(crtc);
+	mdp5_crtc_flush(crtc);
 }
 
 uint32_t mdp5_crtc_vblank(struct drm_crtc *crtc)
@@ -500,7 +496,7 @@ void mdp5_crtc_set_intf(struct drm_crtc *crtc, int intf,
 			MDP5_CTL_OP_MODE(MODE_NONE) |
 			MDP5_CTL_OP_INTF_NUM(intfnum[intf]));
 
-	crtc_flush(crtc);
+	mdp5_crtc_flush(crtc);
 }
 
 static void set_attach(struct drm_crtc *crtc, enum mdp5_pipe pipe_id,
@@ -516,7 +512,7 @@ static void set_attach(struct drm_crtc *crtc, enum mdp5_pipe pipe_id,
 	mdp5_crtc->planes[pipe_id] = plane;
 	blend_setup(crtc);
 	if (mdp5_crtc->enabled && (plane != mdp5_crtc->plane))
-		crtc_flush(crtc);
+		mdp5_crtc_flush(crtc);
 }
 
 void mdp5_crtc_attach(struct drm_crtc *crtc, struct drm_plane *plane)
@@ -561,8 +557,6 @@ struct drm_crtc *mdp5_crtc_init(struct drm_device *dev,
 			"unref fb", unref_fb_worker);
 	if (ret)
 		goto fail;
-
-	INIT_FENCE_CB(&mdp5_crtc->pageflip_cb, pageflip_cb);
 
 	drm_crtc_init(dev, crtc, plane, &mdp5_crtc_funcs);
 	drm_crtc_helper_add(crtc, &mdp5_crtc_helper_funcs);

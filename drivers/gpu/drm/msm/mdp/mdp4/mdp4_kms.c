@@ -131,6 +131,11 @@ static long mdp4_round_pixclk(struct msm_kms *kms, unsigned long rate,
 	return mdp4_dtv_round_pixclk(encoder, rate);
 }
 
+static void mdp4_flush(struct msm_kms *kms, struct drm_crtc *crtc)
+{
+	mdp4_crtc_flush(crtc);
+}
+
 static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
 {
 	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
@@ -158,6 +163,7 @@ static const struct mdp_kms_funcs kms_funcs = {
 		.disable_vblank  = mdp4_disable_vblank,
 		.get_format      = mdp_get_format,
 		.round_pixclk    = mdp4_round_pixclk,
+		.flush           = mdp4_flush,
 		.preclose        = mdp4_preclose,
 		.destroy         = mdp4_destroy,
 	},
