@@ -248,6 +248,8 @@ static struct usb_device_id xpad_table [] = {
 };
 
 MODULE_DEVICE_TABLE (usb, xpad_table);
+#define XPAD_IO_RETRY_STOP 10
+#define XPAD_RUNNING BIT(0)
 
 struct usb_xpad {
 	struct input_dev *dev;		/* input device interface */
@@ -277,6 +279,9 @@ struct usb_xpad {
 
 	int mapping;			/* map d-pad to buttons or to axes */
 	int xtype;			/* type of xbox device */
+	struct timer_list io_retry;
+	int xact_err;
+	unsigned long flags;
 };
 
 /*
@@ -454,6 +459,43 @@ static void xpad360w_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned cha
 	xpad360_process_packet(xpad, cmd, &data[4]);
 }
 
+static void xpad_io_error(struct usb_xpad *xpad)
+{
+	unsigned int retry_delay = 0;
+
+	if(!test_bit(XPAD_RUNNING, &xpad->flags))
+		return;
+
+	if(xpad->xact_err > XPAD_IO_RETRY_STOP){
+		err("%s - irq in URB error\n", __func__);
+		return;
+	}
+
+	retry_delay = xpad->xact_err*2;
+	xpad->xact_err++;
+	mod_timer(&xpad->io_retry, jiffies + msecs_to_jiffies(retry_delay));
+}
+
+static void xpad_retry_timeout(unsigned long _xpad)
+{
+	struct usb_xpad *xpad = (struct usb_xpad *) _xpad;
+	int retval = 0;
+
+	if(!xpad)
+	return;
+
+	if(!test_bit(XPAD_RUNNING, &xpad->flags))
+	return;
+
+	retval = usb_submit_urb(xpad->irq_in, GFP_ATOMIC);
+	if (retval){
+		err ("%s - usb_submit_urb failed with result %d",
+			 __func__, retval);
+	if (retval != -ENODEV)
+		xpad_io_error(xpad);
+	}
+}
+
 static void xpad_irq_in(struct urb *urb)
 {
 	struct usb_xpad *xpad = urb->context;
@@ -471,6 +513,10 @@ static void xpad_irq_in(struct urb *urb)
 		/* this urb is terminated, clean up */
 		dbg("%s - urb shutting down with status: %d",
 			__func__, status);
+		return;
+	case -EPROTO:
+	case -ETIMEDOUT:
+		xpad_io_error(xpad);
 		return;
 	default:
 		dbg("%s - nonzero urb status received: %d",
@@ -868,6 +914,8 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 	usb_make_path(udev, xpad->phys, sizeof(xpad->phys));
 	strlcat(xpad->phys, "/input0", sizeof(xpad->phys));
 
+	setup_timer(&xpad->io_retry, xpad_retry_timeout, (unsigned long) xpad);
+
 	input_dev->name = xpad_device[i].name;
 	input_dev->phys = xpad->phys;
 	usb_to_input_id(udev, &input_dev->id);
@@ -941,7 +989,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 		goto fail6;
 
 	usb_set_intfdata(intf, xpad);
-
+	set_bit(XPAD_RUNNING, &xpad->flags);
 	if (xpad->xtype == XTYPE_XBOX360W) {
 		/*
 		 * Setup the message to set the LEDs on the
@@ -1013,7 +1061,8 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 static void xpad_disconnect(struct usb_interface *intf)
 {
 	struct usb_xpad *xpad = usb_get_intfdata (intf);
-
+	clear_bit(XPAD_RUNNING, &xpad->flags);
+	del_timer_sync(&xpad->io_retry);
 	xpad_led_disconnect(xpad);
 	input_unregister_device(xpad->dev);
 	xpad_deinit_output(xpad);
