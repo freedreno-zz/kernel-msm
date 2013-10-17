@@ -333,18 +333,19 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 		for (i = 0; i < external_common_state->disp_mode_list
 			.num_of_elements; ++i) {
 			if (ret > 0)
-				ret += snprintf(buf + ret, PAGE_SIZE-ret, ",%d",
+				ret += scnprintf(buf + ret,
+					PAGE_SIZE-ret, ",%d",
 					*video_mode++ + 1);
 			else
-				ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
+				ret += scnprintf(buf + ret, PAGE_SIZE-ret, "%d",
 					*video_mode++ + 1);
 		}
 	} else
-		ret += snprintf(buf + ret, PAGE_SIZE-ret, "%d",
+		ret += scnprintf(buf + ret, PAGE_SIZE-ret, "%d",
 			external_common_state->video_resolution+1);
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
-	ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
+	ret += scnprintf(buf+ret, PAGE_SIZE-ret, "\n");
 	return ret;
 }
 
@@ -371,7 +372,7 @@ static ssize_t hdmi_common_rda_edid_raw_data(struct device *dev,
 static ssize_t hdmi_common_rda_edid_physical_address(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		external_common_state->physical_address);
 
 	DEV_DBG("%s: '%d'\n", __func__,
@@ -383,7 +384,7 @@ static ssize_t hdmi_common_rda_edid_physical_address(struct device *dev,
 static ssize_t hdmi_common_rda_edid_scan_info(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d, %d, %d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d, %d, %d\n",
 		external_common_state->pt_scan_info,
 		external_common_state->it_scan_info,
 		external_common_state->ce_scan_info);
@@ -423,7 +424,7 @@ static ssize_t hdmi_common_wta_vendor_name(struct device *dev,
 static ssize_t hdmi_common_rda_vendor_name(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%s\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%s\n",
 		external_common_state->spd_vendor_name);
 	DEV_DBG("%s: '%s'\n", __func__,
 			external_common_state->spd_vendor_name);
@@ -463,7 +464,7 @@ static ssize_t hdmi_common_wta_product_description(struct device *dev,
 static ssize_t hdmi_common_rda_product_description(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%s\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%s\n",
 		external_common_state->spd_product_description);
 	DEV_DBG("%s: '%s'\n", __func__,
 			external_common_state->spd_product_description);
@@ -486,29 +487,30 @@ static ssize_t hdmi_common_rda_edid_3d_modes(struct device *dev,
 			.disp_3d_mode_list;
 		for (i = 0; i < external_common_state->disp_mode_list
 			.num_of_elements; ++i) {
-			video_3d_format_2string(*video_3d_mode++, buff_3d);
+			video_3d_format_2string(*video_3d_mode++, buff_3d,
+					sizeof(buff_3d));
 			if (ret > 0)
-				ret += snprintf(buf+ret, PAGE_SIZE-ret,
+				ret += scnprintf(buf+ret, PAGE_SIZE-ret,
 					",%d=%s",
 					*video_mode++ + 1, buff_3d);
 			else
-				ret += snprintf(buf+ret, PAGE_SIZE-ret,
+				ret += scnprintf(buf+ret, PAGE_SIZE-ret,
 					"%d=%s",
 					*video_mode++ + 1, buff_3d);
 		}
 	} else
-		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
+		ret += scnprintf(buf+ret, PAGE_SIZE-ret, "%d",
 			external_common_state->video_resolution+1);
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
-	ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
+	ret += scnprintf(buf+ret, PAGE_SIZE-ret, "\n");
 	return ret;
 }
 
 static ssize_t hdmi_common_rda_hdcp(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		external_common_state->hdcp_active);
 	DEV_DBG("%s: '%d'\n", __func__,
 		external_common_state->hdcp_active);
@@ -520,12 +522,12 @@ static ssize_t hdmi_common_rda_hpd(struct device *dev,
 {
 	ssize_t ret;
 	if (external_common_state->hpd_feature) {
-		ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 			external_common_state->hpd_feature_on);
 		DEV_DBG("%s: '%d'\n", __func__,
 			external_common_state->hpd_feature_on);
 	} else {
-		ret = snprintf(buf, PAGE_SIZE, "-1\n");
+		ret = scnprintf(buf, PAGE_SIZE, "-1\n");
 		DEV_DBG("%s: 'not supported'\n", __func__);
 	}
 	return ret;
@@ -599,7 +601,7 @@ static ssize_t hdmi_msm_rda_cec(struct device *dev,
 	if (hdmi_msm_state->cect_no_daemon_enabled)
 		value |= FLAG_SYSFS_NO_DAEMON_EN;
 
-	ret = snprintf(buf, PAGE_SIZE, "%d\n", value);
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", value);
 
 	return ret;
 }
@@ -665,7 +667,7 @@ static ssize_t hdmi_msm_rda_cec_logical_addr(struct device *dev,
 	ssize_t ret;
 
 	mutex_lock(&hdmi_msm_state_mutex);
-	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		hdmi_msm_cec_read_logical_addr());
 	mutex_unlock(&hdmi_msm_state_mutex);
 	return ret;
@@ -741,7 +743,7 @@ static ssize_t hdmi_msm_wta_cec_frame(struct device *dev,
 static ssize_t hdmi_common_rda_3d_present(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		external_common_state->present_3d);
 	DEV_DBG("%s: '%d'\n", __func__,
 			external_common_state->present_3d);
@@ -751,7 +753,7 @@ static ssize_t hdmi_common_rda_3d_present(struct device *dev,
 static ssize_t hdmi_common_rda_hdcp_present(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		external_common_state->present_hdcp);
 	DEV_DBG("%s: '%d'\n", __func__,
 			external_common_state->present_hdcp);
@@ -763,7 +765,7 @@ static ssize_t hdmi_common_rda_hdcp_present(struct device *dev,
 static ssize_t hdmi_3d_rda_format_3d(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = snprintf(buf, PAGE_SIZE, "%d\n",
+	ssize_t ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 		external_common_state->format_3d);
 	DEV_DBG("%s: '%d'\n", __func__,
 		external_common_state->format_3d);
@@ -1927,29 +1929,29 @@ const char *single_video_3d_format_2string(uint32 format)
 	return "";
 }
 
-ssize_t video_3d_format_2string(uint32 format, char *buf)
+ssize_t video_3d_format_2string(uint32 format, char *buf, u32 size)
 {
 	ssize_t ret, len = 0;
-	ret = snprintf(buf, PAGE_SIZE, "%s",
+	ret = scnprintf(buf, PAGE_SIZE, "%s",
 		single_video_3d_format_2string(format & FRAME_PACKING));
 	len += ret;
 
 	if (len && (format & TOP_AND_BOTTOM))
-		ret = snprintf(buf + len, PAGE_SIZE - len, ":%s",
+		ret = scnprintf(buf + len, size - len, ":%s",
 			single_video_3d_format_2string(
 				format & TOP_AND_BOTTOM));
 	else
-		ret = snprintf(buf + len, PAGE_SIZE - len, "%s",
+		ret = snprintf(buf + len, size - len, "%s",
 			single_video_3d_format_2string(
 				format & TOP_AND_BOTTOM));
 	len += ret;
 
 	if (len && (format & SIDE_BY_SIDE_HALF))
-		ret = snprintf(buf + len, PAGE_SIZE - len, ":%s",
+		ret = snprintf(buf + len, size - len, ":%s",
 			single_video_3d_format_2string(
 				format & SIDE_BY_SIDE_HALF));
 	else
-		ret = snprintf(buf + len, PAGE_SIZE - len, "%s",
+		ret = snprintf(buf + len, size - len, "%s",
 			single_video_3d_format_2string(
 				format & SIDE_BY_SIDE_HALF));
 	len += ret;
@@ -1973,7 +1975,7 @@ static void add_supported_3d_format(
 			break;
 		}
 	}
-	video_3d_format_2string(video_3d_format, string);
+	video_3d_format_2string(video_3d_format, string, sizeof(string));
 	DEV_DBG("EDID[3D]: format: %d [%s], %s %s\n",
 		video_format, video_format_2string(video_format),
 		string, added ? "added" : "NOT added");
