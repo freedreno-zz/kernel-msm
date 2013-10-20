@@ -530,7 +530,8 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dmae_done_dtv(void);
 void mdp4_dtv_wait4vsync(int cndx);
-u32 mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync);
+int mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync,
+			u32 *cur_vsync);
 void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
 u32 mdp4_dtv_get_vsync_cnt(void);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
