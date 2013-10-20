@@ -168,6 +168,17 @@ config SYS_HYPERVISOR
 	bool
 	default n
 
+config DMA_SHARED_BUFFER
+	bool
+	default n
+	select ANON_INODES
+	depends on EXPERIMENTAL
+	help
+	  This option enables the framework for buffer-sharing between
+	  multiple drivers. A buffer is associated with a file using driver
+	  APIs extension; the file's descriptor can then be passed on to other
+	  driver.
+
 config GENLOCK
 	bool "Enable a generic cross-process locking mechanism"
 	depends on ANON_INODES
