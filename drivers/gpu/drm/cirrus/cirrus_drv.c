@@ -16,9 +16,12 @@
 #include "cirrus_drv.h"
 
 int cirrus_modeset = -1;
+int cirrus_bpp = 24;
 
 MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");
 module_param_named(modeset, cirrus_modeset, int, 0400);
+MODULE_PARM_DESC(bpp, "Max bits-per-pixel (default:24)");
+module_param_named(bpp, cirrus_bpp, int, 0400);
 
 /*
  * This is the generic driver code. This binds the driver to the drm core,
@@ -142,11 +145,6 @@ static struct drm_driver driver = {
 	.dumb_create = cirrus_dumb_create,
 	.dumb_map_offset = cirrus_dumb_mmap_offset,
 	.dumb_destroy = drm_gem_dumb_destroy,
-};
-
-static const struct dev_pm_ops cirrus_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(cirrus_pm_suspend,
-				cirrus_pm_resume)
 };
 
 static const struct dev_pm_ops cirrus_pm_ops = {

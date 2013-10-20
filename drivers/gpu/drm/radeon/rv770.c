@@ -1695,6 +1695,7 @@ static int rv770_startup(struct radeon_device *rdev)
 		return r;
 
 	rv770_mc_program(rdev);
+
 	if (rdev->flags & RADEON_IS_AGP) {
 		rv770_agp_enable(rdev);
 	} else {

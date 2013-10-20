@@ -1,5 +1,6 @@
 /*
- * Copyright © 2013 Intel Corporation
+ * Copyright © 2012 Intel Corporation
+ * Copyright © 2014 The Chromium OS Authors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -17,23 +18,29 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  *
- * Author: Jani Nikula <jani.nikula@intel.com>
+ * Authors:
+ *    Ben Widawsky <ben@bwidawsk.net>
+ *
  */
 
-#ifndef _INTEL_DSI_DSI_H
-#define _INTEL_DSI_DSI_H
+#ifndef _VGEM_DRV_H_
+#define _VGEM_DRV_H_
 
 #include <drm/drmP.h>
-#include <drm/drm_crtc.h>
-#include <video/mipi_display.h>
-#include "i915_drv.h"
-#include "intel_drv.h"
-#include "intel_dsi.h"
+#include <drm/drm_gem.h>
 
-void dsi_hs_mode_enable(struct intel_dsi *intel_dsi, bool enable,
-						enum port port);
+#define to_vgem_bo(x) container_of(x, struct drm_vgem_gem_object, base)
+struct drm_vgem_gem_object {
+	struct drm_gem_object base;
+	struct page **pages;
+	bool use_dma_buf;
+};
 
-#endif /* _INTEL_DSI_DSI_H */
+/* vgem_drv.c */
+extern void vgem_gem_put_pages(struct drm_vgem_gem_object *obj);
+extern int vgem_gem_get_pages(struct drm_vgem_gem_object *obj);
+
+#endif

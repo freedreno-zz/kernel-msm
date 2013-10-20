@@ -154,7 +154,7 @@ static void dce5_crtc_load_lut(struct drm_crtc *crtc)
 	       (NI_GRPH_REGAMMA_MODE(NI_REGAMMA_BYPASS) |
 		NI_OVL_REGAMMA_MODE(NI_REGAMMA_BYPASS)));
 	WREG32(NI_OUTPUT_CSC_CONTROL + radeon_crtc->crtc_offset,
-	       (NI_OUTPUT_CSC_GRPH_MODE(NI_OUTPUT_CSC_BYPASS) |
+	       (NI_OUTPUT_CSC_GRPH_MODE(radeon_crtc->output_csc) |
 		NI_OUTPUT_CSC_OVL_MODE(NI_OUTPUT_CSC_BYPASS)));
 	/* XXX match this to the depth of the crtc fmt block, move to modeset? */
 	WREG32(0x6940 + radeon_crtc->crtc_offset, 0);
@@ -960,6 +960,9 @@ void radeon_compute_pll_avivo(struct radeon_pll *pll,
 	if (pll->flags & RADEON_PLL_USE_FRAC_FB_DIV &&
 	    pll->flags & RADEON_PLL_USE_REF_DIV)
 		ref_div_max = pll->reference_div;
+	else if (pll->flags & RADEON_PLL_PREFER_MINM_OVER_MAXP)
+		/* fix for problems on RS880 */
+		ref_div_max = min(pll->max_ref_div, 7u);
 	else
 		ref_div_max = pll->max_ref_div;
 
@@ -1379,6 +1382,13 @@ static struct drm_prop_enum_list radeon_dither_enum_list[] =
 	{ RADEON_FMT_DITHER_ENABLE, "on" },
 };
 
+static struct drm_prop_enum_list radeon_output_csc_enum_list[] =
+{	{ RADEON_OUTPUT_CSC_BYPASS, "bypass" },
+	{ RADEON_OUTPUT_CSC_TVRGB, "tvrgb" },
+	{ RADEON_OUTPUT_CSC_YCBCR601, "ycbcr601" },
+	{ RADEON_OUTPUT_CSC_YCBCR709, "ycbcr709" },
+};
+
 static int radeon_modeset_create_props(struct radeon_device *rdev)
 {
 	int sz;
@@ -1440,6 +1450,12 @@ static int radeon_modeset_create_props(struct radeon_device *rdev)
 		drm_property_create_enum(rdev->ddev, 0,
 					 "dither",
 					 radeon_dither_enum_list, sz);
+
+	sz = ARRAY_SIZE(radeon_output_csc_enum_list);
+	rdev->mode_info.output_csc_property =
+		drm_property_create_enum(rdev->ddev, 0,
+					 "output_csc",
+					 radeon_output_csc_enum_list, sz);
 
 	return 0;
 }

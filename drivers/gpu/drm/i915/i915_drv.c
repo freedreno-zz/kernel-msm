@@ -346,7 +346,6 @@ static const struct intel_device_info intel_broadwell_gt3m_info = {
 };
 
 static const struct intel_device_info intel_cherryview_info = {
-	.is_preliminary = 1,
 	.gen = 8, .num_pipes = 3,
 	.need_gfx_hws = 1, .has_hotplug = 1,
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING,
@@ -362,6 +361,19 @@ static const struct intel_device_info intel_skylake_info = {
 	.gen = 9, .num_pipes = 3,
 	.need_gfx_hws = 1, .has_hotplug = 1,
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING,
+	.has_llc = 1,
+	.has_ddi = 1,
+	.has_fbc = 1,
+	GEN_DEFAULT_PIPEOFFSETS,
+	IVB_CURSOR_OFFSETS,
+};
+
+static const struct intel_device_info intel_skylake_gt3_info = {
+	.is_preliminary = 1,
+	.is_skylake = 1,
+	.gen = 9, .num_pipes = 3,
+	.need_gfx_hws = 1, .has_hotplug = 1,
+	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING | BSD2_RING,
 	.has_llc = 1,
 	.has_ddi = 1,
 	.has_fbc = 1,
@@ -406,7 +418,9 @@ static const struct intel_device_info intel_skylake_info = {
 	INTEL_BDW_GT3M_IDS(&intel_broadwell_gt3m_info),	\
 	INTEL_BDW_GT3D_IDS(&intel_broadwell_gt3d_info), \
 	INTEL_CHV_IDS(&intel_cherryview_info),	\
-	INTEL_SKL_IDS(&intel_skylake_info)
+	INTEL_SKL_GT1_IDS(&intel_skylake_info),	\
+	INTEL_SKL_GT2_IDS(&intel_skylake_info),	\
+	INTEL_SKL_GT3_IDS(&intel_skylake_gt3_info)	\
 
 static const struct pci_device_id pciidlist[] = {		/* aka */
 	INTEL_PCI_IDS,
@@ -462,19 +476,13 @@ void intel_detect_pch(struct drm_device *dev)
 			} else if (id == INTEL_PCH_LPT_DEVICE_ID_TYPE) {
 				dev_priv->pch_type = PCH_LPT;
 				DRM_DEBUG_KMS("Found LynxPoint PCH\n");
-				WARN_ON(!IS_HASWELL(dev));
-				WARN_ON(IS_HSW_ULT(dev));
-			} else if (IS_BROADWELL(dev)) {
-				dev_priv->pch_type = PCH_LPT;
-				dev_priv->pch_id =
-					INTEL_PCH_LPT_LP_DEVICE_ID_TYPE;
-				DRM_DEBUG_KMS("This is Broadwell, assuming "
-					      "LynxPoint LP PCH\n");
+				WARN_ON(!IS_HASWELL(dev) && !IS_BROADWELL(dev));
+				WARN_ON(IS_HSW_ULT(dev) || IS_BDW_ULT(dev));
 			} else if (id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE) {
 				dev_priv->pch_type = PCH_LPT;
 				DRM_DEBUG_KMS("Found LynxPoint LP PCH\n");
-				WARN_ON(!IS_HASWELL(dev));
-				WARN_ON(!IS_HSW_ULT(dev));
+				WARN_ON(!IS_HASWELL(dev) && !IS_BROADWELL(dev));
+				WARN_ON(!IS_HSW_ULT(dev) && !IS_BDW_ULT(dev));
 			} else if (id == INTEL_PCH_SPT_DEVICE_ID_TYPE) {
 				dev_priv->pch_type = PCH_SPT;
 				DRM_DEBUG_KMS("Found SunrisePoint PCH\n");
@@ -559,6 +567,7 @@ static int i915_drm_suspend(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	pci_power_t opregion_target_state;
+	int error;
 
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
@@ -573,37 +582,32 @@ static int i915_drm_suspend(struct drm_device *dev)
 
 	pci_save_state(dev->pdev);
 
-	/* If KMS is active, we do the leavevt stuff here */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		int error;
-
-		error = i915_gem_suspend(dev);
-		if (error) {
-			dev_err(&dev->pdev->dev,
-				"GEM idle failed, resume might fail\n");
-			return error;
-		}
-
-		intel_suspend_gt_powersave(dev);
-
-		/*
-		 * Disable CRTCs directly since we want to preserve sw state
-		 * for _thaw. Also, power gate the CRTC power wells.
-		 */
-		drm_modeset_lock_all(dev);
-		for_each_crtc(dev, crtc)
-			intel_crtc_control(crtc, false);
-		drm_modeset_unlock_all(dev);
-
-		intel_dp_mst_suspend(dev);
-
-		intel_runtime_pm_disable_interrupts(dev_priv);
-		intel_hpd_cancel_work(dev_priv);
-
-		intel_suspend_encoders(dev_priv);
-
-		intel_suspend_hw(dev);
+	error = i915_gem_suspend(dev);
+	if (error) {
+		dev_err(&dev->pdev->dev,
+			"GEM idle failed, resume might fail\n");
+		return error;
 	}
+
+	intel_suspend_gt_powersave(dev);
+
+	/*
+	 * Disable CRTCs directly since we want to preserve sw state
+	 * for _thaw. Also, power gate the CRTC power wells.
+	 */
+	drm_modeset_lock_all(dev);
+	for_each_crtc(dev, crtc)
+		intel_crtc_control(crtc, false);
+	drm_modeset_unlock_all(dev);
+
+	intel_dp_mst_suspend(dev);
+
+	intel_runtime_pm_disable_interrupts(dev_priv);
+	intel_hpd_cancel_work(dev_priv);
+
+	intel_suspend_encoders(dev_priv);
+
+	intel_suspend_hw(dev);
 
 	i915_gem_suspend_gtt_mappings(dev);
 
@@ -628,7 +632,7 @@ static int i915_drm_suspend(struct drm_device *dev)
 	return 0;
 }
 
-static int i915_drm_suspend_late(struct drm_device *drm_dev)
+static int i915_drm_suspend_late(struct drm_device *drm_dev, bool hibernation)
 {
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
 	int ret;
@@ -642,7 +646,17 @@ static int i915_drm_suspend_late(struct drm_device *drm_dev)
 	}
 
 	pci_disable_device(drm_dev->pdev);
-	pci_set_power_state(drm_dev->pdev, PCI_D3hot);
+	/*
+	 * During hibernation on some GEN4 platforms the BIOS may try to access
+	 * the device even though it's already in D3 and hang the machine. So
+	 * leave the device in D0 on those platforms and hope the BIOS will
+	 * power down the device properly. Platforms where this was seen:
+	 * Lenovo Thinkpad X301, X61s
+	 */
+	if (!(hibernation &&
+	      drm_dev->pdev->subsystem_vendor == PCI_VENDOR_ID_LENOVO &&
+	      INTEL_INFO(dev_priv)->gen == 4))
+		pci_set_power_state(drm_dev->pdev, PCI_D3hot);
 
 	return 0;
 }
@@ -668,60 +682,62 @@ int i915_suspend_legacy(struct drm_device *dev, pm_message_t state)
 	if (error)
 		return error;
 
-	return i915_drm_suspend_late(dev);
+	return i915_drm_suspend_late(dev, false);
 }
 
 static int i915_drm_resume(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		mutex_lock(&dev->struct_mutex);
-		i915_gem_restore_gtt_mappings(dev);
-		mutex_unlock(&dev->struct_mutex);
-	}
+	mutex_lock(&dev->struct_mutex);
+	i915_gem_restore_gtt_mappings(dev);
+	mutex_unlock(&dev->struct_mutex);
 
 	i915_restore_state(dev);
 	intel_opregion_setup(dev);
 
-	/* KMS EnterVT equivalent */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		intel_init_pch_refclk(dev);
-		drm_mode_config_reset(dev);
+	intel_init_pch_refclk(dev);
+	drm_mode_config_reset(dev);
 
-		mutex_lock(&dev->struct_mutex);
-		if (i915_gem_init_hw(dev)) {
-			DRM_ERROR("failed to re-initialize GPU, declaring wedged!\n");
-			atomic_set_mask(I915_WEDGED, &dev_priv->gpu_error.reset_counter);
-		}
-		mutex_unlock(&dev->struct_mutex);
+	/*
+	 * Interrupts have to be enabled before any batches are run. If not the
+	 * GPU will hang. i915_gem_init_hw() will initiate batches to
+	 * update/restore the context.
+	 *
+	 * Modeset enabling in intel_modeset_init_hw() also needs working
+	 * interrupts.
+	 */
+	intel_runtime_pm_enable_interrupts(dev_priv);
 
-		/* We need working interrupts for modeset enabling ... */
-		intel_runtime_pm_enable_interrupts(dev_priv);
-
-		intel_modeset_init_hw(dev);
-
-		spin_lock_irq(&dev_priv->irq_lock);
-		if (dev_priv->display.hpd_irq_setup)
-			dev_priv->display.hpd_irq_setup(dev);
-		spin_unlock_irq(&dev_priv->irq_lock);
-
-		drm_modeset_lock_all(dev);
-		intel_modeset_setup_hw_state(dev, true);
-		drm_modeset_unlock_all(dev);
-
-		intel_dp_mst_resume(dev);
-
-		/*
-		 * ... but also need to make sure that hotplug processing
-		 * doesn't cause havoc. Like in the driver load code we don't
-		 * bother with the tiny race here where we might loose hotplug
-		 * notifications.
-		 * */
-		intel_hpd_init(dev_priv);
-		/* Config may have changed between suspend and resume */
-		drm_helper_hpd_irq_event(dev);
+	mutex_lock(&dev->struct_mutex);
+	if (i915_gem_init_hw(dev)) {
+		DRM_ERROR("failed to re-initialize GPU, declaring wedged!\n");
+		atomic_set_mask(I915_WEDGED, &dev_priv->gpu_error.reset_counter);
 	}
+	mutex_unlock(&dev->struct_mutex);
+
+	intel_modeset_init_hw(dev);
+
+	spin_lock_irq(&dev_priv->irq_lock);
+	if (dev_priv->display.hpd_irq_setup)
+		dev_priv->display.hpd_irq_setup(dev);
+	spin_unlock_irq(&dev_priv->irq_lock);
+
+	drm_modeset_lock_all(dev);
+	intel_modeset_setup_hw_state(dev, true);
+	drm_modeset_unlock_all(dev);
+
+	intel_dp_mst_resume(dev);
+
+	/*
+	 * ... but also need to make sure that hotplug processing
+	 * doesn't cause havoc. Like in the driver load code we don't
+	 * bother with the tiny race here where we might loose hotplug
+	 * notifications.
+	 * */
+	intel_hpd_init(dev_priv);
+	/* Config may have changed between suspend and resume */
+	drm_helper_hpd_irq_event(dev);
 
 	intel_opregion_init(dev);
 
@@ -857,37 +873,28 @@ int i915_reset(struct drm_device *dev)
 	 * was running at the time of the reset (i.e. we weren't VT
 	 * switched away).
 	 */
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		/* Used to prevent gem_check_wedged returning -EAGAIN during gpu reset */
-		dev_priv->gpu_error.reload_in_reset = true;
 
-		ret = i915_gem_init_hw(dev);
+	/* Used to prevent gem_check_wedged returning -EAGAIN during gpu reset */
+	dev_priv->gpu_error.reload_in_reset = true;
 
-		dev_priv->gpu_error.reload_in_reset = false;
+	ret = i915_gem_init_hw(dev);
 
-		mutex_unlock(&dev->struct_mutex);
-		if (ret) {
-			DRM_ERROR("Failed hw init on reset %d\n", ret);
-			return ret;
-		}
+	dev_priv->gpu_error.reload_in_reset = false;
 
-		/*
-		 * FIXME: This races pretty badly against concurrent holders of
-		 * ring interrupts. This is possible since we've started to drop
-		 * dev->struct_mutex in select places when waiting for the gpu.
-		 */
-
-		/*
-		 * rps/rc6 re-init is necessary to restore state lost after the
-		 * reset and the re-install of gt irqs. Skip for ironlake per
-		 * previous concerns that it doesn't respond well to some forms
-		 * of re-init after reset.
-		 */
-		if (INTEL_INFO(dev)->gen > 5)
-			intel_enable_gt_powersave(dev);
-	} else {
-		mutex_unlock(&dev->struct_mutex);
+	mutex_unlock(&dev->struct_mutex);
+	if (ret) {
+		DRM_ERROR("Failed hw init on reset %d\n", ret);
+		return ret;
 	}
+
+	/*
+	 * rps/rc6 re-init is necessary to restore state lost after the
+	 * reset and the re-install of gt irqs. Skip for ironlake per
+	 * previous concerns that it doesn't respond well to some forms
+	 * of re-init after reset.
+	 */
+	if (INTEL_INFO(dev)->gen > 5)
+		intel_enable_gt_powersave(dev);
 
 	return 0;
 }
@@ -956,7 +963,17 @@ static int i915_pm_suspend_late(struct device *dev)
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
 
-	return i915_drm_suspend_late(drm_dev);
+	return i915_drm_suspend_late(drm_dev, false);
+}
+
+static int i915_pm_poweroff_late(struct device *dev)
+{
+	struct drm_device *drm_dev = dev_to_i915(dev)->dev;
+
+	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+		return 0;
+
+	return i915_drm_suspend_late(drm_dev, true);
 }
 
 static int i915_pm_resume_early(struct device *dev)
@@ -1028,7 +1045,7 @@ static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 		s->lra_limits[i] = I915_READ(GEN7_LRA_LIMITS_BASE + i * 4);
 
 	s->media_max_req_count	= I915_READ(GEN7_MEDIA_MAX_REQ_COUNT);
-	s->gfx_max_req_count	= I915_READ(GEN7_MEDIA_MAX_REQ_COUNT);
+	s->gfx_max_req_count	= I915_READ(GEN7_GFX_MAX_REQ_COUNT);
 
 	s->render_hwsp		= I915_READ(RENDER_HWS_PGA_GEN7);
 	s->ecochk		= I915_READ(GAM_ECOCHK);
@@ -1081,6 +1098,7 @@ static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
 	s->gu_ctl0		= I915_READ(VLV_GU_CTL0);
 	s->gu_ctl1		= I915_READ(VLV_GU_CTL1);
+	s->pcbr			= I915_READ(VLV_PCBR);
 	s->clock_gate_dis2	= I915_READ(VLV_GUNIT_CLOCK_GATE2);
 
 	/*
@@ -1109,7 +1127,7 @@ static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 		I915_WRITE(GEN7_LRA_LIMITS_BASE + i * 4, s->lra_limits[i]);
 
 	I915_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->media_max_req_count);
-	I915_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->gfx_max_req_count);
+	I915_WRITE(GEN7_GFX_MAX_REQ_COUNT, s->gfx_max_req_count);
 
 	I915_WRITE(RENDER_HWS_PGA_GEN7,	s->render_hwsp);
 	I915_WRITE(GAM_ECOCHK,		s->ecochk);
@@ -1175,6 +1193,7 @@ static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
 	I915_WRITE(VLV_GU_CTL0,			s->gu_ctl0);
 	I915_WRITE(VLV_GU_CTL1,			s->gu_ctl1);
+	I915_WRITE(VLV_PCBR,			s->pcbr);
 	I915_WRITE(VLV_GUNIT_CLOCK_GATE2,	s->clock_gate_dis2);
 }
 
@@ -1183,19 +1202,7 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
 	u32 val;
 	int err;
 
-	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
-	WARN_ON(!!(val & VLV_GFX_CLK_FORCE_ON_BIT) == force_on);
-
 #define COND (I915_READ(VLV_GTLC_SURVIVABILITY_REG) & VLV_GFX_CLK_STATUS_BIT)
-	/* Wait for a previous force-off to settle */
-	if (force_on) {
-		err = wait_for(!COND, 20);
-		if (err) {
-			DRM_ERROR("timeout waiting for GFX clock force-off (%08x)\n",
-				  I915_READ(VLV_GTLC_SURVIVABILITY_REG));
-			return err;
-		}
-	}
 
 	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
 	val &= ~VLV_GFX_CLK_FORCE_ON_BIT;
@@ -1526,7 +1533,7 @@ static const struct dev_pm_ops i915_pm_ops = {
 	.thaw_early = i915_pm_resume_early,
 	.thaw = i915_pm_resume,
 	.poweroff = i915_pm_suspend,
-	.poweroff_late = i915_pm_suspend_late,
+	.poweroff_late = i915_pm_poweroff_late,
 	.restore_early = i915_pm_resume_early,
 	.restore = i915_pm_resume,
 
@@ -1636,11 +1643,9 @@ static int __init i915_init(void)
 
 	if (!(driver.driver_features & DRIVER_MODESET)) {
 		driver.get_vblank_timestamp = NULL;
-#ifndef CONFIG_DRM_I915_UMS
 		/* Silently fail loading to not upset userspace. */
 		DRM_DEBUG_DRIVER("KMS and UMS disabled.\n");
 		return 0;
-#endif
 	}
 
 	/*
@@ -1656,10 +1661,8 @@ static int __init i915_init(void)
 
 static void __exit i915_exit(void)
 {
-#ifndef CONFIG_DRM_I915_UMS
 	if (!(driver.driver_features & DRIVER_MODESET))
 		return; /* Never loaded a driver. */
-#endif
 
 	drm_pci_exit(&driver, &i915_pci_driver);
 }
@@ -1672,270 +1675,3 @@ MODULE_AUTHOR("Intel Corporation");
 
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL and additional rights");
-<<<<<<< HEAD
-
-/* We give fast paths for the really cool registers */
-#define NEEDS_FORCE_WAKE(dev_priv, reg) \
-	((HAS_FORCE_WAKE((dev_priv)->dev)) && \
-	 ((reg) < 0x40000) &&            \
-	 ((reg) != FORCEWAKE))
-static void
-ilk_dummy_write(struct drm_i915_private *dev_priv)
-{
-	/* WaIssueDummyWriteToWakeupFromRC6: Issue a dummy write to wake up the
-	 * chip from rc6 before touching it for real. MI_MODE is masked, hence
-	 * harmless to write 0 into. */
-	I915_WRITE_NOTRACE(MI_MODE, 0);
-}
-
-static void
-hsw_unclaimed_reg_clear(struct drm_i915_private *dev_priv, u32 reg)
-{
-	if (IS_HASWELL(dev_priv->dev) &&
-	    (I915_READ_NOTRACE(FPGA_DBG) & FPGA_DBG_RM_NOCLAIM)) {
-		DRM_ERROR("Unknown unclaimed register before writing to %x\n",
-			  reg);
-		I915_WRITE_NOTRACE(FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
-	}
-}
-
-static void
-hsw_unclaimed_reg_check(struct drm_i915_private *dev_priv, u32 reg)
-{
-	if (IS_HASWELL(dev_priv->dev) &&
-	    (I915_READ_NOTRACE(FPGA_DBG) & FPGA_DBG_RM_NOCLAIM)) {
-		DRM_ERROR("Unclaimed write to %x\n", reg);
-		I915_WRITE_NOTRACE(FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
-	}
-}
-
-#define __i915_read(x, y) \
-u##x i915_read##x(struct drm_i915_private *dev_priv, u32 reg) { \
-	unsigned long irqflags; \
-	u##x val = 0; \
-	spin_lock_irqsave(&dev_priv->gt_lock, irqflags); \
-	if (IS_GEN5(dev_priv->dev)) \
-		ilk_dummy_write(dev_priv); \
-	if (NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
-		if (dev_priv->forcewake_count == 0) \
-			dev_priv->gt.force_wake_get(dev_priv); \
-		val = read##y(dev_priv->regs + reg); \
-		if (dev_priv->forcewake_count == 0) \
-			dev_priv->gt.force_wake_put(dev_priv); \
-	} else { \
-		val = read##y(dev_priv->regs + reg); \
-	} \
-	spin_unlock_irqrestore(&dev_priv->gt_lock, irqflags); \
-	trace_i915_reg_rw(false, reg, val, sizeof(val)); \
-	return val; \
-}
-
-__i915_read(8, b)
-__i915_read(16, w)
-__i915_read(32, l)
-__i915_read(64, q)
-#undef __i915_read
-
-#define __i915_write(x, y) \
-void i915_write##x(struct drm_i915_private *dev_priv, u32 reg, u##x val) { \
-	unsigned long irqflags; \
-	u32 __fifo_ret = 0; \
-	trace_i915_reg_rw(true, reg, val, sizeof(val)); \
-	spin_lock_irqsave(&dev_priv->gt_lock, irqflags); \
-	if (NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
-		__fifo_ret = __gen6_gt_wait_for_fifo(dev_priv); \
-	} \
-	if (IS_GEN5(dev_priv->dev)) \
-		ilk_dummy_write(dev_priv); \
-	hsw_unclaimed_reg_clear(dev_priv, reg); \
-	write##y(val, dev_priv->regs + reg); \
-	if (unlikely(__fifo_ret)) { \
-		gen6_gt_check_fifodbg(dev_priv); \
-	} \
-	hsw_unclaimed_reg_check(dev_priv, reg); \
-	spin_unlock_irqrestore(&dev_priv->gt_lock, irqflags); \
-}
-__i915_write(8, b)
-__i915_write(16, w)
-__i915_write(32, l)
-__i915_write(64, q)
-#undef __i915_write
-
-static const struct register_whitelist {
-	uint64_t offset;
-	uint32_t size;
-	uint32_t gen_bitmask; /* support gens, 0x10 for 4, 0x30 for 4 and 5, etc. */
-} whitelist[] = {
-	{ RING_TIMESTAMP(RENDER_RING_BASE), 8, 0xF0 },
-};
-
-int i915_reg_read_ioctl(struct drm_device *dev,
-			void *data, struct drm_file *file)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_i915_reg_read *reg = data;
-	struct register_whitelist const *entry = whitelist;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(whitelist); i++, entry++) {
-		if (entry->offset == reg->offset &&
-		    (1 << INTEL_INFO(dev)->gen & entry->gen_bitmask))
-			break;
-	}
-
-	if (i == ARRAY_SIZE(whitelist))
-		return -EINVAL;
-
-	switch (entry->size) {
-	case 8:
-		reg->val = I915_READ64(reg->offset);
-		break;
-	case 4:
-		reg->val = I915_READ(reg->offset);
-		break;
-	case 2:
-		reg->val = I915_READ16(reg->offset);
-		break;
-	case 1:
-		reg->val = I915_READ8(reg->offset);
-		break;
-	default:
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-||||||| parent of 6b247f2... drm: backport from 3.16
-
-/* We give fast paths for the really cool registers */
-#define NEEDS_FORCE_WAKE(dev_priv, reg) \
-	((HAS_FORCE_WAKE((dev_priv)->dev)) && \
-	 ((reg) < 0x40000) &&            \
-	 ((reg) != FORCEWAKE))
-static void
-ilk_dummy_write(struct drm_i915_private *dev_priv)
-{
-	/* WaIssueDummyWriteToWakeupFromRC6: Issue a dummy write to wake up the
-	 * chip from rc6 before touching it for real. MI_MODE is masked, hence
-	 * harmless to write 0 into. */
-	I915_WRITE_NOTRACE(MI_MODE, 0);
-}
-
-static void
-hsw_unclaimed_reg_clear(struct drm_i915_private *dev_priv, u32 reg)
-{
-	if (IS_HASWELL(dev_priv->dev) &&
-	    (I915_READ_NOTRACE(FPGA_DBG) & FPGA_DBG_RM_NOCLAIM)) {
-		DRM_ERROR("Unknown unclaimed register before writing to %x\n",
-			  reg);
-		I915_WRITE_NOTRACE(FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
-	}
-}
-
-static void
-hsw_unclaimed_reg_check(struct drm_i915_private *dev_priv, u32 reg)
-{
-	if (IS_HASWELL(dev_priv->dev) &&
-	    (I915_READ_NOTRACE(FPGA_DBG) & FPGA_DBG_RM_NOCLAIM)) {
-		DRM_ERROR("Unclaimed write to %x\n", reg);
-		I915_WRITE_NOTRACE(FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
-	}
-}
-
-#define __i915_read(x, y) \
-u##x i915_read##x(struct drm_i915_private *dev_priv, u32 reg) { \
-	u##x val = 0; \
-	if (IS_GEN5(dev_priv->dev)) \
-		ilk_dummy_write(dev_priv); \
-	if (NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
-		unsigned long irqflags; \
-		spin_lock_irqsave(&dev_priv->gt_lock, irqflags); \
-		if (dev_priv->forcewake_count == 0) \
-			dev_priv->gt.force_wake_get(dev_priv); \
-		val = read##y(dev_priv->regs + reg); \
-		if (dev_priv->forcewake_count == 0) \
-			dev_priv->gt.force_wake_put(dev_priv); \
-		spin_unlock_irqrestore(&dev_priv->gt_lock, irqflags); \
-	} else { \
-		val = read##y(dev_priv->regs + reg); \
-	} \
-	trace_i915_reg_rw(false, reg, val, sizeof(val)); \
-	return val; \
-}
-
-__i915_read(8, b)
-__i915_read(16, w)
-__i915_read(32, l)
-__i915_read(64, q)
-#undef __i915_read
-
-#define __i915_write(x, y) \
-void i915_write##x(struct drm_i915_private *dev_priv, u32 reg, u##x val) { \
-	u32 __fifo_ret = 0; \
-	trace_i915_reg_rw(true, reg, val, sizeof(val)); \
-	if (NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
-		__fifo_ret = __gen6_gt_wait_for_fifo(dev_priv); \
-	} \
-	if (IS_GEN5(dev_priv->dev)) \
-		ilk_dummy_write(dev_priv); \
-	hsw_unclaimed_reg_clear(dev_priv, reg); \
-	write##y(val, dev_priv->regs + reg); \
-	if (unlikely(__fifo_ret)) { \
-		gen6_gt_check_fifodbg(dev_priv); \
-	} \
-	hsw_unclaimed_reg_check(dev_priv, reg); \
-}
-__i915_write(8, b)
-__i915_write(16, w)
-__i915_write(32, l)
-__i915_write(64, q)
-#undef __i915_write
-
-static const struct register_whitelist {
-	uint64_t offset;
-	uint32_t size;
-	uint32_t gen_bitmask; /* support gens, 0x10 for 4, 0x30 for 4 and 5, etc. */
-} whitelist[] = {
-	{ RING_TIMESTAMP(RENDER_RING_BASE), 8, 0xF0 },
-};
-
-int i915_reg_read_ioctl(struct drm_device *dev,
-			void *data, struct drm_file *file)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_i915_reg_read *reg = data;
-	struct register_whitelist const *entry = whitelist;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(whitelist); i++, entry++) {
-		if (entry->offset == reg->offset &&
-		    (1 << INTEL_INFO(dev)->gen & entry->gen_bitmask))
-			break;
-	}
-
-	if (i == ARRAY_SIZE(whitelist))
-		return -EINVAL;
-
-	switch (entry->size) {
-	case 8:
-		reg->val = I915_READ64(reg->offset);
-		break;
-	case 4:
-		reg->val = I915_READ(reg->offset);
-		break;
-	case 2:
-		reg->val = I915_READ16(reg->offset);
-		break;
-	case 1:
-		reg->val = I915_READ8(reg->offset);
-		break;
-	default:
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-=======
->>>>>>> 6b247f2... drm: backport from 3.16

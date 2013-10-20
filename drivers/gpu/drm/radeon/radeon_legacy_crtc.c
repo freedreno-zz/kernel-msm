@@ -431,6 +431,7 @@ retry:
 				     &base);
 	if (unlikely(r != 0)) {
 		radeon_bo_unreserve(rbo);
+
 		/* On old GPU like RN50 with little vram pining can fails because
 		 * current fb is taking all space needed. So instead of unpining
 		 * the old buffer after pining the new one, first unpin old one

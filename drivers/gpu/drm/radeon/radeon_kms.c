@@ -547,8 +547,34 @@ static int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file
 		else
 			*value = 1;
 		break;
-	case RADEON_INFO_SI_CP_DMA_COMPUTE:
-		*value = 1;
+	case RADEON_INFO_CURRENT_GPU_TEMP:
+		/* get temperature in millidegrees C */
+		if (rdev->asic->pm.get_temperature)
+			*value = radeon_get_temperature(rdev);
+		else
+			*value = 0;
+		break;
+	case RADEON_INFO_CURRENT_GPU_SCLK:
+		/* get sclk in Mhz */
+		if (rdev->pm.dpm_enabled)
+			*value = radeon_dpm_get_current_sclk(rdev) / 100;
+		else
+			*value = rdev->pm.current_sclk / 100;
+		break;
+	case RADEON_INFO_CURRENT_GPU_MCLK:
+		/* get mclk in Mhz */
+		if (rdev->pm.dpm_enabled)
+			*value = radeon_dpm_get_current_mclk(rdev) / 100;
+		else
+			*value = rdev->pm.current_mclk / 100;
+		break;
+	case RADEON_INFO_READ_REG:
+		if (copy_from_user(value, value_ptr, sizeof(uint32_t))) {
+			DRM_ERROR("copy_from_user %s:%u\n", __func__, __LINE__);
+			return -EFAULT;
+		}
+		if (radeon_get_allowed_info_register(rdev, *value, value))
+			return -EINVAL;
 		break;
 	default:
 		DRM_DEBUG_KMS("Invalid request %d\n", info->request);
@@ -608,14 +634,14 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 			return -ENOMEM;
 		}
 
-		vm = &fpriv->vm;
-		r = radeon_vm_init(rdev, vm);
-		if (r) {
-			kfree(fpriv);
-			return r;
-		}
-
 		if (rdev->accel_working) {
+			vm = &fpriv->vm;
+			r = radeon_vm_init(rdev, vm);
+			if (r) {
+				kfree(fpriv);
+				return r;
+			}
+
 			r = radeon_bo_reserve(rdev->ring_tmp_bo.bo, false);
 			if (r) {
 				radeon_vm_fini(rdev, vm);
@@ -671,9 +697,9 @@ void radeon_driver_postclose_kms(struct drm_device *dev,
 					radeon_vm_bo_rmv(rdev, vm->ib_bo_va);
 				radeon_bo_unreserve(rdev->ring_tmp_bo.bo);
 			}
+			radeon_vm_fini(rdev, vm);
 		}
 
-		radeon_vm_fini(rdev, vm);
 		kfree(fpriv);
 		file_priv->driver_priv = NULL;
 	}
