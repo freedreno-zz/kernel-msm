@@ -24,7 +24,7 @@
 #ifndef _VIA_DRV_H_
 #define _VIA_DRV_H_
 
-#include "drm_sman.h"
+#include <drm/drm_mm.h>
 #define DRIVER_AUTHOR	"Various"
 
 #define DRIVER_NAME		"via"
@@ -88,9 +88,12 @@ typedef struct drm_via_private {
 	uint32_t irq_pending_mask;
 	int *irq_map;
 	unsigned int idle_fault;
-	struct drm_sman sman;
 	int vram_initialized;
+	struct drm_mm vram_mm;
 	int agp_initialized;
+	struct drm_mm agp_mm;
+	/** Mapping of userspace keys to mm objects */
+	struct idr object_idr;
 	unsigned long vram_offset;
 	unsigned long agp_offset;
 	drm_via_blitq_t blit_queues[VIA_NUM_BLIT_ENGINES];
@@ -111,7 +114,7 @@ enum via_family {
 #define VIA_READ8(reg)		DRM_READ8(VIA_BASE, reg)
 #define VIA_WRITE8(reg, val)	DRM_WRITE8(VIA_BASE, reg, val)
 
-extern struct drm_ioctl_desc via_ioctls[];
+extern const struct drm_ioctl_desc via_ioctls[];
 extern int via_max_ioctl;
 
 extern int via_fb_init(struct drm_device *dev, void *data, struct drm_file *file_priv);

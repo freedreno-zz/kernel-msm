@@ -33,7 +33,7 @@
 
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
-#include "drmP.h"
+#include <drm/drmP.h>
 
 #define DEBUG_SCATTER 0
 
@@ -46,7 +46,7 @@ static inline void *drm_vmalloc_dma(unsigned long size)
 #endif
 }
 
-void drm_sg_cleanup(struct drm_sg_mem * entry)
+static void drm_sg_cleanup(struct drm_sg_mem * entry)
 {
 	struct page *page;
 	int i;
@@ -64,18 +64,31 @@ void drm_sg_cleanup(struct drm_sg_mem * entry)
 	kfree(entry);
 }
 
+void drm_legacy_sg_cleanup(struct drm_device *dev)
+{
+	if (drm_core_check_feature(dev, DRIVER_SG) && dev->sg &&
+	    !drm_core_check_feature(dev, DRIVER_MODESET)) {
+		drm_sg_cleanup(dev->sg);
+		dev->sg = NULL;
+	}
+}
 #ifdef _LP64
 # define ScatterHandle(x) (unsigned int)((x >> 32) + (x & ((1L << 32) - 1)))
 #else
 # define ScatterHandle(x) (unsigned int)(x)
 #endif
 
-int drm_sg_alloc(struct drm_device *dev, struct drm_scatter_gather * request)
+int drm_sg_alloc(struct drm_device *dev, void *data,
+		 struct drm_file *file_priv)
 {
+	struct drm_scatter_gather *request = data;
 	struct drm_sg_mem *entry;
 	unsigned long pages, i, j;
 
 	DRM_DEBUG("\n");
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return -EINVAL;
 
 	if (!drm_core_check_feature(dev, DRIVER_SG))
 		return -EINVAL;
@@ -83,30 +96,26 @@ int drm_sg_alloc(struct drm_device *dev, struct drm_scatter_gather * request)
 	if (dev->sg)
 		return -EINVAL;
 
-	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
 
-	memset(entry, 0, sizeof(*entry));
 	pages = (request->size + PAGE_SIZE - 1) / PAGE_SIZE;
 	DRM_DEBUG("size=%ld pages=%ld\n", request->size, pages);
 
 	entry->pages = pages;
-	entry->pagelist = kmalloc(pages * sizeof(*entry->pagelist), GFP_KERNEL);
+	entry->pagelist = kcalloc(pages, sizeof(*entry->pagelist), GFP_KERNEL);
 	if (!entry->pagelist) {
 		kfree(entry);
 		return -ENOMEM;
 	}
 
-	memset(entry->pagelist, 0, pages * sizeof(*entry->pagelist));
-
-	entry->busaddr = kmalloc(pages * sizeof(*entry->busaddr), GFP_KERNEL);
+	entry->busaddr = kcalloc(pages, sizeof(*entry->busaddr), GFP_KERNEL);
 	if (!entry->busaddr) {
 		kfree(entry->pagelist);
 		kfree(entry);
 		return -ENOMEM;
 	}
-	memset((void *)entry->busaddr, 0, pages * sizeof(*entry->busaddr));
 
 	entry->virtual = drm_vmalloc_dma(pages << PAGE_SHIFT);
 	if (!entry->virtual) {
@@ -185,20 +194,14 @@ int drm_sg_alloc(struct drm_device *dev, struct drm_scatter_gather * request)
 	return -ENOMEM;
 }
 
-int drm_sg_alloc_ioctl(struct drm_device *dev, void *data,
-		       struct drm_file *file_priv)
-{
-	struct drm_scatter_gather *request = data;
-
-	return drm_sg_alloc(dev, request);
-
-}
-
 int drm_sg_free(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	struct drm_scatter_gather *request = data;
 	struct drm_sg_mem *entry;
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return -EINVAL;
 
 	if (!drm_core_check_feature(dev, DRIVER_SG))
 		return -EINVAL;

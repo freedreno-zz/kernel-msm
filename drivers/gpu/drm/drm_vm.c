@@ -33,7 +33,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "drmP.h"
+#include <drm/drmP.h>
+#include <linux/export.h>
 #if defined(__ia64__)
 #include <linux/efi.h>
 #include <linux/slab.h>
@@ -42,18 +43,19 @@
 static void drm_vm_open(struct vm_area_struct *vma);
 static void drm_vm_close(struct vm_area_struct *vma);
 
-static pgprot_t drm_io_prot(uint32_t map_type, struct vm_area_struct *vma)
+static pgprot_t drm_io_prot(struct drm_local_map *map,
+			    struct vm_area_struct *vma)
 {
 	pgprot_t tmp = vm_get_page_prot(vma->vm_flags);
 
 #if defined(__i386__) || defined(__x86_64__)
-	if (boot_cpu_data.x86 > 3 && map_type != _DRM_AGP) {
-		pgprot_val(tmp) |= _PAGE_PCD;
-		pgprot_val(tmp) &= ~_PAGE_PWT;
-	}
+	if (map->type == _DRM_REGISTERS && !(map->flags & _DRM_WRITE_COMBINING))
+		tmp = pgprot_noncached(tmp);
+	else
+		tmp = pgprot_writecombine(tmp);
 #elif defined(__powerpc__)
 	pgprot_val(tmp) |= _PAGE_NO_CACHE;
-	if (map_type == _DRM_REGISTERS)
+	if (map->type == _DRM_REGISTERS)
 		pgprot_val(tmp) |= _PAGE_GUARDED;
 #elif defined(__ia64__)
 	if (efi_range_is_wc(vma->vm_start, vma->vm_end -
@@ -61,7 +63,7 @@ static pgprot_t drm_io_prot(uint32_t map_type, struct vm_area_struct *vma)
 		tmp = pgprot_writecombine(tmp);
 	else
 		tmp = pgprot_noncached(tmp);
-#elif defined(__sparc__) || defined(__arm__)
+#elif defined(__sparc__) || defined(__arm__) || defined(__mips__)
 	tmp = pgprot_noncached(tmp);
 #endif
 	return tmp;
@@ -249,13 +251,7 @@ static void drm_vm_shm_close(struct vm_area_struct *vma)
 			switch (map->type) {
 			case _DRM_REGISTERS:
 			case _DRM_FRAME_BUFFER:
-				if (drm_core_has_MTRR(dev) && map->mtrr >= 0) {
-					int retcode;
-					retcode = mtrr_del(map->mtrr,
-							   map->offset,
-							   map->size);
-					DRM_DEBUG("mtrr_del = %d\n", retcode);
-				}
+				arch_phys_wc_del(map->mtrr);
 				iounmap(map->handle);
 				break;
 			case _DRM_SHM:
@@ -405,10 +401,9 @@ static const struct vm_operations_struct drm_vm_sg_ops = {
  * Create a new drm_vma_entry structure as the \p vma private data entry and
  * add it to drm_device::vmalist.
  */
-void drm_vm_open_locked(struct vm_area_struct *vma)
+void drm_vm_open_locked(struct drm_device *dev,
+		struct vm_area_struct *vma)
 {
-	struct drm_file *priv = vma->vm_file->private_data;
-	struct drm_device *dev = priv->minor->dev;
 	struct drm_vma_entry *vma_entry;
 
 	DRM_DEBUG("0x%08lx,0x%08lx\n",
@@ -422,6 +417,7 @@ void drm_vm_open_locked(struct vm_area_struct *vma)
 		list_add(&vma_entry->head, &dev->vmalist);
 	}
 }
+EXPORT_SYMBOL_GPL(drm_vm_open_locked);
 
 static void drm_vm_open(struct vm_area_struct *vma)
 {
@@ -429,14 +425,13 @@ static void drm_vm_open(struct vm_area_struct *vma)
 	struct drm_device *dev = priv->minor->dev;
 
 	mutex_lock(&dev->struct_mutex);
-	drm_vm_open_locked(vma);
+	drm_vm_open_locked(dev, vma);
 	mutex_unlock(&dev->struct_mutex);
 }
 
-void drm_vm_close_locked(struct vm_area_struct *vma)
+void drm_vm_close_locked(struct drm_device *dev,
+		struct vm_area_struct *vma)
 {
-	struct drm_file *priv = vma->vm_file->private_data;
-	struct drm_device *dev = priv->minor->dev;
 	struct drm_vma_entry *pt, *temp;
 
 	DRM_DEBUG("0x%08lx,0x%08lx\n",
@@ -466,7 +461,7 @@ static void drm_vm_close(struct vm_area_struct *vma)
 	struct drm_device *dev = priv->minor->dev;
 
 	mutex_lock(&dev->struct_mutex);
-	drm_vm_close_locked(vma);
+	drm_vm_close_locked(dev, vma);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -518,8 +513,7 @@ static int drm_mmap_dma(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
 	vma->vm_flags |= VM_DONTEXPAND;
 
-	vma->vm_file = filp;	/* Needed for drm_vm_open() */
-	drm_vm_open_locked(vma);
+	drm_vm_open_locked(dev, vma);
 	return 0;
 }
 
@@ -619,22 +613,12 @@ int drm_mmap_locked(struct file *filp, struct vm_area_struct *vma)
 	case _DRM_FRAME_BUFFER:
 	case _DRM_REGISTERS:
 		offset = drm_core_get_reg_ofs(dev);
-		vma->vm_flags |= VM_IO;	/* not in core dump */
-		vma->vm_page_prot = drm_io_prot(map->type, vma);
-#if !defined(__arm__)
+		vma->vm_page_prot = drm_io_prot(map, vma);
 		if (io_remap_pfn_range(vma, vma->vm_start,
 				       (map->offset + offset) >> PAGE_SHIFT,
 				       vma->vm_end - vma->vm_start,
 				       vma->vm_page_prot))
 			return -EAGAIN;
-#else
-		if (remap_pfn_range(vma, vma->vm_start,
-					(map->offset + offset) >> PAGE_SHIFT,
-					vma->vm_end - vma->vm_start,
-					vma->vm_page_prot))
-			return -EAGAIN;
-#endif
-
 		DRM_DEBUG("   Type = %d; start = 0x%lx, end = 0x%lx,"
 			  " offset = 0x%llx\n",
 			  map->type,
@@ -670,8 +654,7 @@ int drm_mmap_locked(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
 	vma->vm_flags |= VM_DONTEXPAND;
 
-	vma->vm_file = filp;	/* Needed for drm_vm_open() */
-	drm_vm_open_locked(vma);
+	drm_vm_open_locked(dev, vma);
 	return 0;
 }
 
@@ -680,6 +663,9 @@ int drm_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct drm_file *priv = filp->private_data;
 	struct drm_device *dev = priv->minor->dev;
 	int ret;
+
+	if (drm_device_is_unplugged(dev))
+		return -ENODEV;
 
 	mutex_lock(&dev->struct_mutex);
 	ret = drm_mmap_locked(filp, vma);

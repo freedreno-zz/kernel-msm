@@ -25,9 +25,10 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "drmP.h"
+#include <linux/export.h>
+#include <drm/drmP.h>
 
-/**
+/*
  * Register.
  *
  * \param platdev - Platform device struture
@@ -38,8 +39,8 @@
  * Try and register, if we fail to register, backout previous work.
  */
 
-int drm_get_platform_dev(struct platform_device *platdev,
-			 struct drm_driver *driver)
+static int drm_get_platform_dev(struct platform_device *platdev,
+				struct drm_driver *driver)
 {
 	struct drm_device *dev;
 	int ret;
@@ -63,10 +64,15 @@ int drm_get_platform_dev(struct platform_device *platdev,
 	}
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		dev_set_drvdata(&platdev->dev, dev);
 		ret = drm_get_minor(dev, &dev->control, DRM_MINOR_CONTROL);
 		if (ret)
 			goto err_g1;
+	}
+
+	if (drm_core_check_feature(dev, DRIVER_RENDER) && drm_rnodes) {
+		ret = drm_get_minor(dev, &dev->render, DRM_MINOR_RENDER);
+		if (ret)
+			goto err_g11;
 	}
 
 	ret = drm_get_minor(dev, &dev->primary, DRM_MINOR_LEGACY);
@@ -100,6 +106,9 @@ int drm_get_platform_dev(struct platform_device *platdev,
 err_g3:
 	drm_put_minor(&dev->primary);
 err_g2:
+	if (dev->render)
+		drm_put_minor(&dev->render);
+err_g11:
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		drm_put_minor(&dev->control);
 err_g1:
@@ -107,7 +116,6 @@ err_g1:
 	mutex_unlock(&drm_global_mutex);
 	return ret;
 }
-EXPORT_SYMBOL(drm_get_platform_dev);
 
 static int drm_platform_get_irq(struct drm_device *dev)
 {
@@ -121,16 +129,25 @@ static const char *drm_platform_get_name(struct drm_device *dev)
 
 static int drm_platform_set_busid(struct drm_device *dev, struct drm_master *master)
 {
-	int len, ret;
+	int len, ret, id;
 
-	master->unique_len = 10 + strlen(dev->platformdev->name);
+	master->unique_len = 13 + strlen(dev->platformdev->name);
+	master->unique_size = master->unique_len;
 	master->unique = kmalloc(master->unique_len + 1, GFP_KERNEL);
 
 	if (master->unique == NULL)
 		return -ENOMEM;
 
+	id = dev->platformdev->id;
+
+	/* if only a single instance of the platform device, id will be
+	 * set to -1.. use 0 instead to avoid a funny looking bus-id:
+	 */
+	if (id == -1)
+		id = 0;
+
 	len = snprintf(master->unique, master->unique_len,
-		       "platform:%s", dev->platformdev->name);
+			"platform:%s:%02d", dev->platformdev->name, id);
 
 	if (len > master->unique_len) {
 		DRM_ERROR("Unique buffer overflowed\n");
