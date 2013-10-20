@@ -22,6 +22,7 @@
 
 struct msm_ringbuffer {
 	struct msm_gpu *gpu;
+uint32_t rb_iova;
 	int size;
 	struct drm_gem_object *bo;
 	uint32_t *start, *end, *cur;
@@ -37,6 +38,7 @@ OUT_RING(struct msm_ringbuffer *ring, uint32_t data)
 {
 	if (ring->cur == ring->end)
 		ring->cur = ring->start;
+printk("RING[%08x]: %08x\n", ((uint32_t)(ring->cur) - (uint32_t)(ring->start)) + ring->rb_iova, data);
 	*(ring->cur++) = data;
 }
 

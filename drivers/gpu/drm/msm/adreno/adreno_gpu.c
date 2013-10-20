@@ -119,6 +119,12 @@ void adreno_recover(struct msm_gpu *gpu)
 
 	gpu->funcs->pm_suspend(gpu);
 
+	release_firmware(adreno_gpu->pm4);
+	release_firmware(adreno_gpu->pfp);
+
+	request_firmware(&adreno_gpu->pm4, adreno_gpu->info->pm4fw, dev->dev);
+	request_firmware(&adreno_gpu->pfp, adreno_gpu->info->pfpfw, dev->dev);
+
 	/* reset ringbuffer: */
 	gpu->rb->cur = gpu->rb->start;
 

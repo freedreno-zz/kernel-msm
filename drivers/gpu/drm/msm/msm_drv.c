@@ -255,8 +255,13 @@ static void load_gpu(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gpu *gpu;
 
-	if (priv->gpu)
+	if (priv->gpu) {
+		mutex_lock(&dev->struct_mutex);
+		gpu = priv->gpu;
+		gpu->funcs->recover(gpu);
+		mutex_unlock(&dev->struct_mutex);
 		return;
+	}
 
 	mutex_lock(&dev->struct_mutex);
 	gpu = a3xx_gpu_init(dev);
@@ -309,6 +314,10 @@ static void msm_preclose(struct drm_device *dev, struct drm_file *file)
 		kms->funcs->preclose(kms, file);
 
 	mutex_lock(&dev->struct_mutex);
+	if (priv->gpu) {
+		void run_meq_tests(struct msm_gpu *gpu);
+		run_meq_tests(priv->gpu);
+	}
 	if (ctx == priv->lastctx)
 		priv->lastctx = NULL;
 	mutex_unlock(&dev->struct_mutex);

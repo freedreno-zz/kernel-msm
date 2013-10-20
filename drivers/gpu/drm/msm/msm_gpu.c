@@ -451,6 +451,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		dev_err(drm->dev, "could not map ringbuffer: %d\n", ret);
 		goto fail;
 	}
+gpu->rb->rb_iova = gpu->rb_iova;
 
 	bs_init(gpu, pdev);
 
