@@ -1917,13 +1917,15 @@ static void hdmi_msm_encrypt_en_no_lock(u32 enable)
 			!external_common_state->hdcp_active) {
 			return;
 		}
-
+		mdp4_dtv_mute(false);
 		hdcp_ctrl |= 0x101;
 		hdmi_ctrl |= 0x00000004;
 		HDMI_OUTP(0x0110, hdcp_ctrl);
 		usleep(delay_time);
 		HDMI_OUTP(0x0000, hdmi_ctrl);
 	} else {
+		if (mfd->sec_active && mfd->sec_mapped)
+			mdp4_dtv_mute(true);
 		hdcp_ctrl &= ~0x100;
 		hdmi_ctrl &= ~0x00000004;
 		HDMI_OUTP(0x0000, hdmi_ctrl);
@@ -5048,6 +5050,10 @@ static void hdmi_msm_turn_on(void)
 	int i = 10;
 	audio_pkt_ctrl = HDMI_INP_ND(0x0020);
 	audio_cfg = HDMI_INP_ND(0x01D0);
+
+	if (!hdmi_msm_state->hdcp_enable ||
+		!mfd->sec_active || !mfd->sec_mapped)
+		mdp4_dtv_mute(false);
 
 	/*
 	 * Checking BIT[0] of AUDIO PACKET CONTROL and
