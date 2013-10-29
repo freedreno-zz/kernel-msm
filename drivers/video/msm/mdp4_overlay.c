@@ -3793,16 +3793,16 @@ static u32 mdp4_overlay_get_vsync_cnt(struct msm_fb_data_type *mfd)
 		return 0;
 }
 
-static u32 mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
-	u32 timeout, u32 expect_vsync)
+static int mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
+	u32 timeout, u32 expect_vsync, u32 *cur_vsync)
 {
-	u32 cur_vsync_cnt;
+	int ret = 0;
 	if (hdmi_prim_display || mfd->index == 0)
-		cur_vsync_cnt = mdp4_dtv_wait_expect_vsync(timeout,
-			expect_vsync);
+		ret = mdp4_dtv_wait_expect_vsync(timeout,
+			expect_vsync, cur_vsync);
 	else
-		cur_vsync_cnt = 0;
-	return cur_vsync_cnt;
+		*cur_vsync = 0;
+	return ret;
 }
 
 void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
@@ -3816,6 +3816,7 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 	u32 frame_rate, cur_time_100us, cur_repeat = 2;
 	u32 backup_frc = true, free_run = false;
 	int ts_diff, fc_diff, vsync_diff = 0, play_delay;
+	int ret;
 
 	if ((!mfd->frc_pipe_ndx) || (mfd->frc_pipe_ndx >= OVERLAY_PIPE_MAX))
 		goto frc_update_exit;
@@ -3968,6 +3969,7 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 		vsync_diff = FRC_MAX_WAIT_VSYNC_CYCLE;
 
 	if (vsync_diff > 0) {
+		u32 cur_vsync_cnt = 0;
 		*last_frc = *cur_frc;
 		backup_frc = false;
 		msm_fb_release_busy(mfd);
@@ -3975,8 +3977,10 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 			*release_busy = false;
 		time_out = mfd->disp_frame_period *
 			(vsync_diff + 1) / 1000;
-		cur_vsync_cnt = mdp4_wait_expect_vsync(mfd,
-			time_out, expect_vsync_cnt);
+		ret = mdp4_wait_expect_vsync(mfd,
+			time_out, expect_vsync_cnt, &cur_vsync_cnt);
+		if (ret)
+			pipe->frc_cadence = FRC_CADENCE_FREE_RUN;
 	}
 
 	pr_mem("frc:v_cnt=%d f_cnt=%d e_vs=%d sl=%d de=%d en=%d ts=%d",

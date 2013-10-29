@@ -127,9 +127,6 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
 static int msm_fb_commit_idle(struct msm_fb_data_type *mfd,
 	u32 cmd, u32 max_commit_cnt);
 
-static void msm_fb_log_fence(u32 action_id,
-	struct msm_fb_data_type *mfd);
-
 #ifdef MSM_FB_ENABLE_DBGFS
 
 #define MSM_FB_MAX_DBGFS 1024
@@ -2172,7 +2169,6 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
 	while (atomic_read(&mfd->commit_cnt) > 0) {
-		msm_fb_log_fence(ACTION_KICKOFF, mfd);
 		fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
 		info = &fb_backup->info;
 		if (fb_backup->disp_commit.flags &
@@ -3781,7 +3777,9 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		goto buf_sync_err_1;
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
+		mutex_unlock(&mfd->sync_mutex);
 		msm_fb_wait_for_fence(mfd);
+		mutex_lock(&mfd->sync_mutex);
 	}
 	if (mfd->panel.type == WRITEBACK_PANEL)
 		threshold = 1;
@@ -4249,7 +4247,7 @@ static int msm_fb_register_driver(void)
 	return platform_driver_register(&msm_fb_driver);
 }
 
-static void msm_fb_log_fence(u32 action_id,
+void msm_fb_log_fence(u32 action_id,
 	struct msm_fb_data_type *mfd)
 {
 	u32 idx;
@@ -4259,7 +4257,6 @@ static void msm_fb_log_fence(u32 action_id,
 	fence_log[idx].fb_index = mfd->index;
 	fence_log[idx].commit_cnt = atomic_read(&mfd->commit_cnt);
 	fence_log[idx].timeline_value = mfd->timeline_value;
-	fence_log[idx].fence_id = (u32)mfd->cur_rel_fence;
 	fence_log[idx].timestamp = ktime_to_ms(ktime_get());
 	fence_log[idx].update_cnt = mfd->update_cnt;
 	fence_log_cnt++;
@@ -4272,21 +4269,24 @@ void msm_fb_print_fence_log(void)
 	mutex_lock(&fence_log_mutex);
 	idx = (fence_log_cnt - 1) & (MDP_MAX_FENCE_LOG - 1);
 	pr_info("%s current idx is %d\n", __func__, idx);
-	for (i = idx; i >= 0; i--)
-		pr_info("a=%d fb=%d cmt=%d tl=%d fen=%x ts=%d cnt=%d",
+	for (i = idx; i >= 0; i--) {
+		pr_info("a=%d fb=%d cmt=%d tl=%d ts=%d cnt=%d",
 			fence_log[i].action_id, fence_log[i].fb_index,
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
-			fence_log[i].fence_id, fence_log[i].timestamp,
-			fence_log[i].update_cnt);
+			fence_log[i].timestamp, fence_log[i].update_cnt);
+		if ((i & 0xf) == 0xf)
+			msleep(20);
+	}
 
 	i = MDP_MAX_FENCE_LOG - 1;
 	while (i > idx) {
-		pr_err("a=%d fb=%d cmt=%d tl=%d fen=%x ts=%d cnt=%d",
+		pr_err("a=%d fb=%d cmt=%d tl=%d ts=%d cnt=%d",
 			fence_log[i].action_id, fence_log[i].fb_index,
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
-			fence_log[i].fence_id, fence_log[i].timestamp,
-			fence_log[i].update_cnt);
+			fence_log[i].timestamp, fence_log[i].update_cnt);
 		i--;
+		if ((i & 0xf) == 0xf)
+			msleep(20);
 	};
 
 	mutex_unlock(&fence_log_mutex);
