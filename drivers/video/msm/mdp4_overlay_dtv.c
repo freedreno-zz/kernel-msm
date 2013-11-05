@@ -460,6 +460,7 @@ static void mdp4_dtv_wait4dmae(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
 	int ret;
+	unsigned long flags;
 
 	if (cndx >= MAX_CONTROLLER) {
 		pr_err("%s: out or range: cndx=%d\n", __func__, cndx);
@@ -474,9 +475,9 @@ static void mdp4_dtv_wait4dmae(int cndx)
 	ret = wait_for_completion_interruptible_timeout(&vctrl->dmae_comp,
 		msecs_to_jiffies(VSYNC_PERIOD * 2));
 	if (ret <= 0) {
-		spin_lock(&vctrl->spin_lock);
+		spin_lock_irqsave(&vctrl->spin_lock, flags);
 		vsync_irq_disable(INTR_DMA_E_DONE, MDP_DMA_E_TERM);
-		spin_unlock(&vctrl->spin_lock);
+		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 	}
 }
 
