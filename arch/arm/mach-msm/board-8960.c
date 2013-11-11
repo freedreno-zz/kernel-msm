@@ -84,7 +84,7 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
-#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#if 0 //ifdef CONFIG_MACH_APQ8060A_DRAGON
 #include <linux/sensor/l3gd20_gyro.h>
 #include <linux/sensor/lps331ap.h>
 #include <linux/sensor/lsm303dlhc.h>
@@ -3384,7 +3384,7 @@ static struct i2c_board_info liquid_io_expander_i2c_info[] __initdata = {
 };
 #endif
 
-#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#if 0 //ifdef CONFIG_MACH_APQ8060A_DRAGON
 #define GYRO_INT_N_GPIO		(69)
 #define GYRO_DRDY_GPIO		(46)
 static struct l3gd20_gyro_platform_data l3gd20_gyro_platform_data = {
@@ -3501,7 +3501,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(liquid_io_expander_i2c_info),
 	},
 #endif
-#ifdef CONFIG_MACH_APQ8060A_DRAGON
+#if 0 //ifdef CONFIG_MACH_APQ8060A_DRAGON
 	/* L3GD20 ST Micro 3-axis gyro sensor */
 	{
 		I2C_LIQUID | I2C_SURF | I2C_DRAGON | I2C_BSTEM,
