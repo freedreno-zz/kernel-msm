@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,9 @@
  */
 
 #include "msm_sensor.h"
+#include "msm.h"
+#include "msm_ispif.h"
+#include "msm_camera_i2c_mux.h"
 #define SENSOR_NAME "mt9m114"
 #define PLATFORM_DRIVER_NAME "msm_camera_mt9m114"
 #define mt9m114_obj mt9m114_##obj
@@ -1179,9 +1182,51 @@ static struct msm_sensor_output_info_t mt9m114_dimensions[] = {
 		.line_length_pclk = 0x500,
 		.frame_length_lines = 0x2D0,
 		.vt_pixel_clk = 48000000,
-		.op_pixel_clk = 128000000,
+		.op_pixel_clk = 256000000,
 		.binning_factor = 1,
 	},
+	{
+		.x_output = 0x500,
+		.y_output = 0x2D0,
+		.line_length_pclk = 0x500,
+		.frame_length_lines = 0x2D0,
+		.vt_pixel_clk = 48000000,
+		.op_pixel_clk = 256000000,
+		.binning_factor = 1,
+	},
+	{
+		.x_output = 0x500,
+		.y_output = 0x2D0,
+		.line_length_pclk = 0x500,
+		.frame_length_lines = 0x2D0,
+		.vt_pixel_clk = 48000000,
+		.op_pixel_clk = 256000000,
+		.binning_factor = 1,
+	},
+};
+
+static struct msm_camera_csid_vc_cfg mt9m114_cid_cfg[] = {
+	{0, CSI_YUV422_8, CSI_DECODE_8BIT},
+	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
+};
+
+static struct msm_camera_csi2_params mt9m114_csi_params = {
+	.csid_params = {
+		.lane_cnt = 1,
+		.lut_params = {
+			.num_cid = 2,
+			.vc_cfg = mt9m114_cid_cfg,
+		},
+	},
+	.csiphy_params = {
+		.lane_cnt = 1,
+		.settle_cnt = 0x14,
+	},
+};
+
+static struct msm_camera_csi2_params *mt9m114_csi_params_array[] = {
+	&mt9m114_csi_params,
+	&mt9m114_csi_params,
 };
 
 static struct msm_sensor_output_reg_addr_t mt9m114_reg_addr = {
@@ -1189,12 +1234,6 @@ static struct msm_sensor_output_reg_addr_t mt9m114_reg_addr = {
 	.y_output = 0xC86A,
 	.line_length_pclk = 0xC868,
 	.frame_length_lines = 0xC86A,
-};
-
-static enum msm_camera_vreg_name_t mt9m114_veg_seq[] = {
-	CAM_VIO,
-	CAM_VDIG,
-	CAM_VANA,
 };
 
 static struct msm_sensor_id_info_t mt9m114_id_info = {
@@ -1218,6 +1257,111 @@ static struct i2c_driver mt9m114_i2c_driver = {
 static struct msm_camera_i2c_client mt9m114_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
+
+int32_t select_core(struct msm_sensor_ctrl_t *s_ctrl, int core)
+{
+	CDBG("Selecting core %d\n", core);
+	v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+				NOTIFY_MODE_CHANGE, &core);
+	return 0;
+}
+
+int32_t mt9m1114_3d_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
+	int update_type, int res)
+{
+	int32_t rc = 0;
+	int core = -1;
+	struct ispif_cfg_data cfg_data_3d;
+	CDBG("Enter : %s\n", __func__);
+	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+	msleep(40);
+	if (update_type == MSM_SENSOR_REG_INIT) {
+		CDBG("MSM_REG_INIT\n");
+		s_ctrl->curr_csi_params = NULL;
+		msm_sensor_enable_debugfs(s_ctrl);
+		/*FIXME : 2D vs 3D mode here ??*/
+		msm_sensor_write_init_settings(s_ctrl);
+	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
+		CDBG("MSM_SENSOR_UPDATE_PERIODIC:%d\n", __LINE__);
+		usleep_range(4000, 5000);
+		msm_sensor_write_res_settings(s_ctrl, res);
+		if (s_ctrl->curr_csi_params != s_ctrl->csi_params[res]) {
+			s_ctrl->curr_csi_params = s_ctrl->csi_params[res];
+			s_ctrl->curr_csi_params->csid_params.lane_assign =
+				s_ctrl->sensordata->sensor_platform_info->
+				csi_lane_params->csi_lane_assign;
+			s_ctrl->curr_csi_params->csiphy_params.lane_mask =
+				s_ctrl->sensordata->sensor_platform_info->
+				csi_lane_params->csi_lane_mask;
+
+			switch (s_ctrl->cam_mode) {
+			case MSM_SENSOR_MODE_3D:
+				CDBG("MSM_SENSOR_MODE_3D\n");
+			case MSM_SENSOR_MODE_2D_LEFT:
+				CDBG("MSM_SENSOR_MODE_2D_LEFT:%d\n", __LINE__);
+				core = 0;
+				select_core(s_ctrl, core);
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_CSID_CFG, &s_ctrl->
+					curr_csi_params->csid_params);
+				mb();
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_CSIPHY_CFG, &s_ctrl->
+					curr_csi_params->csiphy_params);
+				mb();
+				msleep(20);
+				CDBG("MSM_SENSOR_MODE_2D_LEFT:%d\n", __LINE__);
+				if (s_ctrl->cam_mode != MSM_SENSOR_MODE_3D)
+					break;
+			case MSM_SENSOR_MODE_2D_RIGHT:
+				CDBG("MSM_SENSOR_MODE_2D_RIGHT:%d\n", __LINE__);
+				core = 1;
+				select_core(s_ctrl, core);
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_CSID_CFG, &s_ctrl->
+					curr_csi_params->csid_params);
+				mb();
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_CSIPHY_CFG, &s_ctrl->
+					curr_csi_params->csiphy_params);
+				mb();
+				msleep(20);
+				CDBG("MSM_SENSOR_MODE_2D_RIGHT:%d\n", __LINE__);
+				break;
+			default:
+				break;
+			}
+		}
+
+		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+			NOTIFY_PCLK_CHANGE, &s_ctrl->msm_sensor_reg->
+			output_settings[res].op_pixel_clk);
+		if (s_ctrl->cam_mode == MSM_SENSOR_MODE_3D) {
+			CDBG("Set ISPIF mode for 3D here\n");
+			cfg_data_3d.cfgtype = ISPIF_MODE;
+			cfg_data_3d.cfg.caminfo.x_output_size =
+				s_ctrl->msm_sensor_reg->
+					output_settings[res].x_output;
+
+			cfg_data_3d.cfg.caminfo.mode = CAM_MODE_DUAL;
+
+			CDBG("Send MODE CHANGE TO ISPIF = %d\n",
+					cfg_data_3d.cfg.caminfo.mode);
+
+			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_ISPIF_MODE_CHANGE, &cfg_data_3d);
+			CDBG("Set ISPIF for PIX0, PIX1\n");
+		} else {
+			CDBG("Set IPSIF for PIX0 only\n");
+		}
+
+		s_ctrl->func_tbl->sensor_start_stream(s_ctrl);
+		msleep(30);
+		CDBG("MSM_SENSOR_UPDATE_PERIODIC:%d\n", __LINE__);
+	}
+	CDBG("Exit : %s\n", __func__);
+	return rc;
+}
 
 static int __init msm_sensor_init_module(void)
 {
@@ -1243,7 +1387,7 @@ static struct v4l2_subdev_ops mt9m114_subdev_ops = {
 static struct msm_sensor_fn_t mt9m114_func_tbl = {
 	.sensor_start_stream = msm_sensor_start_stream,
 	.sensor_stop_stream = mt9m114_stop_stream,
-	.sensor_setting = msm_sensor_setting,
+	.sensor_setting = mt9m1114_3d_sensor_setting,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
@@ -1270,22 +1414,18 @@ static struct msm_sensor_ctrl_t mt9m114_s_ctrl = {
 	.num_v4l2_ctrl = ARRAY_SIZE(mt9m114_v4l2_ctrl_info),
 	.sensor_i2c_client = &mt9m114_sensor_i2c_client,
 	.sensor_i2c_addr = 0x90,
-	.vreg_seq = mt9m114_veg_seq,
-	.num_vreg_seq = ARRAY_SIZE(mt9m114_veg_seq),
 	.sensor_output_reg_addr = &mt9m114_reg_addr,
 	.sensor_id_info = &mt9m114_id_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.min_delay = 30,
-	.power_seq_delay = 60,
+	.csi_params = &mt9m114_csi_params_array[0],
 	.msm_sensor_mutex = &mt9m114_mut,
 	.sensor_i2c_driver = &mt9m114_i2c_driver,
 	.sensor_v4l2_subdev_info = mt9m114_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(mt9m114_subdev_info),
 	.sensor_v4l2_subdev_ops = &mt9m114_subdev_ops,
 	.func_tbl = &mt9m114_func_tbl,
-	.clk_rate = MSM_SENSOR_MCLK_24HZ,
 };
 
 module_init(msm_sensor_init_module);
-MODULE_DESCRIPTION("Aptina 1.26MP YUV sensor driver");
+MODULE_DESCRIPTION("Aptina 1.26MP YUV 3D sensor driver for bStem");
 MODULE_LICENSE("GPL v2");

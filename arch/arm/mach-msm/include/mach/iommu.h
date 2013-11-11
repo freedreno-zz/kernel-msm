@@ -203,7 +203,7 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 		return 0;
 	}
 #endif
-	if (cpu_is_msm8960() &&
+	if ((cpu_is_msm8960() || cpu_is_msm8960ab()) &&
 	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2)
 		return 0;
 

@@ -6073,6 +6073,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * for every claim/release operation on a host. We use this
 	 * notification to increment/decrement runtime pm usage count.
 	 */
+
 	pm_runtime_enable(&(pdev)->dev);
 #else
 	if (mmc->caps & MMC_CAP_NONREMOVABLE) {

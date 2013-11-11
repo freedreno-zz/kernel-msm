@@ -634,15 +634,15 @@ int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count)
 
 		target_status_id = target_status(status[i].id);
 		if (target_status_id >= MSM_RPM_STATUS_ID_LAST) {
-			pr_err("%s(): Status id %d not defined for target\n",
+			pr_err("%s(): Status id %d not defined for target, LIMIT IS %d\n",
 					__func__,
-					target_status_id);
+					target_status_id, MSM_RPM_STATUS_ID_LAST);
 			rc = -EINVAL;
 			goto get_status_exit;
-		}
-
-		status[i].value = msm_rpm_read(MSM_RPM_PAGE_STATUS,
+		} else {
+			status[i].value = msm_rpm_read(MSM_RPM_PAGE_STATUS,
 				target_status_id);
+		}
 	}
 
 	seq_end = msm_rpm_read(MSM_RPM_PAGE_STATUS,

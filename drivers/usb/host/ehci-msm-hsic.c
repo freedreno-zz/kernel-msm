@@ -99,7 +99,6 @@ struct msm_hsic_hcd {
 	int			resume_again;
 	int			bus_reset;
 	int			reset_again;
-
 	struct pm_qos_request pm_qos_req_dma;
 };
 
@@ -399,41 +398,6 @@ reg_enable_err:
 
 }
 
-static int __maybe_unused ulpi_read(struct msm_hsic_hcd *mehci, u32 reg)
-{
-	struct usb_hcd *hcd = hsic_to_hcd(mehci);
-	int cnt = 0;
-
-	/* initiate read operation */
-	writel_relaxed(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
-	       USB_ULPI_VIEWPORT);
-
-	/* wait for completion */
-	while (cnt < ULPI_IO_TIMEOUT_USEC) {
-		if (!(readl_relaxed(USB_ULPI_VIEWPORT) & ULPI_RUN))
-			break;
-		udelay(1);
-		cnt++;
-	}
-
-	if (cnt >= ULPI_IO_TIMEOUT_USEC) {
-		dev_err(mehci->dev, "ulpi_read: timeout ULPI_VIEWPORT: %08x\n",
-				readl_relaxed(USB_ULPI_VIEWPORT));
-		dev_err(mehci->dev, "PORTSC: %08x USBCMD: %08x FRINDEX: %08x\n",
-				readl_relaxed(USB_PORTSC),
-				readl_relaxed(USB_USBCMD),
-				readl_relaxed(USB_FRINDEX));
-
-		/*frame counter increments afte 125us*/
-		udelay(130);
-		dev_err(mehci->dev, "ulpi_read: FRINDEX: %08x\n",
-				readl_relaxed(USB_FRINDEX));
-		return -ETIMEDOUT;
-	}
-
-	return ULPI_DATA_READ(readl_relaxed(USB_ULPI_VIEWPORT));
-}
-
 static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
@@ -705,10 +669,11 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
-
-	mehci->wakeup_irq_enabled = 1;
-	enable_irq_wake(mehci->wakeup_irq);
-	enable_irq(mehci->wakeup_irq);
+	if (mehci->wakeup_irq) {
+		mehci->wakeup_irq_enabled = 1;
+		enable_irq_wake(mehci->wakeup_irq);
+		enable_irq(mehci->wakeup_irq);
+	}
 
 	wake_unlock(&mehci->wlock);
 
@@ -853,7 +818,6 @@ static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	u32			status;
 	int			ret;
-
 	if (atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "phy async intr\n");
 		dbg_log_event(NULL, "Async IRQ", 0);
@@ -874,7 +838,6 @@ static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 		int timeleft;
 
 		dbg_log_event(NULL, "FPR: gpt0_isr", mehci->bus_reset);
-
 		timeleft = GPT_CNT(ehci_readl(ehci,
 						 &mehci->timer->gptimer1_ctrl));
 		if (timeleft) {
@@ -897,7 +860,6 @@ static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 		}
 
 		dbg_log_event(NULL, "FPR: timeleft", timeleft);
-
 		complete(&mehci->gpt0_completion);
 		ehci_writel(ehci, STS_GPTIMER0_INTERRUPT, &ehci->regs->status);
 	}
@@ -1252,6 +1214,14 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 	return 0;
 }
 
+static void ehci_msm_set_autosuspend_delay(struct usb_device *dev)
+{
+	if (!dev->parent) /*for root hub no delay*/
+		pm_runtime_set_autosuspend_delay(&dev->dev, 0);
+	else
+		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
+}
+
 static struct hc_driver msm_hsic_driver = {
 	.description		= hcd_name,
 	.product_desc		= "Qualcomm EHCI Host Controller using HSIC",
@@ -1299,7 +1269,7 @@ static struct hc_driver msm_hsic_driver = {
 
 	.log_urb		= dbg_log_event,
 	.dump_regs		= dump_hsic_regs,
-
+	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
 	.reset_sof_bug_handler	= ehci_hsic_reset_sof_bug_handler,
 };
 

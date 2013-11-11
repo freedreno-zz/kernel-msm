@@ -762,6 +762,17 @@ static inline void mdp4_dsi_video_base_swap(int cndx,
 {
 	/* empty */
 }
+static inline void mdp4_dsi_video_free_base_pipe(struct msm_fb_data_type *mfd)
+{
+	/* empty */
+}
+static inline void mdp4_dsi_cmd_free_base_pipe(struct msm_fb_data_type *mfd)
+{
+	/* empty */
+}
+void mdp4_lcdc_free_base_pipe(struct msm_fb_data_type *mfd);
+void mdp4_dtv_free_base_pipe(struct msm_fb_data_type *mfd);
+
 static inline void mdp4_dsi_cmd_blt_start(struct msm_fb_data_type *mfd)
 {
 }
@@ -791,8 +802,6 @@ void mdp4_mddi_kickoff_video(struct msm_fb_data_type *mfd,
 void mdp4_mddi_read_ptr_intr(void);
 
 void mdp4_dsi_cmd_dma_busy_check(void);
-
-
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI
 int mdp4_dsi_cmd_on(struct platform_device *pdev);
@@ -870,9 +879,12 @@ static inline void mdp4_overlay_dsi_video_start(void)
 	/* empty */
 }
 
-static int mdp4_dsi_video_splash_done(void)
+static inline int mdp4_dsi_video_splash_done(void)
 {
+	return 0;
 }
+void mdp4_mixer_reset(int mixer);
+
 #endif /* CONFIG_FB_MSM_MIPI_DSI */
 
 void mdp4_dsi_cmd_kickoff_ui(struct msm_fb_data_type *mfd,

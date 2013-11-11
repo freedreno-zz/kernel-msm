@@ -3331,7 +3331,7 @@ static int __init pm8xxx_vreg_init(void)
 {
 	return platform_driver_register(&pm8xxx_vreg_driver);
 }
-postcore_initcall(pm8xxx_vreg_init);
+late_initcall(pm8xxx_vreg_init);
 
 static void __exit pm8xxx_vreg_exit(void)
 {

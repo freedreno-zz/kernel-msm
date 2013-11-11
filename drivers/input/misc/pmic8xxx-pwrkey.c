@@ -44,6 +44,8 @@ static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 {
 	struct pmic8xxx_pwrkey *pwrkey = _pwrkey;
 
+pr_err("%s %d\n",__func__,__LINE__);
+
 	if (pwrkey->press == true) {
 		pwrkey->press = false;
 		return IRQ_HANDLED;
@@ -60,6 +62,8 @@ static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 static irqreturn_t pwrkey_release_irq(int irq, void *_pwrkey)
 {
 	struct pmic8xxx_pwrkey *pwrkey = _pwrkey;
+
+pr_err("%s %d\n",__func__,__LINE__);
 
 	if (pwrkey->press == false) {
 		input_report_key(pwrkey->pwr, KEY_POWER, 1);
@@ -116,6 +120,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	const struct pm8xxx_pwrkey_platform_data *pdata =
 					dev_get_platdata(&pdev->dev);
 
+pr_err("%s %d\n",__func__,__LINE__);
 	if (!pdata) {
 		dev_err(&pdev->dev, "power key platform data not supplied\n");
 		return -EINVAL;
@@ -128,6 +133,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	pwrkey = kzalloc(sizeof(*pwrkey), GFP_KERNEL);
 	if (!pwrkey)
 		return -ENOMEM;
@@ -141,6 +147,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto free_pwrkey;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	input_set_capability(pwr, EV_KEY, KEY_POWER);
 
 	pwr->name = "pmic8xxx_pwrkey";
@@ -150,12 +157,14 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	delay = (pdata->kpd_trigger_delay_us << 6) / USEC_PER_SEC;
 	delay = ilog2(delay);
 
+pr_err("%s %d\n",__func__,__LINE__);
 	err = pm8xxx_readb(pdev->dev.parent, PON_CNTL_1, &pon_cntl);
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed reading PON_CNTL_1 err=%d\n", err);
 		goto free_input_dev;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	pon_cntl &= ~PON_CNTL_TRIG_DELAY_MASK;
 	pon_cntl |= (delay & PON_CNTL_TRIG_DELAY_MASK);
 	if (pdata->pull_up)
@@ -163,24 +172,28 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	else
 		pon_cntl &= ~PON_CNTL_PULL_UP;
 
+pr_err("%s %d\n",__func__,__LINE__);
 	err = pm8xxx_writeb(pdev->dev.parent, PON_CNTL_1, pon_cntl);
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed writing PON_CNTL_1 err=%d\n", err);
 		goto free_input_dev;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	err = input_register_device(pwr);
 	if (err) {
 		dev_dbg(&pdev->dev, "Can't register power key: %d\n", err);
 		goto free_input_dev;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	pwrkey->key_press_irq = key_press_irq;
 	pwrkey->key_release_irq = key_release_irq;
 	pwrkey->pwr = pwr;
 
 	platform_set_drvdata(pdev, pwrkey);
 
+pr_err("%s %d\n",__func__,__LINE__);
 	/* check power key status during boot */
 	err = pm8xxx_read_irq_stat(pdev->dev.parent, key_press_irq);
 	if (err < 0) {
@@ -189,11 +202,13 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	}
 	pwrkey->press = !!err;
 
+pr_err("%s %d\n",__func__,__LINE__);
 	if (pwrkey->press) {
 		input_report_key(pwrkey->pwr, KEY_POWER, 1);
 		input_sync(pwrkey->pwr);
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
 		IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
 	if (err < 0) {
@@ -202,6 +217,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto unreg_input_dev;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	err = request_any_context_irq(key_release_irq, pwrkey_release_irq,
 		 IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_release", pwrkey);
 	if (err < 0) {
@@ -211,8 +227,10 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto free_press_irq;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
 
+pr_err("%s %d\n",__func__,__LINE__);
 	return 0;
 
 free_press_irq:

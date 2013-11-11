@@ -924,24 +924,37 @@ int __must_check rfkill_register(struct rfkill *rfkill)
 
 	mutex_lock(&rfkill_global_mutex);
 
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 	if (rfkill->registered) {
 		error = -EALREADY;
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 		goto unlock;
 	}
+
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 
 	rfkill->idx = rfkill_no;
 	dev_set_name(dev, "rfkill%lu", rfkill_no);
 	rfkill_no++;
 
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 	list_add_tail(&rfkill->node, &rfkill_list);
+
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 
 	error = device_add(dev);
 	if (error)
 		goto remove;
 
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 	error = rfkill_led_trigger_register(rfkill);
 	if (error)
 		goto devdel;
+
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 
 	rfkill->registered = true;
 
@@ -949,9 +962,13 @@ int __must_check rfkill_register(struct rfkill *rfkill)
 	INIT_WORK(&rfkill->uevent_work, rfkill_uevent_work);
 	INIT_WORK(&rfkill->sync_work, rfkill_sync_work);
 
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 	if (rfkill->ops->poll)
 		schedule_delayed_work(&rfkill->poll_work,
 			round_jiffies_relative(POLL_INTERVAL));
+
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 
 	if (!rfkill->persistent || rfkill_epo_lock_active) {
 		schedule_work(&rfkill->sync_work);
@@ -959,10 +976,16 @@ int __must_check rfkill_register(struct rfkill *rfkill)
 #ifdef CONFIG_RFKILL_INPUT
 		bool soft_blocked = !!(rfkill->state & RFKILL_BLOCK_SW);
 
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 		if (!atomic_read(&rfkill_input_disabled))
 			__rfkill_switch_all(rfkill->type, soft_blocked);
 #endif
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
+
 	}
+
+pr_err("%s %d %s\n",__func__,__LINE__,rfkill->name);
 
 	rfkill_send_events(rfkill, RFKILL_OP_ADD);
 

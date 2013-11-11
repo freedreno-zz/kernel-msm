@@ -108,14 +108,19 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_INPUT(26,	    PM_GPIO_PULL_UP_30), /* SD_CARD_DET_N */
 	PM8XXX_GPIO_OUTPUT(43, 1),                       /* DISP_RESET_N */
 	PM8XXX_GPIO_OUTPUT(42, 0),                      /* USB 5V reg enable */
+	PM8XXX_GPIO_OUTPUT(24, 1),                      /* Backlight OFF */
 	/* TABLA CODEC RESET */
 	PM8XXX_GPIO_OUTPUT_STRENGTH(34, 0, PM_GPIO_STRENGTH_MED)
 };
 
 /* Initial PM8921 MPP configurations */
 static struct pm8xxx_mpp_init pm8921_mpps[] __initdata = {
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
 	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
+	PM8XXX_MPP_INIT(7, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_HIGH),
+#else
 	PM8XXX_MPP_INIT(7, D_INPUT, PM8921_MPP_DIG_LEVEL_VPH, DIN_TO_INT),
+#endif
 	PM8XXX_MPP_INIT(PM8XXX_AMUX_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
 								DOUT_CTRL_LOW),
 };
@@ -206,7 +211,7 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata __devinitdata = {
 };
 
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata __devinitdata = {
-	.rtc_write_enable       = false,
+	.rtc_write_enable       = true,
 	.rtc_alarm_powerup	= false,
 };
 
@@ -247,8 +252,8 @@ static struct pm8xxx_keypad_platform_data keypad_data_liquid = {
 
 
 static const unsigned int keymap[] = {
-	KEY(0, 0, KEY_VOLUMEUP),
-	KEY(0, 1, KEY_VOLUMEDOWN),
+	KEY(0, 0, KEY_VOLUMEDOWN),
+	KEY(0, 1, KEY_VOLUMEUP),
 	KEY(0, 2, KEY_CAMERA_FOCUS),
 	KEY(0, 3, KEY_CAMERA_SNAPSHOT),
 };
@@ -456,17 +461,17 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 
 static struct led_info pm8921_led_info_liquid[] = {
 	{
-		.name		= "led:red",
+		.name		= "led:green",
 		.flags		= PM8XXX_ID_LED_0,
 		.default_trigger	= "battery-charging",
 	},
 	{
-		.name		= "led:green",
+		.name		= "led:blue",
 		.flags		= PM8XXX_ID_LED_0,
 		.default_trigger	= "battery-full",
 	},
 	{
-		.name		= "led:blue",
+		.name		= "led:yellow",
 		.flags		= PM8XXX_ID_LED_2,
 		.default_trigger	= "notification",
 	},
@@ -477,6 +482,7 @@ static struct pm8xxx_led_config pm8921_led_configs_liquid[] = {
 		.id = PM8XXX_ID_LED_0,
 		.mode = PM8XXX_LED_MODE_MANUAL,
 		.max_current = PM8921_LC_LED_MAX_CURRENT,
+		.default_state = 1,
 	},
 	[1] = {
 		.id = PM8XXX_ID_LED_1,
@@ -610,7 +616,7 @@ void __init msm8960_init_pmic(void)
 				&msm8960_ssbi_pm8921_pdata;
 	pm8921_platform_data.num_regulators = msm_pm8921_regulator_pdata_len;
 
-	if (machine_is_msm8960_liquid()) {
+	if (machine_is_msm8960_liquid() || machine_is_apq8060a_bstem()) {
 		pm8921_platform_data.keypad_pdata = &keypad_data_liquid;
 		pm8921_platform_data.leds_pdata = &pm8xxx_leds_pdata_liquid;
 		pm8921_platform_data.bms_pdata->battery_type = BATT_DESAY;

@@ -1228,22 +1228,22 @@ static void __exit btusb_exit(void)
 module_init(btusb_init);
 module_exit(btusb_exit);
 
-module_param(ignore_dga, bool, 0644);
+module_param(ignore_dga, int, 0644);
 MODULE_PARM_DESC(ignore_dga, "Ignore devices with id 08fd:0001");
 
-module_param(ignore_csr, bool, 0644);
+module_param(ignore_csr, int, 0644);
 MODULE_PARM_DESC(ignore_csr, "Ignore devices with id 0a12:0001");
 
-module_param(ignore_sniffer, bool, 0644);
+module_param(ignore_sniffer, int, 0644);
 MODULE_PARM_DESC(ignore_sniffer, "Ignore devices with id 0a12:0002");
 
-module_param(disable_scofix, bool, 0644);
+module_param(disable_scofix, int, 0644);
 MODULE_PARM_DESC(disable_scofix, "Disable fixup of wrong SCO buffer size");
 
-module_param(force_scofix, bool, 0644);
+module_param(force_scofix, int, 0644);
 MODULE_PARM_DESC(force_scofix, "Force fixup of wrong SCO buffers size");
 
-module_param(reset, bool, 0644);
+module_param(reset, int, 0644);
 MODULE_PARM_DESC(reset, "Send HCI reset command on initialization");
 
 MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");

@@ -1281,7 +1281,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->yoffset = 0,	/* resolution */
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
-	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
+	var->activate = FB_ACTIVATE_NOW,	/* activate it at vsync */
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
 	var->accel_flags = 0,	/* acceleration flags */

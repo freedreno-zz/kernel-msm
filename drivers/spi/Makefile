@@ -47,6 +47,7 @@ obj-$(CONFIG_SPI_PXA2XX)		+= spi-pxa2xx.o
 obj-$(CONFIG_SPI_PXA2XX_PCI)		+= spi-pxa2xx-pci.o
 obj-$(CONFIG_SPI_QSD)			+= spi_qsd.o
 obj-$(CONFIG_SPI_QUP)			+= spi_qsd.o
+obj-$(CONFIG_BSTEM_FPGA)		+= msm8960_spi_fpga.o
 obj-$(CONFIG_SPI_RSPI)			+= spi-rspi.o
 obj-$(CONFIG_SPI_S3C24XX)		+= spi-s3c24xx-hw.o
 spi-s3c24xx-hw-y			:= spi-s3c24xx.o

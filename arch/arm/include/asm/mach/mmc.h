@@ -147,14 +147,15 @@ struct mmc_platform_data {
 	/* Supported packed write */
 	unsigned int packed_write;
 	void (*sdio_lpm_gpio_setup)(struct device *, unsigned int);
-        unsigned int status_irq;
+	unsigned int status_irq;
 	int status_gpio;
+
 	/* Indicates the polarity of the GPIO line when card is inserted */
 	bool is_status_gpio_active_low;
-        unsigned int sdiowakeup_irq;
-        unsigned long irq_flags;
-        unsigned long mmc_bus_width;
-        int (*wpswitch) (struct device *);
+	unsigned int sdiowakeup_irq;
+	unsigned long irq_flags;
+	unsigned long mmc_bus_width;
+	int (*wpswitch) (struct device *);
 	unsigned int msmsdcc_fmin;
 	unsigned int msmsdcc_fmid;
 	unsigned int msmsdcc_fmax;

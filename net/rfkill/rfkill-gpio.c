@@ -102,6 +102,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (pdata->gpio_runtime_setup) {
+pr_err("running pdata->gpio_runtime_setup\n");
 		ret = pdata->gpio_runtime_setup(pdev);
 		if (ret) {
 			pr_warn("%s: can't set up gpio\n", __func__);
@@ -128,6 +129,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", pdata->name);
 
 	if (pdata->power_clk_name) {
+pr_err("running clk_get\n");
 		rfkill->pwr_clk = clk_get(&pdev->dev, pdata->power_clk_name);
 		if (IS_ERR(rfkill->pwr_clk)) {
 			pr_warn("%s: can't find pwr_clk.\n", __func__);
@@ -136,6 +138,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	}
 
 	if (gpio_is_valid(pdata->reset_gpio)) {
+pr_err("running gpio_request(pdata->reset_gpio\n");
 		ret = gpio_request(pdata->reset_gpio, rfkill->reset_name);
 		if (ret) {
 			pr_warn("%s: failed to get reset gpio.\n", __func__);
@@ -144,6 +147,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	}
 
 	if (gpio_is_valid(pdata->shutdown_gpio)) {
+pr_err("running gpio_request(pdata->shutdown_gpio\n");
 		ret = gpio_request(pdata->shutdown_gpio, rfkill->shutdown_name);
 		if (ret) {
 			pr_warn("%s: failed to get shutdown gpio.\n", __func__);

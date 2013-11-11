@@ -1319,7 +1319,7 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 	 * current from the source.
 	 */
 	if (on) {
-		msm_otg_notify_host_mode(motg, on);
+if(0)		msm_otg_notify_host_mode(motg, on); //MAYBE REMOVE
 		ret = regulator_enable(vbus_otg);
 		if (ret) {
 			pr_err("unable to enable vbus_otg\n");
@@ -1332,7 +1332,7 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 			pr_err("unable to disable vbus_otg\n");
 			return;
 		}
-		msm_otg_notify_host_mode(motg, on);
+if(0)		msm_otg_notify_host_mode(motg, on); //MAYBE REMOVE
 		vbus_is_on = false;
 	}
 }
@@ -3515,6 +3515,47 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	return pdata;
 }
 
+static ssize_t otg_control_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct msm_otg *motg = dev_get_drvdata(dev);
+	struct usb_phy *otg = &motg->phy;
+
+	if (!strncmp(buf, "suspend", 7)) {
+		if (otg->state == OTG_STATE_A_HOST)
+			msm_hsusb_vbus_power(motg, 0);
+		else
+			msm_otg_set_vbus_state(0);
+	} else if (!strncmp(buf, "resume", 6)) {
+		if (otg->state == OTG_STATE_A_WAIT_BCON)
+			msm_hsusb_vbus_power(motg, 1);
+		else
+			msm_otg_set_vbus_state(1);
+	}
+	return size;
+}
+
+static struct device_attribute attributes[] = {
+
+	__ATTR(otg_control, 0222, NULL, otg_control_set),
+};
+
+static int create_sysfs_interfaces(struct device *dev)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		if (device_create_file(dev, attributes + i))
+			goto error;
+	return 0;
+
+error:
+	for ( ; i >= 0; i--)
+		device_remove_file(dev, attributes + i);
+	dev_err(dev, "%s:Unable to create interface\n", __func__);
+	return -EINVAL;
+}
+
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3782,6 +3823,14 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, motg);
 	device_init_wakeup(&pdev->dev, 1);
 	motg->mA_port = IUNIT;
+
+	dev_set_drvdata(&pdev->dev, motg);
+
+	ret = create_sysfs_interfaces(&pdev->dev);
+	if (ret < 0) {
+		dev_dbg(&pdev->dev, "%s msm_otg_control file is not available\n",
+			"msm_otg_control");
+	}
 
 	ret = msm_otg_debugfs_init(motg);
 	if (ret)

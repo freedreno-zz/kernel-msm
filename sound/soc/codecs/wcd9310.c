@@ -6774,8 +6774,8 @@ static bool tabla_is_inval_ins_range(struct snd_soc_codec *codec,
 	*highv = mic_volt > v_hs_max;
 	if (!highhph && *highv)
 		invalid = true;
-	else if (mic_volt < tabla->mbhc_data.v_inval_ins_high &&
-		 (mic_volt > tabla->mbhc_data.v_inval_ins_low))
+	else if (mic_volt > tabla->mbhc_data.v_inval_ins_high ||
+		 (mic_volt < tabla->mbhc_data.v_inval_ins_low))
 		invalid = true;
 
 	return invalid;
@@ -7072,6 +7072,8 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 		/* can race with removal interrupt */
 		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
 		plug_type = tabla_codec_get_plug_type(codec, true);
+        if(plug_type == PLUG_TYPE_INVALID)
+            plug_type = PLUG_TYPE_NONE;
 		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
 
 		pr_debug("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",

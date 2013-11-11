@@ -67,6 +67,7 @@
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME	"mipi_cmd_renesas_fwvga"
 #define MIPI_VIDEO_ORISE_720P_PANEL_NAME	"mipi_video_orise_720p"
 #define MIPI_CMD_ORISE_720P_PANEL_NAME		"mipi_cmd_orise_720p"
+#define MIPI_VIDEO_WINTEK_WVGA_PANEL_NAME	"mipi_video_wintek_wvga"
 #define HDMI_PANEL_NAME	"hdmi_msm"
 #define TVOUT_PANEL_NAME	"tvout_msm"
 
@@ -106,6 +107,12 @@ static int msm_fb_detect_panel(const char *name)
 						PANEL_NAME_MAX_LEN)))
 				return 0;
 		}
+	} else if (machine_is_apq8060a_dragon()) {
+		if (!strncmp(name, MIPI_VIDEO_WINTEK_WVGA_PANEL_NAME,
+				strnlen(MIPI_VIDEO_WINTEK_WVGA_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
 	} else {
 		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
 				strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
@@ -469,6 +476,134 @@ static int mipi_dsi_cdp_panel_power(int on)
 }
 
 static char mipi_dsi_splash_is_enabled(void);
+static int mipi_dsi_wintek_panel_power(int on)
+{
+	static struct regulator *reg_l8, *reg_l23, *reg_l2;
+	static int gpio43;
+	static int gpio24;
+	int rc;
+	pr_debug("%s: state : %d\n", __func__, on);
+
+	if (!dsi_power_on) {
+
+		reg_l8 = regulator_get(&msm_mipi_dsi1_device.dev,
+				"dsi_vdc");
+		if (IS_ERR(reg_l8)) {
+			pr_err("could not get 8921_l8, rc = %ld\n",
+				PTR_ERR(reg_l8));
+			return -ENODEV;
+		}
+		reg_l23 = regulator_get(&msm_mipi_dsi1_device.dev,
+				"dsi_vddio");
+		if (IS_ERR(reg_l23)) {
+			pr_err("could not get 8921_l23, rc = %ld\n",
+				PTR_ERR(reg_l23));
+			return -ENODEV;
+		}
+		reg_l2 = regulator_get(&msm_mipi_dsi1_device.dev,
+				"dsi_vdda");
+		if (IS_ERR(reg_l2)) {
+			pr_err("could not get 8921_l2, rc = %ld\n",
+				PTR_ERR(reg_l2));
+			return -ENODEV;
+		}
+		rc = regulator_set_voltage(reg_l8, 2800000, 3000000);
+		if (rc) {
+			pr_err("set_voltage l8 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_voltage(reg_l23, 1800000, 1800000);
+		if (rc) {
+			pr_err("set_voltage l23 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
+		if (rc) {
+			pr_err("set_voltage l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		gpio43 = PM8921_GPIO_PM_TO_SYS(43);
+		rc = gpio_request(gpio43, "disp_rst_n");
+		if (rc) {
+			pr_err("request gpio 43 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		gpio24 = PM8921_GPIO_PM_TO_SYS(24);
+		rc = gpio_request(gpio24, "disp_bkl");
+		if (rc) {
+			pr_err("request gpio 24 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		dsi_power_on = true;
+	}
+	if (on) {
+		rc = regulator_set_optimum_mode(reg_l8, 100000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l8 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_optimum_mode(reg_l23, 100000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_optimum_mode(reg_l2, 100000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_enable(reg_l8);
+		if (rc) {
+			pr_err("enable l8 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_enable(reg_l23);
+		if (rc) {
+			pr_err("enable l8 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_enable(reg_l2);
+		if (rc) {
+			pr_err("enable l2 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		gpio_set_value_cansleep(gpio43, 1);
+	} else {
+		rc = regulator_disable(reg_l2);
+		if (rc) {
+			pr_err("disable reg_l2 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_l8);
+		if (rc) {
+			pr_err("disable reg_l8 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_disable(reg_l23);
+		if (rc) {
+			pr_err("disable reg_l23 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		rc = regulator_set_optimum_mode(reg_l8, 100);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l8 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_optimum_mode(reg_l23, 100);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		rc = regulator_set_optimum_mode(reg_l2, 100);
+		if (rc < 0) {
+			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
+		gpio_set_value_cansleep(gpio43, 0);
+	}
+	return 0;
+}
+
 static int mipi_dsi_panel_power(int on)
 {
 	int ret;
@@ -477,6 +612,8 @@ static int mipi_dsi_panel_power(int on)
 
 	if (machine_is_msm8960_liquid())
 		ret = mipi_dsi_liquid_panel_power(on);
+	else if (machine_is_apq8060a_dragon())
+		ret = mipi_dsi_wintek_panel_power(on);
 	else
 		ret = mipi_dsi_cdp_panel_power(on);
 
@@ -1074,10 +1211,17 @@ void __init msm8960_set_display_params(char *prim_panel, char *ext_panel)
 		pr_debug("msm_fb_pdata.prim_panel_name %s\n",
 			msm_fb_pdata.prim_panel_name);
 
-		if (strncmp((char *)msm_fb_pdata.prim_panel_name,
+		if ((strncmp((char *)msm_fb_pdata.prim_panel_name,
 			MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
 			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN))) {
+				PANEL_NAME_MAX_LEN))) &&
+			(strncmp((char *)msm_fb_pdata.prim_panel_name,
+						MIPI_VIDEO_WINTEK_WVGA_PANEL_NAME,
+						strnlen(MIPI_VIDEO_WINTEK_WVGA_PANEL_NAME,
+							PANEL_NAME_MAX_LEN))))
+
+
+				{
 			/* Disable splash for panels other than Toshiba WSVGA */
 			disable_splash = 1;
 		}

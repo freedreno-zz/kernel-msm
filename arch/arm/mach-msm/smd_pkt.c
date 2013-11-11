@@ -33,6 +33,7 @@
 #include <asm/ioctls.h>
 #include <linux/wakelock.h>
 
+#include <asm/mach-types.h>
 #include <mach/msm_smd.h>
 #include <mach/peripheral-loader.h>
 #include <mach/msm_ipc_logging.h>
@@ -853,9 +854,12 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			smd_pkt_devp->pil = pil_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
 				r = PTR_ERR(smd_pkt_devp->pil);
-				pr_err("%s failed on smd_pkt_dev id:%d -"
-				       " pil_get failed for %s\n", __func__,
-					smd_pkt_devp->i, peripheral);
+				if (!machine_is_apq8060a_dragon()) {
+					pr_err("%s failed on smd_pkt_dev" \
+						"id:%d - pil_get failed for" \
+						" %s\n", __func__,
+						smd_pkt_devp->i, peripheral);
+				}
 				goto release_pd;
 			}
 

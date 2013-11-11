@@ -81,6 +81,24 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 power_attr(pm_async);
 
+static ssize_t how_pm_transit_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	int temp = how_pm_transit;
+	how_pm_transit = 0;
+	return snprintf(buf, 2, "%d\n", temp);
+}
+
+static ssize_t how_pm_transit_store(struct kobject *kobj,
+			struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	/*This attr should be read only, But power_attr needs store op */
+	return n;
+}
+
+power_attr(how_pm_transit);
+
+
 static ssize_t
 touch_event_show(struct kobject *kobj,
 		 struct kobj_attribute *attr, char *buf)
@@ -509,6 +527,7 @@ static struct attribute *g[] = {
 #endif
 #ifdef CONFIG_PM_SLEEP
 	&pm_async_attr.attr,
+	&how_pm_transit_attr.attr,
 	&wakeup_count_attr.attr,
 	&touch_event_attr.attr,
 	&touch_event_timer_attr.attr,

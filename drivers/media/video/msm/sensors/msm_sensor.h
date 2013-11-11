@@ -32,6 +32,7 @@
 #include "msm_camera_i2c.h"
 #include "msm_camera_eeprom.h"
 #include "msm_sensor_common.h"
+	MSM_SENSOR_MODE_2D_RIGHT,
 
 void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl);
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl);

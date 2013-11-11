@@ -81,6 +81,7 @@
 #define MSM_UART2DM_PHYS	(MSM_GSBI2_PHYS + 0x40000)
 #define MSM_UART5DM_PHYS	(MSM_GSBI5_PHYS + 0x40000)
 #define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
+#define MSM_UART7DM_PHYS   (MSM_GSBI7_PHYS + 0x40000)
 #define MSM_UART8DM_PHYS	(MSM_GSBI8_PHYS + 0x40000)
 #define MSM_UART9DM_PHYS	(MSM_GSBI9_PHYS + 0x40000)
 #define MSM_UART10DM_PHYS	(MSM_GSBI10_PHYS + 0x40000)
@@ -213,12 +214,14 @@ static struct resource resources_hsic_host[] = {
 		.end	= USB_HSIC_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+#ifndef CONFIG_MACH_APQ8060A_DRAGON
 	{
 		.start	= MSM_GPIO_TO_INT(69),
 		.end	= MSM_GPIO_TO_INT(69),
 		.name	= "peripheral_status_irq",
 		.flags	= IORESOURCE_IRQ,
 	},
+#endif
 };
 
 struct platform_device msm_device_hsic_host = {
@@ -507,6 +510,35 @@ struct platform_device msm8960_device_uart_gsbi5 = {
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi5),
 	.resource	= resources_uart_gsbi5,
 };
+
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+static struct resource resources_uart_gsbi7[] = {
+   {
+      .start   = GSBI7_UARTDM_IRQ,
+      .end  = GSBI7_UARTDM_IRQ,
+      .flags   = IORESOURCE_IRQ,
+   },
+   {
+      .start   = MSM_UART7DM_PHYS,
+      .end  = MSM_UART7DM_PHYS + PAGE_SIZE - 1,
+      .name = "uartdm_resource",
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .start   = MSM_GSBI7_PHYS,
+      .end  = MSM_GSBI7_PHYS + PAGE_SIZE - 1,
+      .name = "gsbi_resource",
+      .flags   = IORESOURCE_MEM,
+   },
+};
+
+struct platform_device msm8960_device_uart_gsbi7 = {
+   .name = "msm_serial_hsl",
+   .id   = 1,
+   .num_resources = ARRAY_SIZE(resources_uart_gsbi7),
+   .resource   = resources_uart_gsbi7,
+};
+#endif
 
 static struct msm_serial_hslite_platform_data uart_gsbi8_pdata = {
 	.line		= 0,
@@ -1817,6 +1849,48 @@ struct platform_device msm8960_device_qup_i2c_gsbi4 = {
 	.resource	= resources_qup_i2c_gsbi4,
 };
 
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+static struct resource resources_qup_i2c_gsbi5[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI5_PHYS,
+		.end	= MSM_GSBI5_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI5_QUP_PHYS,
+		.end	= MSM_GSBI5_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI5_QUP_IRQ,
+		.end	= GSBI5_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= 24,
+		.end	= 24,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= 25,
+		.end	= 25,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device msm8960_device_qup_i2c_gsbi5 = {
+	.name		= "qup_i2c",
+	.id		= 5,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi5),
+	.resource	= resources_qup_i2c_gsbi5,
+};
+#endif
+
 static struct resource resources_qup_i2c_gsbi8[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -1873,6 +1947,54 @@ struct platform_device msm8960_device_qup_i2c_gsbi3 = {
 	.resource	= resources_qup_i2c_gsbi3,
 };
 
+#ifdef CONFIG_BSTEM_FPGA
+static struct resource resources_qup_spi_gsbi8[] = {
+   {
+      .name = "spi_base",
+      .start   = MSM_GSBI8_QUP_PHYS,
+      .end  = MSM_GSBI8_QUP_PHYS + MSM_QUP_SIZE - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name = "gsbi_base",
+      .start   = MSM_GSBI8_PHYS,
+      .end  = MSM_GSBI8_PHYS + 4 - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name   = "spi_irq_in",
+      .start  = GSBI8_QUP_IRQ,
+      .end    = GSBI8_QUP_IRQ,
+      .flags  = IORESOURCE_IRQ,
+   },
+   {
+      .name   = "spi_clk",
+      .start  = 37,
+      .end    = 37,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_miso",
+      .start  = 35,
+      .end    = 35,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_mosi",
+      .start  = 34,
+      .end    = 34,
+      .flags  = IORESOURCE_IO,
+   },
+};
+
+struct platform_device msm8960_device_qup_spi_gsbi8 = {
+   .name    = "spi_qsd",
+   .id      = 8,
+   .num_resources = ARRAY_SIZE(resources_qup_spi_gsbi8),
+   .resource   = resources_qup_spi_gsbi8,
+};
+#endif
+
 static struct resource resources_qup_i2c_gsbi9[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -1901,6 +2023,53 @@ struct platform_device msm8960_device_qup_i2c_gsbi9 = {
 	.resource	= resources_qup_i2c_gsbi9,
 };
 
+#ifdef CONFIG_BSTEM_FPGA
+static struct resource resources_qup_spi_gsbi10[] = {
+   {
+      .name = "spi_base",
+      .start   = MSM_GSBI10_QUP_PHYS,
+      .end  = MSM_GSBI10_QUP_PHYS + MSM_QUP_SIZE - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name = "gsbi_base",
+      .start   = MSM_GSBI10_PHYS,
+      .end  = MSM_GSBI10_PHYS + 4 - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name   = "spi_irq_in",
+      .start  = GSBI10_QUP_IRQ,
+      .end    = GSBI10_QUP_IRQ,
+      .flags  = IORESOURCE_IRQ,
+   },
+   {
+      .name   = "spi_clk",
+      .start  = 74,
+      .end    = 74,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_miso",
+      .start  = 72,
+      .end    = 72,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_mosi",
+      .start  = 71,
+      .end    = 71,
+      .flags  = IORESOURCE_IO,
+   },
+};
+
+struct platform_device msm8960_device_qup_spi_gsbi10 = {
+   .name    = "spi_qsd",
+   .id      = 10,
+   .num_resources = ARRAY_SIZE(resources_qup_spi_gsbi10),
+   .resource   = resources_qup_spi_gsbi10,
+};
+#else
 static struct resource resources_qup_i2c_gsbi10[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -1928,6 +2097,7 @@ struct platform_device msm8960_device_qup_i2c_gsbi10 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi10),
 	.resource	= resources_qup_i2c_gsbi10,
 };
+#endif
 
 static struct resource resources_qup_i2c_gsbi12[] = {
 	{
@@ -2299,6 +2469,53 @@ struct platform_device msm8960_device_ssbi_pmic = {
 	.num_resources  = ARRAY_SIZE(resources_ssbi_pmic),
 };
 
+#ifdef CONFIG_BSTEM_FPGA
+static struct resource resources_qup_spi_gsbi1[] = {
+   {
+      .name = "spi_base",
+      .start   = MSM_GSBI1_QUP_PHYS,
+      .end  = MSM_GSBI1_QUP_PHYS + MSM_QUP_SIZE - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name = "gsbi_base",
+      .start   = MSM_GSBI1_PHYS,
+      .end  = MSM_GSBI1_PHYS + 4 - 1,
+      .flags   = IORESOURCE_MEM,
+   },
+   {
+      .name   = "spi_irq_in",
+      .start  = MSM8960_GSBI1_QUP_IRQ,
+      .end    = MSM8960_GSBI1_QUP_IRQ,
+      .flags  = IORESOURCE_IRQ,
+   },
+   {
+      .name   = "spi_clk",
+      .start  = 9,
+      .end    = 9,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_miso",
+      .start  = 7,
+      .end    = 7,
+      .flags  = IORESOURCE_IO,
+   },
+   {
+      .name   = "spi_mosi",
+      .start  = 6,
+      .end    = 6,
+      .flags  = IORESOURCE_IO,
+   },
+};
+
+struct platform_device msm8960_device_qup_spi_gsbi1 = {
+   .name    = "spi_qsd",
+   .id      = 1,
+   .num_resources = ARRAY_SIZE(resources_qup_spi_gsbi1),
+   .resource   = resources_qup_spi_gsbi1,
+};
+#else
 static struct resource resources_qup_spi_gsbi1[] = {
 	{
 		.name   = "spi_base",
@@ -2356,6 +2573,7 @@ struct platform_device msm8960_device_qup_spi_gsbi1 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi1),
 	.resource	= resources_qup_spi_gsbi1,
 };
+#endif
 
 struct platform_device msm_pcm = {
 	.name	= "msm-pcm-dsp",
@@ -2672,6 +2890,7 @@ struct platform_device *msm8960_footswitch[] __initdata = {
 	FS_8X60(FS_GFX2D1, "vdd",	"kgsl-2d1.1",	&gfx2d1_fs_data),
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
 };
+
 unsigned msm8960_num_footswitch __initdata = ARRAY_SIZE(msm8960_footswitch);
 
 struct platform_device *msm8960ab_footswitch[] __initdata = {
@@ -4272,7 +4491,6 @@ static struct resource msm_ebi1_ch0_erp_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 };
-
 struct platform_device msm8960_device_ebi1_ch0_erp = {
 	.name		= "msm_ebi_erp",
 	.id		= 0,

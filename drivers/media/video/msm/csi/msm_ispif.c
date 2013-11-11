@@ -24,15 +24,30 @@
 #define V4L2_IDENT_ISPIF                     50001
 #define CSID_VERSION_V2                      0x02000011
 #define CSID_VERSION_V3                      0x30000000
+#define ISPIF_PIX_1_STATUS_ADDR                   0X60
+#define ISPIF_IRQ_MASK_2_ADDR                   0X0118
+#define ISPIF_IRQ_CLEAR_2_ADDR                  0X011c
+#define ISPIF_IRQ_STATUS_2_ADDR                 0X0120
+/* 3D Merge Module related registers */
+#define ISPIF_3D_TX_THRESHOLD                   0x0070
+#define ISPIF_3D_DESKEW_SIZE                    0x0074
+#define ISPIF_OUTPUT_SEL_ADDR                   0x0034
+
+#define PIX_1_VFE_RST_STB            10
+#define PIX_1_CSID_RST_STB           9
+#define ISPIF_IRQ_2_STATUS_MASK      0x00070000
 
 #define MAX_CID 15
 
+#define DIV_CEIL(x, y) ((x/y + ((x%y) ? 1 : 0)))
 static atomic_t ispif_irq_cnt;
 static spinlock_t ispif_tasklet_lock;
 static struct list_head ispif_tasklet_q;
+int dual_mode;
 
 static int msm_ispif_intf_reset(struct ispif_device *ispif,
 	uint16_t intfmask, uint8_t vfe_intf)
+
 {
 	int rc = 0;
 	uint32_t data = (0x1 << STROBED_RST_EN);
@@ -50,6 +65,14 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 				(0x1 << PIX_0_CSID_RST_STB);
 			ispif->pix_sof_count = 0;
 			break;
+
+		case PIX1:
+			CDBG("PIX1 reset done\n");
+			data = (0x1 << STROBED_RST_EN) +
+				(0x1 << PIX_1_VFE_RST_STB) +
+				(0x1 << PIX_1_CSID_RST_STB);
+			break;
+
 
 		case RDI0:
 			data |= (0x1 << RDI_0_VFE_RST_STB) |
@@ -169,12 +192,21 @@ static void msm_ispif_enable_intf_cids(struct ispif_device *ispif,
 	mutex_lock(&ispif->mutex);
 	switch (intftype) {
 	case PIX0:
+		CDBG("PIX0 Enabled\n");
 		data = msm_camera_io_r(ispif->base +
 			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		data |= cid_mask;
 		msm_camera_io_w(data, ispif->base +
 			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
+
+	case PIX1:
+		CDBG("PIX1 Enabled\n");
+		data = msm_camera_io_r(ispif->base +
+				ISPIF_PIX_1_INTF_CID_MASK_ADDR);
+		data |= cid_mask;
+		msm_camera_io_w(data, ispif->base +
+				ISPIF_PIX_1_INTF_CID_MASK_ADDR);
 
 	case RDI0:
 		data = msm_camera_io_r(ispif->base +
@@ -307,6 +339,31 @@ static int msm_ispif_config(struct ispif_device *ispif,
 	return rc;
 }
 
+static void msm_ispif_mode_config(struct ispif_cfg_data *ispif_info)
+{
+	uint32_t output_sel = 0;
+	uint16_t threshold = 0;
+	if (ispif_info == NULL)
+		return;
+	if (ispif_info->cfg.caminfo.mode == CAM_MODE_DUAL) {
+		if (!ispif_info->cfg.caminfo.x_output_size)
+			return;
+		threshold = DIV_CEIL(
+				ispif_info->cfg.caminfo.x_output_size, 12);
+		output_sel = msm_camera_io_r(ispif->base +
+					ISPIF_OUTPUT_SEL_ADDR);
+			msm_camera_io_w(output_sel | 0x3, ispif->base +
+					ISPIF_OUTPUT_SEL_ADDR);
+			msm_camera_io_w(threshold, ispif->base +
+					ISPIF_3D_TX_THRESHOLD);
+		CDBG("Dual mode enabled\n");
+		dual_mode = 1;
+	} else {
+		msm_camera_io_w(output_sel, ispif->base +
+				ISPIF_OUTPUT_SEL_ADDR);
+	}
+}
+
 static uint32_t msm_ispif_get_cid_mask(struct ispif_device *ispif,
 	uint16_t intftype, uint8_t vfe_intf)
 {
@@ -316,6 +373,10 @@ static uint32_t msm_ispif_get_cid_mask(struct ispif_device *ispif,
 		mask = msm_camera_io_r(ispif->base +
 			ISPIF_PIX_0_INTF_CID_MASK_ADDR + (0x200 * vfe_intf));
 		break;
+
+	case PIX1:
+		mask = msm_camera_io_r(ispif->base +
+			ISPIF_PIX_1_INTF_CID_MASK_ADDR);
 
 	case RDI0:
 		mask = msm_camera_io_r(ispif->base +
@@ -447,6 +508,14 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 				}
 				break;
 
+			case PIX1:
+				while ((msm_camera_io_r(ispif->base +
+					ISPIF_PIX_1_STATUS_ADDR)
+					& 0xf) != 0xf) {
+					CDBG("Wait for pix1 Idle\n");
+				}
+				break;
+
 			case RDI0:
 				while ((msm_camera_io_r(ispif->base +
 					ISPIF_RDI_0_STATUS_ADDR +
@@ -518,12 +587,34 @@ static int msm_ispif_subdev_video_s_stream(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case ISPIF_ON_FRAME_BOUNDARY:
 		rc = msm_ispif_start_intf_transfer(ispif, intf, vfe_intf);
+		CDBG("ISPIF on frame boundary\n");
+		if (dual_mode) {
+			CDBG("Dual mode start stream\n");
+			old_intf |= (PIX_0 | PIX_1);
+			rc = msm_ispif_start_intf_transfer(old_intf);
+		} else {
+			rc = msm_ispif_start_intf_transfer(intf);
+		}
 		break;
 	case ISPIF_OFF_FRAME_BOUNDARY:
 		rc = msm_ispif_stop_intf_transfer(ispif, intf, vfe_intf);
+		if (dual_mode) {
+			CDBG("Dual mode off frame boundary\n");
+			old_intf |= (PIX_0 | PIX_1);
+			rc = msm_ispif_stop_intf_transfer(old_intf);
+		} else {
+			rc = msm_ispif_stop_intf_transfer(intf);
+		}
 		break;
 	case ISPIF_OFF_IMMEDIATELY:
 		rc = msm_ispif_abort_intf_transfer(ispif, intf, vfe_intf);
+		if (dual_mode) {
+			CDBG("Dual mode off Immediately\n");
+			old_intf |= (PIX_0 | PIX_1);
+			rc = msm_ispif_abort_intf_transfer(old_intf);
+		} else {
+			rc = msm_ispif_abort_intf_transfer(intf);
+		}
 		break;
 	default:
 		break;
@@ -564,6 +655,10 @@ static void ispif_do_tasklet(unsigned long data)
 		spin_unlock_irqrestore(&ispif_tasklet_lock,
 			flags);
 
+		if (qcmd->ispifInterruptStatus2 &
+			ISPIF_IRQ_STATUS_RDI_SOF_MASK) {
+			CDBG("ispif rdi1 and rdi2 status\n");
+		}
 		kfree(qcmd);
 	}
 }
@@ -758,6 +853,11 @@ static void msm_ispif_release(struct ispif_device *ispif)
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8960_clk_info), 0);
 	}
 	ispif->ispif_state = ISPIF_POWER_DOWN;
+	case PIX1:
+		data = msm_camera_io_r(ispif->base +
+			ISPIF_PIX_1_INTF_CID_MASK_ADDR);
+		break;
+
 }
 
 static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
@@ -776,22 +876,42 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 		rc = msm_ispif_init(ispif, &cdata.cfg.csid_version);
 		break;
 	case ISPIF_SET_CFG:
+		if (cdata.cfg.ispif_params.len > 1) {
+			cdata.cfg.ispif_params.params[0].intftype = PIX0;
+			cdata.cfg.ispif_params.params[0].csid = 0;
+			cdata.cfg.ispif_params.params[1].intftype = PIX1;
+			cdata.cfg.ispif_params.params[1].csid = 1;
+		}
 		CDBG("%s len = %d, intftype = %d,.cid_mask = %d, csid = %d\n",
-			__func__,
-			cdata.cfg.ispif_params.len,
+			__func__, cdata.cfg.ispif_params.len,
 			cdata.cfg.ispif_params.params[0].intftype,
 			cdata.cfg.ispif_params.params[0].cid_mask,
 			cdata.cfg.ispif_params.params[0].csid);
+		if (cdata.cfg.ispif_params.len > 1) {
+			CDBG("%s len = %d, intftype = %d,.cid_mask"
+						"= %d, csid = %d\n",
+			__func__, cdata.cfg.ispif_params.len,
+			cdata.cfg.ispif_params.params[1].intftype,
+			cdata.cfg.ispif_params.params[1].cid_mask,
+			cdata.cfg.ispif_params.params[1].csid);
+		}
 		rc = msm_ispif_config(ispif, &cdata.cfg.ispif_params);
 		break;
 
 	case ISPIF_SET_ON_FRAME_BOUNDARY:
 	case ISPIF_SET_OFF_FRAME_BOUNDARY:
 	case ISPIF_SET_OFF_IMMEDIATELY:
-		rc = msm_ispif_subdev_video_s_stream(sd, cdata.cfg.cmd);
+		if (dual_mode == 1) {
+			CDBG("Dual mode is active\n");
+			rc = msm_ispif_subdev_video_s_stream(sd, cdata.cfg.cmd);
+		} else {
+			rc = msm_ispif_subdev_video_s_stream(sd, cdata.cfg.cmd);
+		}
 		break;
 	case ISPIF_RELEASE:
 		msm_ispif_release(ispif);
+	case ISPIF_MODE:
+		msm_ispif_mode_config(&cdata);
 		break;
 	default:
 		break;
@@ -807,6 +927,9 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
+	case VIDIOC_MSM_ISPIF_MODE:
+		msm_ispif_mode_config(arg);
+		return 0;
 	case VIDIOC_MSM_ISPIF_REL:
 		ispif =	(struct ispif_device *)v4l2_get_subdevdata(sd);
 		msm_ispif_release(ispif);

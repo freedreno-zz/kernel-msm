@@ -250,6 +250,7 @@ static inline int msm_rpm_send_message_noirq(enum msm_rpm_set set,
 	return 0;
 }
 
+
 static inline int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	return 0;

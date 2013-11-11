@@ -423,6 +423,17 @@ config SPI_QUP
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called spi_qsd.
+
+config BSTEM_FPGA
+   tristate "Qualcomm MSM SPI FPGA Support"
+   depends on ARCH_MSM && SPI_QUP
+   default n
+   help
+     Support for FPGA communication base on Qualcomm SPI.
+
+     This driver can also be built as a module.  If so, the module
+     will be called spi_fpga.
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #

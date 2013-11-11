@@ -190,7 +190,12 @@ static int msm_get_sensor_info(
 
 	sdata = mctl->sdata;
 	D("%s: sensor_name %s\n", __func__, sdata->sensor_name);
-
+	if (sdata->camera_type == BACK_CAMERA_INT_3D)
+		info.support_3d = true;
+	else
+		info.support_3d = false;
+	if (info.support_3d == true)
+		printk(KERN_INFO "Sensor is supporting 3D interlaced\n");
 	memcpy(&info.name[0], sdata->sensor_name, MAX_SENSOR_NAME);
 	info.flash_enabled = sdata->flash_data->flash_type !=
 					MSM_CAMERA_FLASH_NONE;
@@ -500,11 +505,15 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			core, ioctl, VIDIOC_MSM_ISPIF_CFG, argp);
 		break;
 
+
 	case MSM_CAM_IOCTL_CSIPHY_IO_CFG:
 		if (p_mctl->csiphy_sdev)
 			rc = v4l2_subdev_call(p_mctl->csiphy_sdev,
 				core, ioctl, VIDIOC_MSM_CSIPHY_CFG, argp);
 		break;
+
+
+
 
 	case MSM_CAM_IOCTL_CSIC_IO_CFG:
 		if (p_mctl->csic_sdev)
@@ -570,6 +579,8 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	struct msm_camera_sensor_info *sinfo;
 	struct msm_camera_device_platform_data *camdev;
 	uint8_t csid_core;
+	uint8_t num_csi_core = sinfo->csi_if;
+	int i = 0;
 	D("%s\n", __func__);
 	if (!p_mctl) {
 		pr_err("%s: param is NULL", __func__);
@@ -583,6 +594,9 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	if (!p_mctl->opencnt) {
 		struct msm_sensor_csi_info csi_info;
 		wake_lock(&p_mctl->wake_lock);
+
+		for (i = 0; i < num_csi_core; i++)
+			csid_core = camdev[i].csid_core;
 
 		csid_core = camdev->csid_core;
 		rc = msm_mctl_find_sensor_subdevs(p_mctl, csid_core);
@@ -608,6 +622,10 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 		}
 
 		if (p_mctl->csic_sdev)
+
+
+
+
 			csi_info.is_csic = 1;
 		else
 			csi_info.is_csic = 0;
@@ -633,6 +651,10 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	return rc;
 
 msm_csi_version:
+
+
+
+
 act_power_up_failed:
 	if (v4l2_subdev_call(p_mctl->sensor_sdev, core, s_power, 0) < 0)
 		pr_err("%s: sensor powerdown failed: %d\n", __func__, rc);
@@ -645,6 +667,7 @@ register_sdev_failed:
 
 static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
+	int i = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
@@ -677,8 +700,11 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 		if (p_mctl->csid_sdev) {
 			v4l2_subdev_call(p_mctl->csid_sdev, core, ioctl,
+
 				VIDIOC_MSM_CSID_RELEASE, NULL);
 		}
+
+
 
 		if (p_mctl->act_sdev) {
 			v4l2_subdev_call(p_mctl->act_sdev, core, s_power, 0);

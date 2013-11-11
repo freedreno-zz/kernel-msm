@@ -1413,7 +1413,7 @@ void change_console(struct vc_data *new_vc)
 
 /* Perform a kernel triggered VT switch for suspend/resume */
 
-static int disable_vt_switch;
+static int disable_vt_switch = 1;
 
 int vt_move_to_console(unsigned int vt, int alloc)
 {

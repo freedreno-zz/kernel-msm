@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 
+#include <asm/mach-types.h>
 #include <mach/msm_smd.h>
 #include <mach/peripheral-loader.h>
 
@@ -507,9 +508,11 @@ void *msm_ipc_load_default_node(void)
 	if (peripheral && !strncmp(peripheral, "modem", 6)) {
 		pil = pil_get(peripheral);
 		if (IS_ERR(pil)) {
-			pr_err("%s: Failed to load %s\n",
-				__func__, peripheral);
-			pil = NULL;
+			if (!machine_is_apq8060a_dragon()) {
+				pr_err("%s: Failed to load %s\n",
+					__func__, peripheral);
+				pil = NULL;
+			}
 		}
 	}
 	return pil;

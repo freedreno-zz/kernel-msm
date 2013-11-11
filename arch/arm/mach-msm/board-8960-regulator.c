@@ -65,6 +65,10 @@ VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("8921_l9",		NULL),
 	REGULATOR_SUPPLY("vdd",			"3-0024"),
 	REGULATOR_SUPPLY("vdd_ana",		"3-004a"),
+	REGULATOR_SUPPLY("vdd2v9",		"12-0019"),
+	REGULATOR_SUPPLY("vdd2v9",		"12-001e"),
+	REGULATOR_SUPPLY("vdd2v9",		"12-006b"),
+	REGULATOR_SUPPLY("vdd2v9",		"12-005d"),
 };
 VREG_CONSUMERS(L10) = {
 	REGULATOR_SUPPLY("8921_l10",		NULL),
@@ -217,6 +221,10 @@ VREG_CONSUMERS(LVS4) = {
 	REGULATOR_SUPPLY("8921_lvs4",		NULL),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-004a"),
+	REGULATOR_SUPPLY("vdd1v8",		"12-0019"),
+	REGULATOR_SUPPLY("vdd1v8",		"12-001e"),
+	REGULATOR_SUPPLY("vdd1v8",		"12-006b"),
+	REGULATOR_SUPPLY("vdd1v8",		"12-005d"),
 };
 VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("8921_lvs5",		NULL),
@@ -548,7 +556,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L7,	 1, 1, 0, 1850000, 2950000, NULL,      10000, 10000),
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
 	RPM_LDO(L9,	 0, 1, 0, 3000000, 3000000, NULL,      0, 0),
-	RPM_LDO(L10,	 0, 1, 0, 3000000, 3000000, NULL,      0, 0),
+	RPM_LDO(L10,	 0, 1, 0, 3300000, 3300000, NULL,      0, 0),
 	RPM_LDO(L11,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8921_s4", 0, 0),
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
@@ -563,10 +571,10 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L25,	 1, 1, 0, 1250000, 1250000, "8921_s1", 10000, 10000),
 
 	/*	ID     a_on pd ss		    supply */
-	RPM_VS(LVS1,	 0, 1, 0,		    "8921_s4"),
+	RPM_VS(LVS1,	 1, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS2,	 0, 1, 0,		    "8921_s1"),
 	RPM_VS(LVS3,	 0, 1, 0,		    "8921_s4"),
-	RPM_VS(LVS4,	 0, 1, 0,		    "8921_s4"),
+	RPM_VS(LVS4,	 1, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS5,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS6,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS7,	 0, 1, 0,		    "8921_s4"),

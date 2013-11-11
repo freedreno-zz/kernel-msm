@@ -87,7 +87,7 @@ static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 static atomic_t auxpcm_rsc_ref;
 
-static bool hs_detect_use_gpio;
+static bool hs_detect_use_gpio = 1;
 module_param(hs_detect_use_gpio, bool, 0444);
 MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
 

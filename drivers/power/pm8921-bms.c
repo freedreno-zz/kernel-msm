@@ -2686,7 +2686,7 @@ int pm8921_bms_get_battery_current(int *result_ua)
 	*result_ua = 0;
 	if (!the_chip) {
 		pr_err("called before initialization\n");
-		return -EINVAL;
+		return 0;//-EINVAL;
 	}
 	if (the_chip->r_sense_uohm == 0) {
 		pr_err("r_sense is zero\n");

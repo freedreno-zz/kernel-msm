@@ -708,14 +708,9 @@ static int msm_hsl_startup(struct uart_port *port)
 
 	if (!(is_console(port)) || (!port->cons) ||
 		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
-
 		if (msm_serial_hsl_has_gsbi(port))
-			if ((ioread32(msm_hsl_port->mapped_gsbi +
-				GSBI_CONTROL_ADDR) & GSBI_PROTOCOL_I2C_UART)
-					!= GSBI_PROTOCOL_I2C_UART)
-				iowrite32(GSBI_PROTOCOL_I2C_UART,
-					msm_hsl_port->mapped_gsbi +
-						GSBI_CONTROL_ADDR);
+			if ((ioread32(msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR) & GSBI_PROTOCOL_I2C_UART) != GSBI_PROTOCOL_I2C_UART)
+				iowrite32(GSBI_PROTOCOL_I2C_UART, msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
 
 		if (pdata && pdata->config_gpio) {
 			ret = gpio_request(pdata->uart_tx_gpio,
@@ -734,10 +729,19 @@ static int msm_hsl_startup(struct uart_port *port)
 				return ret;
 			}
 		}
+		
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+      if (port->line == 1)
+      {
+         gpio_set_value(UART_RS485_TXEN, 1);
+         gpio_set_value(UART_RS485_RXEN, 0);
+      }
+#endif
 	}
 #ifndef CONFIG_PM_RUNTIME
 	msm_hsl_init_clock(port);
 #endif
+
 	pm_runtime_get_sync(port->dev);
 
 	/* Set RFR Level as 3/4 of UARTDM FIFO Size */
@@ -796,6 +800,13 @@ static void msm_hsl_shutdown(struct uart_port *port)
 			gpio_free(pdata->uart_tx_gpio);
 			gpio_free(pdata->uart_rx_gpio);
 		}
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+      if (port->line == 1)
+      {
+         gpio_set_value(UART_RS485_TXEN, 0);
+         gpio_set_value(UART_RS485_RXEN, 1);
+      }
+#endif
 	}
 }
 
@@ -1452,6 +1463,28 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 	if (msm_hsl_port->pclk)
 		clk_disable_unprepare(msm_hsl_port->pclk);
+   
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   if (port->line == 1)
+   {
+      ret = gpio_request(UART_RS485_TXEN, "uart_rs485_txen");
+      if (unlikely(ret))
+      {
+         pr_err("Request UART_RS485_TXEN failed\n");
+         return ret;
+      }
+      ret = gpio_direction_output(UART_RS485_TXEN, 0);
+      ret = gpio_request(UART_RS485_RXEN, "uart_rs485_rxen");
+      if (unlikely(ret))
+      {
+         pr_err("Request UART_RS485_RXEN failed\n");
+         gpio_free(UART_RS485_TXEN);
+         return ret;
+      }
+      gpio_direction_output(UART_RS485_RXEN, 1);
+   }
+#endif
+
 	return ret;
 }
 
@@ -1466,6 +1499,14 @@ static int __devexit msm_serial_hsl_remove(struct platform_device *pdev)
 #endif
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   if (port->line == 1)
+   {
+      gpio_free(UART_RS485_TXEN);
+      gpio_free(UART_RS485_RXEN);
+   }
+#endif
 
 	device_set_wakeup_capable(&pdev->dev, 0);
 	platform_set_drvdata(pdev, NULL);
@@ -1600,7 +1641,7 @@ static void __exit msm_serial_hsl_exit(void)
 	uart_unregister_driver(&msm_hsl_uart_driver);
 }
 
-module_init(msm_serial_hsl_init);
+arch_initcall(msm_serial_hsl_init);
 module_exit(msm_serial_hsl_exit);
 
 MODULE_DESCRIPTION("Driver for msm HSUART serial device");

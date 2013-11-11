@@ -5674,32 +5674,56 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 
 	CLK_LOOKUP("core_clk",		gp0_clk.c,		""),
 	CLK_LOOKUP("core_clk",		gp1_clk.c,		""),
-	CLK_LOOKUP("core_clk",		gp2_clk.c,		""),
+#ifdef CONFIG_BSTEM_FPGA
+	CLK_LOOKUP("gp2_clk",		gp2_clk.c,		NULL),
+#else
+   CLK_LOOKUP("core_clk",     gp2_clk.c,     ""),
+#endif
 	CLK_LOOKUP("core_clk",		gsbi1_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi2_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi4_uart_clk.c,	""),
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	CLK_LOOKUP("core_clk",		gsbi5_qup_clk.c,	"qup_i2c.5"),
+#endif
 	CLK_LOOKUP("core_clk",		gsbi5_uart_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("core_clk",		gsbi6_uart_clk.c, "msm_serial_hs.0"),
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   CLK_LOOKUP("core_clk",     gsbi7_uart_clk.c, "msm_serial_hsl.1"),
+#else
 	CLK_LOOKUP("core_clk",		gsbi7_uart_clk.c,	""),
-	/* used on 8960 SGLTE for console */
+#endif
+#ifndef CONFIG_BSTEM_FPGA
 	CLK_LOOKUP("core_clk",		gsbi8_uart_clk.c, "msm_serial_hsl.1"),
+#endif
 	/* used on 8960 standalone with Atheros Bluetooth */
 	CLK_LOOKUP("core_clk",		gsbi8_uart_clk.c, "msm_serial_hs.2"),
 	CLK_LOOKUP("core_clk",		gsbi9_uart_clk.c, "msm_serial_hs.1"),
 	CLK_LOOKUP("core_clk",		gsbi10_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi11_uart_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi12_uart_clk.c,	""),
+#ifdef CONFIG_BSTEM_FPGA
+   CLK_LOOKUP("core_clk",     gsbi1_qup_clk.c,  "spi_qsd.1"),
+#else
 	CLK_LOOKUP("core_clk",		gsbi1_qup_clk.c,	"spi_qsd.0"),
+#endif
 	CLK_LOOKUP("core_clk",		gsbi2_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi3_qup_clk.c,	"qup_i2c.3"),
 	CLK_LOOKUP("core_clk",		gsbi4_qup_clk.c,	"qup_i2c.4"),
 	CLK_LOOKUP("core_clk",		gsbi5_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi6_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi7_qup_clk.c,	""),
-	CLK_LOOKUP("core_clk",		gsbi8_qup_clk.c,	""),
+#ifdef CONFIG_BSTEM_FPGA
+	CLK_LOOKUP("core_clk",		gsbi8_qup_clk.c,	"spi_qsd.8"),
+#else
+   CLK_LOOKUP("core_clk",     gsbi8_qup_clk.c,  ""),
+#endif
 	CLK_LOOKUP("core_clk",		gsbi9_qup_clk.c,	""),
+#ifdef CONFIG_BSTEM_FPGA
+   CLK_LOOKUP("core_clk",     gsbi10_qup_clk.c, "spi_qsd.10"),
+#else
 	CLK_LOOKUP("core_clk",		gsbi10_qup_clk.c,	"qup_i2c.10"),
+#endif
 	CLK_LOOKUP("core_clk",		gsbi11_qup_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gsbi12_qup_clk.c,	"qup_i2c.12"),
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
@@ -5730,22 +5754,39 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qce.0"),
 	CLK_LOOKUP("core_clk",		ce1_core_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("dma_bam_pclk",	dma_bam_p_clk.c,	NULL),
+#ifdef CONFIG_BSTEM_FPGA
+   CLK_LOOKUP("iface_clk",    gsbi1_p_clk.c,    "spi_qsd.1"),
+#else
 	CLK_LOOKUP("iface_clk",		gsbi1_p_clk.c,		"spi_qsd.0"),
+#endif
 	CLK_LOOKUP("iface_clk",		gsbi2_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi3_p_clk.c,		"qup_i2c.3"),
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"qup_i2c.4"),
-	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,	"msm_serial_hsl.0"),
-	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,  "msm_serial_hs.0"),
+	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,	   "msm_serial_hsl.0"),
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	CLK_LOOKUP("iface_clk",		gsbi5_qup_clk.c,	"qup_i2c.5"),
+#endif
+	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,    "msm_serial_hs.0"),
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+   CLK_LOOKUP("iface_clk",    gsbi7_p_clk.c,    "msm_serial_hsl.1"),
+#else
 	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		""),
-	/* used on 8960 SGLTE for serial console */
-	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,	"msm_serial_hsl.1"),
+#endif
+#ifdef CONFIG_BSTEM_FPGA
+   CLK_LOOKUP("iface_clk",    gsbi8_p_clk.c,    "spi_qsd.8"),
+#else
+	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,	   "msm_serial_hsl.1"),
+#endif
 	/* used on 8960 standalone with Atheros Bluetooth */
 	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,	"msm_serial_hs.2"),
-	CLK_LOOKUP("iface_clk",		gsbi9_p_clk.c,  "msm_serial_hs.1"),
-	CLK_LOOKUP("iface_clk",		gsbi10_p_clk.c,		"qup_i2c.10"),
-	CLK_LOOKUP("iface_clk",		gsbi11_p_clk.c,		""),
-	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,		"qup_i2c.12"),
-	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		""),
+	CLK_LOOKUP("iface_clk",		gsbi9_p_clk.c,    "msm_serial_hs.1"),
+#ifdef CONFIG_BSTEM_FPGA
+   CLK_LOOKUP("iface_clk",    gsbi10_p_clk.c,   "spi_qsd.10"),
+#else
+	CLK_LOOKUP("iface_clk",		gsbi10_p_clk.c,	"qup_i2c.10"),
+#endif
+	CLK_LOOKUP("iface_clk",		gsbi11_p_clk.c,	""),
+	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,	"qup_i2c.12"),
 	CLK_LOOKUP("ref_clk",	tsif_ref_clk.c,	"msm_tspp.0"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		"msm_tspp.0"),
 	CLK_LOOKUP("iface_clk",		usb_fs1_p_clk.c,	""),
@@ -5756,7 +5797,7 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c,		"msm_sdcc.3"),
 	CLK_LOOKUP("iface_clk",		sdc4_p_clk.c,		"msm_sdcc.4"),
 	CLK_LOOKUP("iface_clk",		sdc5_p_clk.c,		"msm_sdcc.5"),
-	CLK_LOOKUP("core_clk",		adm0_clk.c,		"msm_dmov"),
+	CLK_LOOKUP("core_clk",		adm0_clk.c,		   "msm_dmov"),
 	CLK_LOOKUP("iface_clk",		adm0_p_clk.c,		"msm_dmov"),
 	CLK_LOOKUP("iface_clk",		pmic_arb0_p_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		pmic_arb1_p_clk.c,	""),
@@ -5766,6 +5807,8 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0010"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-006c"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0048"),
+	CLK_LOOKUP("cam1_clk",		cam1_clk.c,	NULL),
+	CLK_LOOKUP("cam_clk",           cam0_clk.c,     "4-0010"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,		NULL),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0020"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0034"),
@@ -5919,7 +5962,6 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("dfab_clk",		dfab_sps_clk.c,	"msm_sps"),
 	CLK_LOOKUP("bus_clk",		dfab_bam_dmux_clk.c,	"BAM_RMNT"),
 	CLK_LOOKUP("bus_clk",		dfab_scm_clk.c,	"scm"),
-
 	CLK_LOOKUP("mem_clk",		ebi1_adm_clk.c, "msm_dmov"),
 	CLK_LOOKUP("mem_clk",		ebi1_acpu_a_clk.c, ""),
 	CLK_LOOKUP("bus_clk",		afab_acpu_a_clk.c, ""),
@@ -6092,19 +6134,19 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("iface_clk",		gsbi2_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		gsbi3_p_clk.c,		"qup_i2c.3"),
 	CLK_LOOKUP("iface_clk",		gsbi4_p_clk.c,		"qup_i2c.4"),
-	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,	"msm_serial_hsl.0"),
-	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,  "msm_serial_hs.0"),
+	CLK_LOOKUP("iface_clk",		gsbi5_p_clk.c,	   "msm_serial_hsl.0"),
+	CLK_LOOKUP("iface_clk",		gsbi6_p_clk.c,    "msm_serial_hs.0"),
 	CLK_LOOKUP("iface_clk",		gsbi7_p_clk.c,		""),
 	/* used on 8930 SGLTE for Camera */
 	CLK_LOOKUP("iface_clk",		gsbi8_p_clk.c,		"qup_i2c.8"),
 	/* used on 8930 SGLTE for Primary IPC */
 	CLK_LOOKUP("iface_clk",         gsbi9_p_clk.c,	"msm_serial_hs.1"),
 	CLK_LOOKUP("iface_clk",		gsbi9_p_clk.c,		"qup_i2c.0"),
-	CLK_LOOKUP("iface_clk",		gsbi10_p_clk.c,		"qup_i2c.10"),
+	CLK_LOOKUP("iface_clk",		gsbi10_p_clk.c,	"qup_i2c.10"),
 	/* used on 8930 SGLTE for serial console */
 	CLK_LOOKUP("iface_clk",         gsbi10_p_clk.c, "msm_serial_hsl.1"),
 	CLK_LOOKUP("iface_clk",		gsbi11_p_clk.c,	"msm_serial_hsl.2"),
-	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,		"qup_i2c.12"),
+	CLK_LOOKUP("iface_clk",		gsbi12_p_clk.c,	"qup_i2c.12"),
 	CLK_LOOKUP("iface_clk",		tsif_p_clk.c,		""),
 	CLK_LOOKUP("iface_clk",		usb_fs1_p_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		usb_fs2_p_clk.c,	""),
@@ -6114,7 +6156,7 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("iface_clk",		sdc3_p_clk.c,		"msm_sdcc.3"),
 	CLK_LOOKUP("iface_clk",		sdc4_p_clk.c,		"msm_sdcc.4"),
 	CLK_LOOKUP("iface_clk",		sdc5_p_clk.c,		"msm_sdcc.5"),
-	CLK_LOOKUP("core_clk",		adm0_clk.c,		"msm_dmov"),
+	CLK_LOOKUP("core_clk",		adm0_clk.c,		   "msm_dmov"),
 	CLK_LOOKUP("iface_clk",		adm0_p_clk.c,		"msm_dmov"),
 	CLK_LOOKUP("iface_clk",		pmic_arb0_p_clk.c,	""),
 	CLK_LOOKUP("iface_clk",		pmic_arb1_p_clk.c,	""),

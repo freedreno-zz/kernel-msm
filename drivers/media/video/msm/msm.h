@@ -167,6 +167,8 @@ enum msm_camera_v4l2_subdev_notify {
 	NOTIFY_AXI_IRQ,
 	NOTIFY_GESTURE_EVT, /* arg = v4l2_event */
 	NOTIFY_GESTURE_CAM_EVT, /* arg = int */
+	NOTIFY_MODE_CHANGE, /* arg = int (0,csid core = 0,csid core = 1)*/
+	NOTIFY_ISPIF_MODE_CHANGE,
 	NOTIFY_INVALID
 };
 
@@ -288,8 +290,8 @@ struct msm_cam_media_controller {
 	/* the following reflect the HW topology information*/
 	struct v4l2_subdev *sensor_sdev; /* sensor sub device */
 	struct v4l2_subdev *act_sdev; /* actuator sub device */
-	struct v4l2_subdev *csiphy_sdev; /*csiphy sub device*/
-	struct v4l2_subdev *csid_sdev; /*csid sub device*/
+	struct v4l2_subdev *csiphy_sdev[2]; /*csiphy sub device*/
+	struct v4l2_subdev *csid_sdev[2]; /*csid sub device*/
 	struct v4l2_subdev *csic_sdev; /*csid sub device*/
 	struct v4l2_subdev *ispif_sdev; /* ispif sub device */
 	struct v4l2_subdev *gemini_sdev; /* gemini sub device */

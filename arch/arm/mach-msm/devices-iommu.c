@@ -999,56 +999,79 @@ static int __init iommu_init(void)
 		return -ENODEV;
 	}
 
+pr_err("%s %d\n",__func__,__LINE__);
 	ret = platform_device_register(&msm_root_iommu_dev);
 	if (ret != 0) {
 		pr_err("Failed to register root IOMMU device!\n");
 		goto failure;
 	}
 
+
+pr_err("%s %d\n",__func__,__LINE__);
 	/* Initialize common devs */
 	platform_add_devices(msm_iommu_common_devs,
 				ARRAY_SIZE(msm_iommu_common_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 
 	/* Initialize soc-specific devs */
-	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+	if (cpu_is_msm8x60() || cpu_is_msm8960() ||
+			cpu_is_msm8960ab()) {
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_jpegd_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_gfx2d_devs,
 				ARRAY_SIZE(msm_iommu_gfx2d_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 	}
 
 	if (soc_class_is_apq8064() || cpu_is_msm8960ab()) {
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_jpegd_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_adreno3xx_gfx_devs,
 				ARRAY_SIZE(msm_iommu_adreno3xx_gfx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 	}
+pr_err("%s %d\n",__func__,__LINE__);
 	if (soc_class_is_apq8064())
 		platform_add_devices(msm_iommu_vcap_devs,
 				ARRAY_SIZE(msm_iommu_vcap_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 
 	/* Initialize common ctx_devs */
+pr_err("%s %d\n",__func__,__LINE__);
 	ret = platform_add_devices(msm_iommu_common_ctx_devs,
 				ARRAY_SIZE(msm_iommu_common_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 
 	/* Initialize soc-specific ctx_devs */
 	if (cpu_is_msm8x60() || cpu_is_msm8960()) {
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_jpegd_ctx_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_gfx2d_ctx_devs,
 				ARRAY_SIZE(msm_iommu_gfx2d_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 	}
 
 	if (soc_class_is_apq8064() || cpu_is_msm8960ab()) {
+pr_err("%s %d\n",__func__,__LINE__);
 		platform_add_devices(msm_iommu_jpegd_ctx_devs,
 				ARRAY_SIZE(msm_iommu_jpegd_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 
 		platform_add_devices(msm_iommu_adreno3xx_ctx_devs,
 				ARRAY_SIZE(msm_iommu_adreno3xx_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 	}
+pr_err("%s %d\n",__func__,__LINE__);
 	if (soc_class_is_apq8064())
 		platform_add_devices(msm_iommu_vcap_ctx_devs,
 			ARRAY_SIZE(msm_iommu_vcap_ctx_devs));
+pr_err("%s %d\n",__func__,__LINE__);
 
 	return 0;
 

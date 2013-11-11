@@ -4320,7 +4320,7 @@ static int hdmi_msm_hpd_on(void)
 		if (rc) {
 			DEV_ERR("%s: Failed to enable 5V regulator. Error=%d\n",
 					__func__, rc);
-			goto error3;
+			// goto error3;  For HDMI being primary display, this should not be an error
 		}
 		hdmi_msm_dump_regs("HDMI-INIT: ");
 
@@ -4358,7 +4358,7 @@ static int hdmi_msm_hpd_on(void)
 	DEV_DBG("%s: (IRQ, 5V on)\n", __func__);
 	return 0;
 
-error3:
+//error3:
 	hdmi_msm_clk(0);
 error2:
 	hdmi_msm_state->pd->gpio_config(0);

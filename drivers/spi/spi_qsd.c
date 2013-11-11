@@ -1053,7 +1053,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	u32 read_count;
 	u32 timeout;
 	u32 int_loopback = 0;
-
+	struct spi_message      *m = dd->cur_msg;
 	dd->tx_bytes_remaining = dd->cur_msg_len;
 	dd->rx_bytes_remaining = dd->cur_msg_len;
 	dd->read_buf           = dd->cur_transfer->rx_buf;
@@ -1190,6 +1190,10 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	} while (msm_spi_dm_send_next(dd));
 
 	msm_spi_udelay(dd->cur_transfer->delay_usecs);
+	if (m != NULL) {
+		m->actual_length = dd->cur_msg_len;
+		dev_dbg(dd->dev, "Set Actual Length : %u\n", m->actual_length);
+	}
 transfer_end:
 	if (dd->mode == SPI_DMOV_MODE)
 		msm_spi_unmap_dma_buffers(dd);

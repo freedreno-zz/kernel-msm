@@ -40,6 +40,7 @@ MODULE_LICENSE("GPL");
 
 static void evbug_event(struct input_handle *handle, unsigned int type, unsigned int code, int value)
 {
+	WARN_ON(1);
 	printk(KERN_DEBUG pr_fmt("Event. Dev: %s, Type: %d, Code: %d, Value: %d\n"),
 	       dev_name(&handle->dev->dev), type, code, value);
 }

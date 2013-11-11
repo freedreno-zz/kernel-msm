@@ -23,7 +23,13 @@
 #include <mach/msm_xo.h>
 
 #define SMSC3503_I2C_ADDR 0x08
-#define SMSC_GSBI_I2C_BUS_ID 10
+#define SMSC_GSBI_I2C_BUS_ID 5
+
+#define HSIC_HUB_CONNECT_GPIO	90
+#define HSIC_HUB_RESET_GPIO	91
+#define HSIC_HUB_INTERRUPT_GPIO	92
+/*#define HAVE_I2C                 1 */
+#undef HAVE_I2C
 static const unsigned short normal_i2c[] = {
 SMSC3503_I2C_ADDR, I2C_CLIENT_END };
 
@@ -34,7 +40,7 @@ struct hsic_hub {
 	struct msm_xo_voter *xo_handle;
 };
 static struct hsic_hub *smsc_hub;
-
+#ifdef HAVE_I2C
 /* APIs for setting/clearing bits and for reading/writing values */
 static inline int hsic_hub_get_u8(struct i2c_client *client, u8 reg)
 {
@@ -110,23 +116,24 @@ static int i2c_hsic_hub_probe(struct i2c_client *client,
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA |
 				     I2C_FUNC_SMBUS_WORD_DATA))
 		return -EIO;
-
 	/* CONFIG_N bit in SP_ILOCK register has to be set before changing
 	 * other registers to change default configuration of hsic hub.
 	 */
-	hsic_hub_set_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
+	hsic_hub_set_bits(client, SMSC3503_SP_ILOCK, CONFIG_N | CONNECT_N);
 
 	/* Can change default configuartion like VID,PID, strings etc
 	 * by writing new values to hsic hub registers.
 	 */
-	hsic_hub_write_word_data(client, SMSC3503_VENDORID, 0x05C6);
+	hsic_hub_write_word_data(client, SMSC3503_VENDORID, 0x0588);
 
 	/* CONFIG_N bit in SP_ILOCK register has to be cleared for new
 	 * values in registers to be effective after writing to
 	 * other registers.
 	 */
 	hsic_hub_clear_bits(client, SMSC3503_SP_ILOCK, CONFIG_N);
-
+	udelay(5);
+	hsic_hub_clear_bits(client, SMSC3503_SP_ILOCK, CONNECT_N);
+	gpio_direction_output(HSIC_HUB_CONNECT_GPIO, 1);
 	return 0;
 }
 
@@ -149,6 +156,7 @@ static struct i2c_driver hsic_hub_driver = {
 	.remove   = i2c_hsic_hub_remove,
 	.id_table = hsic_hub_id,
 };
+#endif
 
 #define HSIC_HUB_VDD_VOL_MIN	1650000 /* uV */
 #define HSIC_HUB_VDD_VOL_MAX	1950000 /* uV */
@@ -157,9 +165,10 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	const struct smsc_hub_platform_data *pdata;
+#ifdef HAVE_I2C
 	struct i2c_adapter *i2c_adap;
 	struct i2c_board_info i2c_info;
-
+#endif
 	if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data\n");
 		return -ENODEV;
@@ -184,6 +193,19 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "gpio request failed for GPIO%d\n",
 							pdata->hub_reset);
+		goto gpio_req_fail;
+	}
+
+	ret = gpio_request(pdata->hub_connect, "HSIC_HUB_CONNECT_GPIO");
+	if (ret < 0) {
+		dev_err(&pdev->dev, "gpio request failed for GPIO%d\n",
+							pdata->hub_connect);
+		goto gpio_req_fail;
+	}
+	ret = gpio_request(pdata->hub_interrupt, "HSIC_HUB_INT_GPIO");
+	if (ret < 0) {
+		dev_err(&pdev->dev, "gpio request failed for GPIO%d\n",
+							pdata->hub_interrupt);
 		goto gpio_req_fail;
 	}
 
@@ -223,14 +245,16 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 			"D1 buffer\n");
 		goto xo_vote_fail;
 	}
-
+	udelay(100);  /* wait for chip powerup */
+	gpio_direction_output(pdata->hub_interrupt, 1);
+	gpio_direction_output(pdata->hub_connect, 0);
 	gpio_direction_output(pdata->hub_reset, 0);
 	/* Hub reset should be asserted for minimum 2microsec
 	 * before deasserting.
 	 */
-	udelay(5);
+	udelay(160);
 	gpio_direction_output(pdata->hub_reset, 1);
-
+#ifdef HAVE_I2C
 	ret = i2c_add_driver(&hsic_hub_driver);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to add I2C hsic_hub_driver\n");
@@ -253,12 +277,17 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	i2c_put_adapter(i2c_adap);
 	if (!smsc_hub->client)
 		dev_err(&pdev->dev, "failed to connect to smsc_hub"
-			 "through I2C\n");
-
+				"through I2C\n");
+	else
+		dev_info(&pdev->dev, "successful to connect to smsc_hub"
+				"through I2C\n");
 i2c_add_fail:
+#else
+	udelay(64);
+	gpio_direction_output(pdata->hub_connect, 1);
+#endif
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-
 	return 0;
 
 xo_vote_fail:
@@ -272,6 +301,8 @@ reg_optimum_mode_fail:
 				HSIC_HUB_VDD_VOL_MIN);
 reg_set_voltage_fail:
 	gpio_free(pdata->hub_reset);
+	gpio_free(pdata->hub_connect);
+	gpio_free(pdata->hub_interrupt);
 gpio_req_fail:
 	regulator_put(smsc_hub->hsic_hub_reg);
 free_mem:
@@ -285,11 +316,13 @@ static int smsc_hub_remove(struct platform_device *pdev)
 	const struct smsc_hub_platform_data *pdata;
 
 	pdata = pdev->dev.platform_data;
+#ifdef HAVE_I2C
 	if (smsc_hub->client) {
 		i2c_unregister_device(smsc_hub->client);
 		smsc_hub->client = NULL;
 		i2c_del_driver(&hsic_hub_driver);
 	}
+#endif
 	pm_runtime_disable(&pdev->dev);
 	msm_xo_put(smsc_hub->xo_handle);
 
@@ -297,7 +330,12 @@ static int smsc_hub_remove(struct platform_device *pdev)
 	regulator_set_optimum_mode(smsc_hub->hsic_hub_reg, 0);
 	regulator_set_voltage(smsc_hub->hsic_hub_reg, 0,
 				HSIC_HUB_VDD_VOL_MIN);
+	gpio_direction_output(pdata->hub_connect, 0);
+	gpio_direction_output(pdata->hub_reset, 0);
+	udelay(32);
 	gpio_free(pdata->hub_reset);
+	gpio_free(pdata->hub_connect);
+	gpio_free(pdata->hub_interrupt);
 	regulator_put(smsc_hub->hsic_hub_reg);
 	kfree(smsc_hub);
 

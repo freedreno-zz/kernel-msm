@@ -50,7 +50,7 @@ static struct gpiomux_setting cam_settings[] = {
 	},
 
 	{
-		.func = GPIOMUX_FUNC_1, /*active 1*/
+		.func = GPIOMUX_FUNC_2, /*active 1*/
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
@@ -124,6 +124,7 @@ static struct msm_gpiomux_config msm8960_cam_common_configs[] = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[0],
 		},
 	},
+	/* Modified cam_settings[1] for CAM_MCLK1*/
 	{
 		.gpio = 4,
 		.settings = {
@@ -517,8 +518,12 @@ static struct camera_vreg_t msm_8960_cam_vreg[] = {
 	{"cam_vaf", REG_LDO, 2800000, 2800000, 300000},
 };
 
-static struct gpio msm8960_common_cam_gpio[] = {
+
+#ifdef CONFIG_BSTEM_RIGHT_CAMERA
+	{4, GPIOF_DIR_IN, "CAMIF_MCLK"},
+#else
 	{5, GPIOF_DIR_IN, "CAMIF_MCLK"},
+#endif
 	{20, GPIOF_DIR_IN, "CAMIF_I2C_DATA"},
 	{21, GPIOF_DIR_IN, "CAMIF_I2C_CLK"},
 };
@@ -648,17 +653,31 @@ static struct msm_camera_sensor_platform_info sensor_board_info_mt9m114 = {
 	.mount_angle = 90,
 	.cam_vreg = mt9m114_cam_vreg,
 	.num_vreg = ARRAY_SIZE(mt9m114_cam_vreg),
+#ifdef CONFIG_BSTEM_RIGHT_CAMERA
 	.gpio_conf = &msm_8960_front_cam_gpio_conf,
+#else
+	.gpio_conf = &msm_8960_back_cam_gpio_conf,
+#endif
 	.csi_lane_params = &mt9m114_csi_lane_params,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9m114_data = {
 	.sensor_name = "mt9m114",
+#ifdef CONFIG_BSTEM_RIGHT_CAMERA
 	.pdata = &msm_camera_csi_device_data[1],
+#else
+	.pdata = &msm_camera_csi_device_data[0],
+
+#endif
 	.flash_data = &flash_mt9m114,
 	.sensor_platform_info = &sensor_board_info_mt9m114,
+#ifdef CONFIG_BSTEM_RIGHT_CAMERA
 	.csi_if = 1,
 	.camera_type = FRONT_CAMERA_2D,
+#else
+	.camera_type = BACK_CAMERA_2D,
+	.csi_if = 1,
+#endif
 	.sensor_type = YUV_SENSOR,
 };
 

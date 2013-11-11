@@ -111,6 +111,7 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	hdmi_msm_audio_sample_rate_reset(sample_rate);
 
 	switch (dai_data->channels) {
+    case 1: /* hardcode since HDMI channel cannot be set by AlsaMixer */
 	case 2:
 		channel_allocation  = 0;
 		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,

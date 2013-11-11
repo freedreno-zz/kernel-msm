@@ -542,7 +542,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	}
 }
 
-static inline int parse_ib(struct kgsl_device *device, unsigned int ptbase,
+static int parse_ib(struct kgsl_device *device, unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int dwords);
 
 /* Add an IB as a GPU object, but first, parse it to find more goodies within */
@@ -625,7 +625,7 @@ done:
  * access the dynamic data from the sysfs file.  Push all other IBs on the
  * dynamic list
  */
-static inline int parse_ib(struct kgsl_device *device, unsigned int ptbase,
+static int parse_ib(struct kgsl_device *device, unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int dwords)
 {
 	unsigned int ib1base, ib2base;

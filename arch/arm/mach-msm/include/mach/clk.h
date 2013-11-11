@@ -30,6 +30,7 @@ enum clk_reset_action {
 	CLK_RESET_ASSERT	= 1
 };
 
+struct clk_lookup;
 /* Rate is maximum clock rate in Hz */
 int clk_set_max_rate(struct clk *clk, unsigned long rate);
 
@@ -39,4 +40,14 @@ int clk_reset(struct clk *clk, enum clk_reset_action action);
 /* Set clock-specific configuration parameters */
 int clk_set_flags(struct clk *clk, unsigned long flags);
 
+
+#define CLKFLAG_INVERT                  0x00000001
+#define CLKFLAG_NOINVERT                0x00000002
+#define CLKFLAG_NONEST                  0x00000004
+#define CLKFLAG_NORESET                 0x00000008
+#define CLKFLAG_RETAIN                  0x00000040
+#define CLKFLAG_NORETAIN                0x00000080
+#define CLKFLAG_SKIP_HANDOFF            0x00000100
+#define CLKFLAG_MIN                     0x00000400
+#define CLKFLAG_MAX                     0x00000800
 #endif

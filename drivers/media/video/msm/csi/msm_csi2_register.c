@@ -32,12 +32,9 @@ int msm_csi_register_subdevs(struct msm_cam_media_controller *p_mctl,
 		goto out;
 	v4l2_set_subdev_hostdata(p_mctl->csid_sdev, p_mctl);
 
-	/* register ispif subdev */
 	p_mctl->ispif_sdev = server_dev->ispif_device[0];
 	if (!p_mctl->ispif_sdev)
-		goto out;
 	v4l2_set_subdev_hostdata(p_mctl->ispif_sdev, p_mctl);
-
 	rc = 0;
 	return rc;
 out:

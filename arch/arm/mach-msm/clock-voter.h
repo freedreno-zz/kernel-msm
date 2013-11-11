@@ -13,6 +13,7 @@
 
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
+#include <mach/clk-provider.h>
 
 #include <mach/clk-provider.h>
 

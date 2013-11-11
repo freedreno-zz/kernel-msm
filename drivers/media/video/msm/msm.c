@@ -85,6 +85,11 @@ static int msm_camera_v4l2_queryctrl(struct file *f, void *pctx,
 
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
+	D("ctrlcmd.type = %d\n", ctrlcmd.type);
+	D("ctrlcmd.stream_type = %d\n", ctrlcmd.stream_type);
+	D("ctrlcmd.vnode_id = %d\n", ctrlcmd.vnode_id);
+	D("ctrlcmd.queue_idx = %d\n", ctrlcmd.queue_idx);
+	D("ctrlcmd.config_ident = %d\n", ctrlcmd.config_ident);
 
 	mutex_lock(&pcam->vid_lock);
 	rc = msm_server_q_ctrl(pcam, pqctrl);
@@ -1302,6 +1307,11 @@ static struct v4l2_file_operations g_msm_fops = {
 	.release = msm_close,
 	.ioctl   = video_ioctl2,
 };
+
+
+
+
+
 
 static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 {

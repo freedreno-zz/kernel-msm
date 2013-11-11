@@ -21,7 +21,11 @@
 /* The SPI configurations apply to GSBI 1*/
 static struct gpiomux_setting spi_active = {
 	.func = GPIOMUX_FUNC_1,
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+	.drv = GPIOMUX_DRV_16MA,
+#else
 	.drv = GPIOMUX_DRV_12MA,
+#endif
 	.pull = GPIOMUX_PULL_NONE,
 };
 
@@ -33,7 +37,11 @@ static struct gpiomux_setting spi_suspended_config = {
 
 static struct gpiomux_setting spi_active_config2 = {
 	.func = GPIOMUX_FUNC_2,
+#ifdef CONFIG_MACH_APQ8060A_DRAGON
+	.drv = GPIOMUX_DRV_16MA,
+#else
 	.drv = GPIOMUX_DRV_8MA,
+#endif
 	.pull = GPIOMUX_PULL_NONE,
 };
 
@@ -54,6 +62,14 @@ static struct gpiomux_setting gsbi3_active_cfg = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+static struct gpiomux_setting gsbi5_i2c = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif
 
 static struct gpiomux_setting gsbi6_active_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -104,6 +120,12 @@ static struct gpiomux_setting gsbi8_uartdm_suspended_cfg = {
 static struct gpiomux_setting gsbi9_active_cfg = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gsbi6_uart = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
@@ -115,7 +137,7 @@ static struct gpiomux_setting gsbi9_suspended_cfg = {
 
 static struct gpiomux_setting gsbi10 = {
 	.func = GPIOMUX_FUNC_2,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
@@ -172,6 +194,7 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+#ifndef CONFIG_BSTEM_FPGA
 static struct gpiomux_setting cyts_resout_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -207,6 +230,7 @@ static struct gpiomux_setting cyts_int_sus_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+#endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 static struct gpiomux_setting hsic_act_cfg = {
@@ -229,6 +253,7 @@ static struct gpiomux_setting hsic_hub_act_cfg = {
 };
 #endif
 
+#ifndef CONFIG_BSTEM_FPGA
 static struct gpiomux_setting hap_lvl_shft_suspended_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -240,6 +265,7 @@ static struct gpiomux_setting hap_lvl_shft_active_config = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
 };
+#endif
 
 static struct gpiomux_setting ap2mdm_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -317,6 +343,14 @@ static struct gpiomux_setting hdmi_active_4_cfg = {
 	.dir = GPIOMUX_OUT_HIGH,
 };
 #endif
+#endif
+
+#ifdef CONFIG_BSTEM_FPGA
+static struct gpiomux_setting fpga_clk_cfg = {
+   .func = GPIOMUX_FUNC_2,
+   .drv = GPIOMUX_DRV_8MA,
+   .pull = GPIOMUX_PULL_NONE,
+};
 #endif
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -448,6 +482,57 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &gsbi3_active_cfg,
 		},
 	},
+#ifdef CONFIG_BSTEM_FPGA
+   {
+      .gpio      = 34,  /* GSBI8 mosi */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &spi_active,
+      },
+   },
+   {
+      .gpio      = 35,  /* GSBI8 miso */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &spi_active,
+      },
+   },
+   {
+      .gpio      = 37,  /* GSBI8 clk */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &spi_active,
+      },
+   },
+   {
+      .gpio      = 71,  /* GSBI10 mosi */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &gsbi10,
+      },
+   },
+   {
+      .gpio      = 72,  /* GSBI10 miso */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &gsbi10,
+      },
+   },
+   {
+      .gpio      = 74,  /* GSBI10 clk */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &gsbi10,
+      },
+   },
+   {
+      .gpio      = 52,  /* FPGA clock */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &spi_suspended_config,
+         [GPIOMUX_ACTIVE] = &fpga_clk_cfg,
+      },
+   },
+#endif
 	{
 		.gpio      = 26,	/* GSBI6 WLAN_PWD_L for AR6004 */
 		.settings = {
@@ -488,6 +573,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi12,
 		},
 	},
+#ifndef CONFIG_BSTEM_FPGA
 	{
 		.gpio      = 73,	/* GSBI10 I2C QUP SDA */
 		.settings = {
@@ -500,6 +586,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi10,
 		},
 	},
+#endif
 };
 
 static struct msm_gpiomux_config msm8960_gsbi5_uart_configs[] __initdata = {
@@ -515,6 +602,7 @@ static struct msm_gpiomux_config msm8960_gsbi5_uart_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi_uart,
 		},
 	},
+#ifndef CONFIG_MACH_APQ8060A_BSTEM
 	{
 		.gpio      = 24,        /* GSBI5 UART2 */
 		.settings = {
@@ -527,8 +615,25 @@ static struct msm_gpiomux_config msm8960_gsbi5_uart_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi_uart,
 		},
 	},
+#endif
 };
 
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+static struct msm_gpiomux_config msm8960_gsbi5_i2c_configs[] __initdata = {
+	{
+		.gpio      = 24,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_i2c,
+		},
+	},
+	{
+		.gpio      = 25,        /* GSBI5 UART2 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_i2c,
+		},
+	},
+};
+#endif
 static struct msm_gpiomux_config msm8960_external_vfr_configs[] __initdata = {
 	{
 		.gpio      = 23,        /* EXTERNAL VFR */
@@ -565,6 +670,50 @@ static struct msm_gpiomux_config msm8960_gsbi8_uart_configs[] __initdata = {
 		},
 	},
 };
+
+static struct msm_gpiomux_config msm8960_gsbi6_uart_configs[] __initdata = {
+	{
+		.gpio      = 26,        /* GSBI6 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_uart,
+		},
+	},
+	{
+		.gpio      = 27,        /* GSBI6 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_uart,
+		},
+	},
+	{
+		.gpio      = 28,        /* GSBI6 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_uart,
+		},
+	},
+	{
+		.gpio      = 29,        /* GSBI6 UART3 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_uart,
+		},
+	},
+};
+
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+static struct msm_gpiomux_config msm8960_gsbi7_uart_configs[] __initdata = {
+   {
+      .gpio      = 30,        /* GSBI7 UART TX */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &gsbi_uart,
+      },
+   },
+   {
+      .gpio      = 31,        /* GSBI7 UART RX */
+      .settings = {
+         [GPIOMUX_SUSPENDED] = &gsbi_uart,
+      },
+   },
+};
+#endif
 
 static struct msm_gpiomux_config msm8960_slimbus_config[] __initdata = {
 	{
@@ -659,6 +808,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	},
 };
 
+#ifndef CONFIG_BSTEM_FPGA
 static struct msm_gpiomux_config msm8960_cyts_configs[] __initdata = {
 	{	/* TS INTERRUPT */
 		.gpio = 11,
@@ -682,6 +832,7 @@ static struct msm_gpiomux_config msm8960_cyts_configs[] __initdata = {
 		},
 	},
 };
+#endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 static struct msm_gpiomux_config msm8960_hsic_configs[] = {
@@ -703,7 +854,17 @@ static struct msm_gpiomux_config msm8960_hsic_configs[] = {
 
 static struct msm_gpiomux_config msm8960_hsic_hub_configs[] = {
 	{
+		.gpio = 90,               /* HSIC_HUB_CONNECT */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_hub_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
 		.gpio = 91,               /* HSIC_HUB_RESET */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_hub_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+		.gpio = 92,               /* HSIC_HUB_INTERRUPT */
 		.settings = {
 			[GPIOMUX_ACTIVE] = &hsic_hub_act_cfg,
 			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
@@ -789,7 +950,7 @@ static struct msm_gpiomux_config msm8960_sdcc4_configs[] __initdata = {
 };
 #endif
 
-
+#ifndef CONFIG_BSTEM_FPGA
 static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	{
 		.gpio = 47,
@@ -809,6 +970,7 @@ static struct msm_gpiomux_config hap_lvl_shft_config_sglte[] __initdata = {
 		},
 	},
 };
+#endif
 
 static struct msm_gpiomux_config sglte_configs[] __initdata = {
 	/* AP2MDM_STATUS */
@@ -1037,9 +1199,14 @@ int __init msm8960_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8960_gsbi_configs,
 			ARRAY_SIZE(msm8960_gsbi_configs));
+	if (machine_is_apq8060a_dragon()) {
+	} else {
 
+#ifndef CONFIG_BSTEM_FPGA
 	msm_gpiomux_install(msm8960_cyts_configs,
 			ARRAY_SIZE(msm8960_cyts_configs));
+#endif
+	}
 
 	msm_gpiomux_install(msm8960_slimbus_config,
 			ARRAY_SIZE(msm8960_slimbus_config));
@@ -1058,6 +1225,7 @@ int __init msm8960_init_gpiomux(void)
 		ARRAY_SIZE(msm8960_sdcc4_configs));
 #endif
 
+#ifndef CONFIG_BSTEM_FPGA
 	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
 		machine_is_msm8960_liquid() || machine_is_msm8960_cdp()) {
 		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
@@ -1067,16 +1235,21 @@ int __init msm8960_init_gpiomux(void)
 		else
 			msm_gpiomux_install(hap_lvl_shft_config,
 				ARRAY_SIZE(hap_lvl_shft_config));
-	}
+#endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
-		machine_is_msm8960_liquid())
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1 ||
+		cpu_is_msm8960ab()) &&
+		(machine_is_msm8960_liquid() || machine_is_apq8060a_dragon() \
+		|| machine_is_apq8060a_bstem()))
 		msm_gpiomux_install(msm8960_hsic_configs,
 			ARRAY_SIZE(msm8960_hsic_configs));
 
-	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1) &&
-			machine_is_msm8960_liquid())
+	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 1 ||
+		cpu_is_msm8960ab()) &&
+			(machine_is_msm8960_liquid() ||
+					machine_is_apq8060a_dragon() \
+			|| machine_is_apq8060a_bstem()))
 		msm_gpiomux_install(msm8960_hsic_hub_configs,
 			ARRAY_SIZE(msm8960_hsic_hub_configs));
 #endif
@@ -1096,10 +1269,21 @@ int __init msm8960_init_gpiomux(void)
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
 		msm_gpiomux_install(msm8960_gsbi8_uart_configs,
 			ARRAY_SIZE(msm8960_gsbi8_uart_configs));
-	else
+	else {
 		msm_gpiomux_install(msm8960_gsbi5_uart_configs,
 			ARRAY_SIZE(msm8960_gsbi5_uart_configs));
 
+		msm_gpiomux_install(msm8960_gsbi6_uart_configs,
+			ARRAY_SIZE(msm8960_gsbi6_uart_configs));
+         
+#ifdef CONFIG_BSTEM_SERIAL_MSM_RS485
+      msm_gpiomux_install(msm8960_gsbi7_uart_configs, ARRAY_SIZE(msm8960_gsbi7_uart_configs));
+#endif
+	}
+#ifdef CONFIG_MACH_APQ8060A_BSTEM
+	msm_gpiomux_install(msm8960_gsbi5_i2c_configs,
+		ARRAY_SIZE(msm8960_gsbi5_i2c_configs));
+#endif
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 		/* For 8960 Fusion 2.2 Primary IPC */
 		msm_gpiomux_install(msm8960_fusion_gsbi_configs,

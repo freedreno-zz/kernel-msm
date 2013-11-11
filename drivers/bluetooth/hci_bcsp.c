@@ -756,8 +756,8 @@ int __exit bcsp_deinit(void)
 	return hci_uart_unregister_proto(&bcsp);
 }
 
-module_param(txcrc, bool, 0644);
+module_param(txcrc, int, 0644);
 MODULE_PARM_DESC(txcrc, "Transmit CRC with every BCSP packet");
 
-module_param(hciextn, bool, 0644);
+module_param(hciextn, int, 0644);
 MODULE_PARM_DESC(hciextn, "Convert HCI Extensions into BCSP packets");

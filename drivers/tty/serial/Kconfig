@@ -988,6 +988,13 @@ config SERIAL_MSM_HS
 	  Choose M here to compile it as a module. The module will be
 	  called msm_serial_hs.
 
+config BSTEM_SERIAL_MSM_RS485
+   tristate "BSTEM RS485 Serial Driver"
+   depends on ARCH_MSM
+   select SERIAL_CORE
+   help
+     Support for RS485 communication base on GSBI7.
+
 config SERIAL_MSM_CLOCK_CONTROL
 	bool "Allow tty clients to make clock requests to msm uarts."
 	depends on SERIAL_MSM=y

@@ -15,6 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H
 
 #include <mach/rpm.h>
+#include <mach/rpm-smd.h>
 #include "pm.h"
 
 enum {

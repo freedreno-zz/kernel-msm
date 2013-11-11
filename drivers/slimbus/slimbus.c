@@ -705,7 +705,7 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 				u8 e_len, u8 *laddr, bool valid)
 {
 	int ret;
-	u8 i = 0;
+	u8 i = 0,j;
 	bool exists = false;
 	struct slim_device *sbdev;
 	mutex_lock(&ctrl->m_ctrl);
@@ -735,6 +735,10 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 		}
 		memcpy(ctrl->addrt[i].eaddr, e_addr, e_len);
 		ctrl->addrt[i].valid = true;
+pr_err("%s: adding e_addr:\n",__func__);
+for (j=0;j<e_len;j++) pr_err("0x%x\n",ctrl->addrt[i].eaddr[j]);
+WARN_ON(1);
+
 		/* Preferred address is index into table */
 		if (!valid)
 			*laddr = i;

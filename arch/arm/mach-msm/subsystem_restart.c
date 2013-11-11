@@ -614,14 +614,14 @@ static int __init ssr_init_soc_restart_orders(void)
 		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
 	}
 
-	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
-		restart_orders = restart_orders_8960_sglte;
-		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
-	}
-
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE2) {
 		restart_orders = restart_orders_8064_sglte2;
 		n_restart_orders = ARRAY_SIZE(restart_orders_8064_sglte2);
+	} else {
+
+//	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		restart_orders = restart_orders_8960_sglte;
+		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
 	}
 
 	for (i = 0; i < n_restart_orders; i++) {
@@ -642,7 +642,7 @@ static int __init subsys_restart_init(void)
 
 	ssr_wq = alloc_workqueue("ssr_wq", WQ_CPU_INTENSIVE, 0);
 	if (!ssr_wq)
-		panic("%s: out of memory\n", __func__);
+		pr_err("%s: ERROR !!!!!!!!!!!!!!!! out of memory\n", __func__);
 
 	return ssr_init_soc_restart_orders();
 }

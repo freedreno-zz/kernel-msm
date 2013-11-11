@@ -13,6 +13,7 @@
 
 #include <linux/err.h>
 #include <mach/clk-provider.h>
+#include <mach/rpm-smd.h>
 
 #include "rpm_resources.h"
 #include "clock-rpm.h"

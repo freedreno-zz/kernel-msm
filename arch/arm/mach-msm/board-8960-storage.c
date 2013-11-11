@@ -151,7 +151,17 @@ static struct msm_mmc_pad_pull sdc1_pad_pull_off_cfg[] = {
 
 /* SDC3 pad data */
 static struct msm_mmc_pad_drv sdc3_pad_drv_on_cfg[] = {
-	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_8MA},
+	/* DragonBoard (CPU board - Snapdragon S4 Plus APQ8060A)
+	 *
+	 * Increase drive strength (Slew rate) for SDC3 clock
+	 *	 8 mA is good for <= 48 MHz
+	 *	16 mA for frequency >= 192 MHz (SDR104)
+	 *
+	 * As DragonBoard is a demo board with AC, I just set it to 16 mA
+	 * for stability reason. Tune-up this value for your own
+	 * H.W. to save power.
+	 */
+	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_16MA},
 	{TLMM_HDRV_SDC3_CMD, GPIO_CFG_8MA},
 	{TLMM_HDRV_SDC3_DATA, GPIO_CFG_8MA}
 };
@@ -276,7 +286,15 @@ static unsigned int sdc1_sup_clk_rates[] = {
 
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 static unsigned int sdc3_sup_clk_rates[] = {
-	400000, 24000000, 48000000, 96000000, 192000000
+	400000, 24000000, 48000000, 96000000
+	/*
+	 * Workaround : Reduce clock frequency
+	 *
+	 * Despite setting drive-strength to maximum (16 mA), we still have
+	 * chance to get a "Data CRC error" when it's running off 192 MHz
+	 *
+	 * //, 192000000
+	 */
 };
 #endif
 
@@ -349,7 +367,7 @@ static unsigned int sdc4_sup_clk_rates[] = {
 };
 
 static struct mmc_platform_data msm8960_sdc4_data = {
-	.ocr_mask       = MMC_VDD_165_195,
+	.ocr_mask       = MMC_VDD_32_33 | MMC_VDD_33_34,
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table  = sdc4_sup_clk_rates,
 	.sup_clk_cnt    = ARRAY_SIZE(sdc4_sup_clk_rates),

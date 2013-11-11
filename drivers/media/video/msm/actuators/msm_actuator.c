@@ -225,13 +225,13 @@ static int32_t msm_actuator_move_focus(
 	int16_t dest_step_pos = move_params->dest_step_pos;
 	uint16_t curr_lens_pos = 0;
 	int dir = move_params->dir;
+#ifdef CONFIG_MSM_CAMERA_DEBUG
 	int32_t num_steps = move_params->num_steps;
-
 	CDBG("%s called, dir %d, num_steps %d\n",
 		__func__,
 		dir,
 		num_steps);
-
+#endif
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
 	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
@@ -616,8 +616,15 @@ static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 	if (a_ctrl->vcm_enable) {
 		rc = gpio_request(a_ctrl->vcm_pwd, "msm_actuator");
 		if (!rc) {
+			/* FIXME: S5K3H2 */
+			CDBG("%s: reset actuator\n", __func__);
+			gpio_direction_output(a_ctrl->vcm_pwd, 0);
+			usleep_range(1000, 2000);
 			CDBG("Enable VCM PWD\n");
 			gpio_direction_output(a_ctrl->vcm_pwd, 1);
+			usleep_range(4000, 5000);
+		} else {
+			pr_err("%s: gpio request fail\n", __func__);
 		}
 	}
 	return rc;

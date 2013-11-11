@@ -2721,7 +2721,7 @@ static irqreturn_t chgfail_irq_handler(int irq, void *data)
 			pr_err("Failed to write CHG_FAILED_CLEAR bit\n");
 	}
 
-	pr_err("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
+	pr_debug("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
 			get_prop_batt_present(chip),
 			pm_chg_get_rt_status(chip, BAT_TEMP_OK_IRQ),
 			pm_chg_get_fsm_state(data));
@@ -4397,11 +4397,14 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 	if (rc)
 		pr_err("Failed to Force Vref therm rc=%d\n", rc);
 
+#ifndef CONFIG_MACH_APQ8060A_BSTEM
+// causes a reboot on bSTEM
 	rc = pm_chg_charge_dis(chip, charging_disabled);
 	if (rc) {
 		pr_err("Failed to disable CHG_CHARGE_DIS bit rc=%d\n", rc);
 		return rc;
 	}
+#endif
 
 	rc = pm_chg_auto_enable(chip, !charging_disabled);
 	if (rc) {
@@ -4945,9 +4948,14 @@ static struct platform_driver pm8921_charger_driver = {
 			.pm	= &pm8921_pm_ops,
 	},
 };
-
+#include <linux/gpio.h>
 static int __init pm8921_charger_init(void)
 {
+/*	while (1) 
+	{
+		pr_err("108,117,118: %d,%d, %d\n", gpio_get_value(108), gpio_get_value(117), gpio_get_value(118));
+	}
+*/
 	return platform_driver_register(&pm8921_charger_driver);
 }
 

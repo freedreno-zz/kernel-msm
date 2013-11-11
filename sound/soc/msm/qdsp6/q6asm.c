@@ -469,6 +469,7 @@ struct audio_client *q6asm_get_audio_client(int session_id)
 {
 	if ((session_id <= 0) || (session_id > SESSION_MAX)) {
 		pr_err("%s: invalid session: %d\n", __func__, session_id);
+WARN_ON(1);
 		goto err;
 	}
 
@@ -3508,7 +3509,7 @@ int q6asm_read_nolock(struct audio_client *ac)
 		read.hdr.token = port->dsp_buf;
 
 		port->dsp_buf = (port->dsp_buf + 1) & (port->max_buf_cnt - 1);
-		pr_info("%s:buf add[0x%x] token[%d] uid[%d]\n", __func__,
+		pr_debug("%s:buf add[0x%x] token[%d] uid[%d]\n", __func__,
 					read.buf_add,
 					read.hdr.token,
 					read.uid);

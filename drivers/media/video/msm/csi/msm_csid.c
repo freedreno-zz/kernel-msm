@@ -492,6 +492,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_CSID_CFG:
 		rc = msm_csid_cmd(csid_dev, arg);
+		CDBG("CSID core is %d\n", csid_dev->pdev->id);
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 		rc = msm_csid_release(csid_dev);
