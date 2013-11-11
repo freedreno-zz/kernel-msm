@@ -33,7 +33,9 @@ static int mdp4_hw_init(struct msm_kms *kms)
 
 	pm_runtime_get_sync(dev->dev);
 
+	mdp4_enable(mdp4_kms);
 	version = mdp4_read(mdp4_kms, REG_MDP4_VERSION);
+	mdp4_disable(mdp4_kms);
 
 	major = FIELD(version, MDP4_VERSION_MAJOR);
 	minor = FIELD(version, MDP4_VERSION_MINOR);
@@ -324,25 +326,26 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	clk_set_rate(mdp4_kms->clk, config->max_clk);
 	clk_set_rate(mdp4_kms->lut_clk, config->max_clk);
 
-	if (!config->iommu) {
-		dev_err(dev->dev, "no iommu\n");
-		ret = -ENXIO;
-		goto fail;
-	}
-
 	/* make sure things are off before attaching iommu (bootloader could
 	 * have left things on, in which case we'll start getting faults if
 	 * we don't disable):
 	 */
+	mdp4_enable(mdp4_kms);
 	mdp4_write(mdp4_kms, REG_MDP4_DTV_ENABLE, 0);
 	mdp4_write(mdp4_kms, REG_MDP4_LCDC_ENABLE, 0);
 	mdp4_write(mdp4_kms, REG_MDP4_DSI_ENABLE, 0);
+	mdp4_disable(mdp4_kms);
 	mdelay(16);
 
-	ret = msm_iommu_attach(dev, config->iommu,
-			iommu_ports, ARRAY_SIZE(iommu_ports));
-	if (ret)
-		goto fail;
+	if (config->iommu) {
+		ret = msm_iommu_attach(dev, config->iommu,
+				iommu_ports, ARRAY_SIZE(iommu_ports));
+		if (ret)
+			goto fail;
+	} else {
+		dev_err(dev->dev, "no iommu, fallback to phys "
+				"contig buffers for scanout\n");
+	}
 
 	mdp4_kms->id = msm_register_iommu(dev, config->iommu);
 	if (mdp4_kms->id < 0) {

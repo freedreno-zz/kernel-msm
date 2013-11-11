@@ -49,7 +49,8 @@ int msm_register_iommu(struct drm_device *dev, struct iommu_domain *iommu)
 
 	priv->iommus[idx] = iommu;
 
-	iommu_set_fault_handler(iommu, msm_fault_handler, dev);
+	if (iommu)
+		iommu_set_fault_handler(iommu, msm_fault_handler, dev);
 
 	/* need to iommu_attach_device() somewhere??  on resume?? */
 
@@ -200,7 +201,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 		 * imx drm driver on iMX5
 		 */
 		dev_err(dev->dev, "failed to load kms\n");
-		ret = PTR_ERR(priv->kms);
+		ret = PTR_ERR(kms);
 		goto fail;
 	}
 
@@ -238,7 +239,8 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	platform_set_drvdata(pdev, dev);
 
 #ifdef CONFIG_DRM_MSM_FBDEV
-	priv->fbdev = msm_fbdev_init(dev);
+//XXX temp comment out until we can allocate phys contig buffers..
+//	priv->fbdev = msm_fbdev_init(dev);
 #endif
 
 	drm_kms_helper_poll_init(dev);
