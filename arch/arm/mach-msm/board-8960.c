@@ -542,6 +542,7 @@ struct platform_device msm8960_fmem_device = {
 
 static void __init adjust_mem_for_liquid(void)
 {
+#if defined(CONFIG_ION_MSM)
 	unsigned int i;
 
 	if (!pmem_param_set) {
@@ -569,6 +570,7 @@ static void __init adjust_mem_for_liquid(void)
 			}
 		}
 	}
+#endif
 }
 
 static void __init reserve_mem_for_ion(enum ion_memory_types mem_type,
