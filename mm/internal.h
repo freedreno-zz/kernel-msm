@@ -130,7 +130,7 @@ unsigned long
 isolate_freepages_range(unsigned long start_pfn, unsigned long end_pfn);
 unsigned long
 isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
-			   unsigned long low_pfn, unsigned long end_pfn);
+	unsigned long low_pfn, unsigned long end_pfn, bool unevictable);
 
 #endif
 
