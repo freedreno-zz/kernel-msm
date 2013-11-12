@@ -22,6 +22,7 @@
 #include "msm_drv.h"
 #include "msm_gem.h"
 #include "msm_gpu.h"
+#include "msm_mmu.h"
 
 /* GEM objects can either be allocated from contiguous memory (in which
  * case obj->filp==NULL), or w/ shmem backing (obj->filp!=NULL).
@@ -233,75 +234,6 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 	return offset;
 }
 
-/* helpers for dealing w/ iommu: */
-static int map_range(struct iommu_domain *domain, unsigned int iova,
-		struct sg_table *sgt, unsigned int len, int prot)
-{
-	struct scatterlist *sg;
-	unsigned int da = iova;
-	unsigned int i, j;
-	int ret;
-
-	if (!domain || !sgt)
-		return -EINVAL;
-
-if (0) {
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		u32 pa = sg_phys(sg) - sg->offset;
-		size_t bytes = sg->length + sg->offset;
-
-		VERB("map[%d]: %08x %08x(%x)", i, iova, pa, bytes);
-
-		ret = iommu_map(domain, da, pa, bytes, prot);
-		if (ret)
-			goto fail;
-
-		da += bytes;
-	}
-} else {
-	return iommu_map_range(domain, iova, sgt->sgl, len, prot);
-}
-
-	return 0;
-
-fail:
-	da = iova;
-
-	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-		iommu_unmap(domain, da, bytes);
-		da += bytes;
-	}
-	return ret;
-}
-
-static void unmap_range(struct iommu_domain *domain, unsigned int iova,
-		struct sg_table *sgt, unsigned int len)
-{
-	struct scatterlist *sg;
-	unsigned int da = iova;
-	int i;
-
-if (0) {
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		size_t bytes = sg->length + sg->offset;
-		size_t unmapped;
-
-		unmapped = iommu_unmap(domain, da, bytes);
-		if (unmapped < bytes)
-			break;
-
-		VERB("unmap[%d]: %08x(%x)", i, iova, bytes);
-
-		BUG_ON(!IS_ALIGNED(bytes, PAGE_SIZE));
-
-		da += bytes;
-	}
-} else {
-	iommu_unmap_range(domain, iova, len);
-}
-}
-
 /* should be called under struct_mutex.. although it can be called
  * from atomic context without struct_mutex to acquire an extra
  * iova ref if you know one is already held.
@@ -317,7 +249,8 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 	if (!msm_obj->domain[id].iova) {
 		struct msm_drm_private *priv = obj->dev->dev_private;
-		if (!priv->iommus[id]) {
+		struct msm_mmu *mmu = priv->mmus[id];
+		if (!mmu) {
 			if (is_shmem(obj))
 				return WARN_ON(-EINVAL);
 			msm_obj->domain[id].iova = msm_obj->paddr;
@@ -327,7 +260,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 			pages = get_pages(obj);
 			if (IS_ERR(pages))
 				return PTR_ERR(pages);
-			ret = map_range(priv->iommus[id], offset, msm_obj->sgt,
+			ret = mmu->funcs->map(mmu, offset, msm_obj->sgt,
 					obj->size, IOMMU_READ | IOMMU_WRITE);
 			msm_obj->domain[id].iova = offset;
 		}
@@ -553,10 +486,10 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	list_del(&msm_obj->mm_list);
 
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		if (priv->iommus[id] && msm_obj->domain[id].iova) {
+		struct msm_mmu *mmu = priv->mmus[id];
+		if (mmu && msm_obj->domain[id].iova) {
 			uint32_t offset = (uint32_t)mmap_offset(obj);
-			unmap_range(priv->iommus[id], offset,
-					msm_obj->sgt, obj->size);
+			mmu->funcs->unmap(mmu, offset, msm_obj->sgt, obj->size);
 		}
 	}
 

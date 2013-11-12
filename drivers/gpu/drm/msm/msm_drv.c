@@ -32,47 +32,17 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.output_poll_changed = msm_fb_output_poll_changed,
 };
 
-static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
-		unsigned long iova, int flags, void *arg)
-{
-	DBG("*** fault: iova=%08lx, flags=%d", iova, flags);
-	return 0;
-}
-
-int msm_register_iommu(struct drm_device *dev, struct iommu_domain *iommu)
+int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_iommus++;
+	int idx = priv->num_mmus++;
 
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->iommus)))
+	if (WARN_ON(idx >= ARRAY_SIZE(priv->mmus)))
 		return -EINVAL;
 
-	priv->iommus[idx] = iommu;
-
-	if (iommu)
-		iommu_set_fault_handler(iommu, msm_fault_handler, dev);
-
-	/* need to iommu_attach_device() somewhere??  on resume?? */
+	priv->mmus[idx] = mmu;
 
 	return idx;
-}
-
-int msm_iommu_attach(struct drm_device *dev, struct iommu_domain *iommu,
-		const char **names, int cnt)
-{
-	int i, ret;
-
-	for (i = 0; i < cnt; i++) {
-		struct device *ctx = msm_iommu_get_ctx(names[i]);
-		if (!ctx)
-			continue;
-		ret = iommu_attach_device(iommu, ctx);
-		if (ret) {
-			dev_warn(dev->dev, "could not attach iommu to %s", names[i]);
-			return ret;
-		}
-	}
-	return 0;
 }
 
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING

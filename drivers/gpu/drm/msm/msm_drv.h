@@ -44,6 +44,7 @@
 
 struct msm_kms;
 struct msm_gpu;
+struct msm_mmu;
 
 #define NUM_DOMAINS 2    /* one for KMS, then one per gpu core (?) */
 
@@ -76,9 +77,9 @@ struct msm_drm_private {
 	/* callbacks deferred until bo is inactive: */
 	struct list_head fence_cbs;
 
-	/* registered IOMMU domains: */
-	unsigned int num_iommus;
-	struct iommu_domain *iommus[NUM_DOMAINS];
+	/* registered MMUs: */
+	unsigned int num_mmus;
+	struct msm_mmu *mmus[NUM_DOMAINS];
 
 	unsigned int num_planes;
 	struct drm_plane *planes[8];
@@ -101,7 +102,7 @@ static inline bool display_needs_contig(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 // a bit ugly relying on kms to be the first to register it's IOMMU..
 // come up with something cleaner!
-	return !priv->iommus[0];
+	return !priv->mmus[0];
 }
 
 struct msm_format {
@@ -152,9 +153,7 @@ struct msm_kms {
 
 struct msm_kms *mdp4_kms_init(struct drm_device *dev);
 
-int msm_register_iommu(struct drm_device *dev, struct iommu_domain *iommu);
-int msm_iommu_attach(struct drm_device *dev, struct iommu_domain *iommu,
-		const char **names, int cnt);
+int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
 int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
 		struct timespec *timeout);

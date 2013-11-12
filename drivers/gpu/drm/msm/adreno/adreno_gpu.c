@@ -17,6 +17,7 @@
 
 #include "adreno_gpu.h"
 #include "msm_gem.h"
+#include "msm_mmu.h"
 
 struct adreno_info {
 	struct adreno_rev rev;
@@ -286,6 +287,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct adreno_gpu *gpu, const struct adreno_gpu_funcs *funcs,
 		struct adreno_rev rev)
 {
+	struct msm_mmu *mmu;
 	int i, ret;
 
 	/* identify gpu: */
@@ -333,8 +335,9 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	if (ret)
 		return ret;
 
-	ret = msm_iommu_attach(drm, gpu->base.iommu,
-			iommu_ports, ARRAY_SIZE(iommu_ports));
+	mmu = gpu->base.mmu;
+	ret = mmu->funcs->attach(mmu, iommu_ports,
+			ARRAY_SIZE(iommu_ports));
 	if (ret)
 		return ret;
 

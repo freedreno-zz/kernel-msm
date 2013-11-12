@@ -17,9 +17,8 @@
 
 
 #include "msm_drv.h"
+#include "msm_mmu.h"
 #include "mdp4_kms.h"
-
-#include <mach/iommu.h>
 
 static struct mdp4_platform_config *mdp4_get_config(struct platform_device *dev);
 
@@ -264,6 +263,7 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	struct mdp4_platform_config *config = mdp4_get_config(pdev);
 	struct mdp4_kms *mdp4_kms;
 	struct msm_kms *kms = NULL;
+	struct msm_mmu *mmu;
 	int ret;
 
 	mdp4_kms = kzalloc(sizeof(*mdp4_kms), GFP_KERNEL);
@@ -338,16 +338,22 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->iommu) {
-		ret = msm_iommu_attach(dev, config->iommu,
-				iommu_ports, ARRAY_SIZE(iommu_ports));
+		mmu = msm_iommu_new(dev, config->iommu);
+		if (IS_ERR(mmu)) {
+			ret = PTR_ERR(mmu);
+			goto fail;
+		}
+		ret = mmu->funcs->attach(mmu, iommu_ports,
+				ARRAY_SIZE(iommu_ports));
 		if (ret)
 			goto fail;
 	} else {
-		dev_err(dev->dev, "no iommu, fallback to phys "
+		dev_info(dev->dev, "no iommu, fallback to phys "
 				"contig buffers for scanout\n");
+		mmu = NULL;
 	}
 
-	mdp4_kms->id = msm_register_iommu(dev, config->iommu);
+	mdp4_kms->id = msm_register_mmu(dev, mmu);
 	if (mdp4_kms->id < 0) {
 		ret = mdp4_kms->id;
 		dev_err(dev->dev, "failed to register mdp4 iommu: %d\n", ret);
