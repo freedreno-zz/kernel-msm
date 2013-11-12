@@ -49,6 +49,11 @@ struct msm_gem_object {
 	struct sg_table *sgt;
 	void *vaddr;
 
+	/* For physically contiguous buffers.  Used when MSM_BO_SCANOUT
+	 * and display doesn't have an IOMMU.
+	 */
+	dma_addr_t paddr;
+
 	struct {
 		// XXX
 		uint32_t iova;

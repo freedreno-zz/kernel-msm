@@ -239,8 +239,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	platform_set_drvdata(pdev, dev);
 
 #ifdef CONFIG_DRM_MSM_FBDEV
-//XXX temp comment out until we can allocate phys contig buffers..
-//	priv->fbdev = msm_fbdev_init(dev);
+	priv->fbdev = msm_fbdev_init(dev);
 #endif
 
 	drm_kms_helper_poll_init(dev);
@@ -780,6 +779,23 @@ static const struct dev_pm_ops msm_pm_ops = {
 
 static int msm_pdev_probe(struct platform_device *pdev)
 {
+
+	// TODO backport dma_set_mask_and_coherent() and use that instead:
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+
+/*
+	int ret;
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+	DBG("set_mask => %d", ret);
+	if (ret)
+		return -ENODEV;
+
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	DBG("set_coherent_mask => %d", ret);
+	if (ret)
+		return -ENODEV;
+*/
+
 	return drm_platform_init(&msm_driver, pdev);
 }
 

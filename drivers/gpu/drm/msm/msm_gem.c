@@ -23,13 +23,20 @@
 #include "msm_gem.h"
 #include "msm_gpu.h"
 
+/* GEM objects can either be allocated from contiguous memory (in which
+ * case obj->filp==NULL), or w/ shmem backing (obj->filp!=NULL).
+ */
+static inline bool is_shmem(struct drm_gem_object *obj)
+{
+	return obj->filp != NULL;
+}
 
 /* called with dev->struct_mutex held */
 static struct page **get_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
-	if (!msm_obj->pages) {
+	if (is_shmem(obj) && !msm_obj->pages) {
 		struct drm_device *dev = obj->dev;
 		struct page **p = drm_gem_get_pages(obj, 0);
 		int npages = obj->size >> PAGE_SHIFT;
@@ -63,7 +70,7 @@ static void put_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
-	if (msm_obj->pages) {
+	if (is_shmem(obj) && msm_obj->pages) {
 		/* For non-cached buffers, ensure the new pages are clean
 		 * because display controller, GPU, etc. are not coherent:
 		 */
@@ -163,7 +170,14 @@ int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	pgoff = ((unsigned long)vmf->virtual_address -
 			vma->vm_start) >> PAGE_SHIFT;
 
-	pfn = page_to_pfn(msm_obj->pages[pgoff]);
+	if (pages) {
+		pfn = page_to_pfn(pages[pgoff]);
+	} else {
+		// XXX we probably need to make get_pages() work for phys contig
+		// buffers, otherwise what do we do to map to gpummu?  If we
+		// make get_pages() work for phys contig we can drop this case..
+		pfn = (msm_obj->paddr >> PAGE_SHIFT) + pgoff;
+	}
 
 	VERB("Inserting %p pfn %lx, pa %lx", vmf->virtual_address,
 			pfn, pfn << PAGE_SHIFT);
@@ -303,15 +317,20 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 	if (!msm_obj->domain[id].iova) {
 		struct msm_drm_private *priv = obj->dev->dev_private;
-		uint32_t offset = (uint32_t)mmap_offset(obj);
-		struct page **pages;
-		pages = get_pages(obj);
-		if (IS_ERR(pages))
-			return PTR_ERR(pages);
-		// XXX ideally we would not map buffers writable when not needed...
-		ret = map_range(priv->iommus[id], offset, msm_obj->sgt,
-				obj->size, IOMMU_READ | IOMMU_WRITE);
-		msm_obj->domain[id].iova = offset;
+		if (!priv->iommus[id]) {
+			if (is_shmem(obj))
+				return WARN_ON(-EINVAL);
+			msm_obj->domain[id].iova = msm_obj->paddr;
+		} else {
+			uint32_t offset = (uint32_t)mmap_offset(obj);
+			struct page **pages;
+			pages = get_pages(obj);
+			if (IS_ERR(pages))
+				return PTR_ERR(pages);
+			ret = map_range(priv->iommus[id], offset, msm_obj->sgt,
+					obj->size, IOMMU_READ | IOMMU_WRITE);
+			msm_obj->domain[id].iova = offset;
+		}
 	}
 
 	if (!ret)
@@ -522,6 +541,7 @@ void msm_gem_describe_objects(struct list_head *list, struct seq_file *m)
 void msm_gem_free_object(struct drm_gem_object *obj)
 {
 	struct drm_device *dev = obj->dev;
+	struct msm_drm_private *priv = obj->dev->dev_private;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 	int id;
 
@@ -533,8 +553,7 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	list_del(&msm_obj->mm_list);
 
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		if (msm_obj->domain[id].iova) {
-			struct msm_drm_private *priv = obj->dev->dev_private;
+		if (priv->iommus[id] && msm_obj->domain[id].iova) {
 			uint32_t offset = (uint32_t)mmap_offset(obj);
 			unmap_range(priv->iommus[id], offset,
 					msm_obj->sgt, obj->size);
@@ -553,6 +572,9 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 		if (msm_obj->pages)
 			drm_free_large(msm_obj->pages);
 
+	} else if (msm_obj->paddr) {
+		dma_free_writecombine(dev->dev, obj->size,
+				msm_obj->vaddr, msm_obj->paddr);
 	} else {
 		if (msm_obj->vaddr)
 			vunmap(msm_obj->vaddr);
@@ -638,13 +660,34 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 
 	size = PAGE_ALIGN(size);
 
+	if (flags & MSM_BO_SCANOUT) {
+		/* scanout buffers are forced to WC.. possibly we could
+		 * get by with only doing this if display_needs_contig(),
+		 * but dealing with cached scanout buffers is unlikely
+		 * to go well, especially when combined with xorg front
+		 * buffer rendering and software fallbacks
+		 */
+		flags = (flags & ~MSM_BO_CACHE_MASK) | MSM_BO_WC;
+	}
+
 	ret = msm_gem_new_impl(dev, size, flags, &obj);
 	if (ret)
 		goto fail;
 
-	ret = drm_gem_object_init(dev, obj, size);
-	if (ret)
-		goto fail;
+	if ((flags & MSM_BO_SCANOUT) && display_needs_contig(dev)) {
+		struct msm_gem_object *msm_obj = to_msm_bo(obj);
+		msm_obj->vaddr = dma_alloc_writecombine(dev->dev, size,
+				&msm_obj->paddr, GFP_KERNEL);
+		if (!msm_obj->vaddr) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+		drm_gem_private_object_init(dev, obj, size);
+	} else {
+		ret = drm_gem_object_init(dev, obj, size);
+		if (ret)
+			goto fail;
+	}
 
 	return obj;
 

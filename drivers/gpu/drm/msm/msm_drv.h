@@ -96,6 +96,14 @@ struct msm_drm_private {
 	struct drm_connector *connectors[8];
 };
 
+static inline bool display_needs_contig(struct drm_device *dev)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+// a bit ugly relying on kms to be the first to register it's IOMMU..
+// come up with something cleaner!
+	return !priv->iommus[0];
+}
+
 struct msm_format {
 	uint32_t pixel_format;
 };
