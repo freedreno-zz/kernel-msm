@@ -250,6 +250,8 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 	if (!msm_obj->domain[id].iova) {
 		struct msm_drm_private *priv = obj->dev->dev_private;
 		struct msm_mmu *mmu = priv->mmus[id];
+// XXX hack:
+mmu = NULL;
 		if (!mmu) {
 			if (is_shmem(obj))
 				return WARN_ON(-EINVAL);
@@ -592,6 +594,9 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	size = PAGE_ALIGN(size);
+
+	// XXX hack:
+	flags |= MSM_BO_SCANOUT;
 
 	if (flags & MSM_BO_SCANOUT) {
 		/* scanout buffers are forced to WC.. possibly we could
