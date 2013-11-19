@@ -2263,7 +2263,7 @@ void intel_display_handle_reset(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
-		mutex_lock(&crtc->mutex);
+		drm_modeset_lock(&crtc->mutex, NULL);
 		/*
 		 * FIXME: Once we have proper support for primary planes (and
 		 * disabling them without disabling the entire crtc) allow again
@@ -2274,7 +2274,7 @@ void intel_display_handle_reset(struct drm_device *dev)
 						       crtc->primary->fb,
 						       crtc->x,
 						       crtc->y);
-		mutex_unlock(&crtc->mutex);
+		drm_modeset_unlock(&crtc->mutex);
 	}
 }
 
@@ -7827,7 +7827,7 @@ bool intel_get_load_detect_pipe(struct drm_connector *connector,
 	if (encoder->crtc) {
 		crtc = encoder->crtc;
 
-		mutex_lock(&crtc->mutex);
+		drm_modeset_lock(&crtc->mutex, NULL);
 
 		old->dpms_mode = connector->dpms;
 		old->load_detect_temp = false;
@@ -7858,7 +7858,7 @@ bool intel_get_load_detect_pipe(struct drm_connector *connector,
 		return false;
 	}
 
-	mutex_lock(&crtc->mutex);
+	drm_modeset_lock(&crtc->mutex, NULL);
 	intel_encoder->new_crtc = to_intel_crtc(crtc);
 	to_intel_connector(connector)->new_encoder = intel_encoder;
 
@@ -7886,7 +7886,7 @@ bool intel_get_load_detect_pipe(struct drm_connector *connector,
 		DRM_DEBUG_KMS("reusing fbdev for load-detection framebuffer\n");
 	if (IS_ERR(fb)) {
 		DRM_DEBUG_KMS("failed to allocate framebuffer for load-detection\n");
-		mutex_unlock(&crtc->mutex);
+		drm_modeset_unlock(&crtc->mutex);
 		return false;
 	}
 
@@ -7894,7 +7894,7 @@ bool intel_get_load_detect_pipe(struct drm_connector *connector,
 		DRM_DEBUG_KMS("failed to set mode on load-detect pipe\n");
 		if (old->release_fb)
 			old->release_fb->funcs->destroy(old->release_fb);
-		mutex_unlock(&crtc->mutex);
+		drm_modeset_unlock(&crtc->mutex);
 		return false;
 	}
 
@@ -7925,7 +7925,7 @@ void intel_release_load_detect_pipe(struct drm_connector *connector,
 			drm_framebuffer_unreference(old->release_fb);
 		}
 
-		mutex_unlock(&crtc->mutex);
+		drm_modeset_unlock(&crtc->mutex);
 		return;
 	}
 
@@ -7933,7 +7933,7 @@ void intel_release_load_detect_pipe(struct drm_connector *connector,
 	if (old->dpms_mode != DRM_MODE_DPMS_ON)
 		connector->funcs->dpms(connector, old->dpms_mode);
 
-	mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock(&crtc->mutex);
 }
 
 static int i9xx_pll_refclk(struct drm_device *dev,

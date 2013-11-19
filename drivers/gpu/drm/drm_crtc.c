@@ -37,6 +37,91 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_fourcc.h>
+#include <drm/drm_atomic.h>
+
+static int modeset_lock_state(struct drm_modeset_lock *lock,
+		struct drm_atomic_state *a)
+{
+	int ret;
+
+	if (a->flags & DRM_MODE_ATOMIC_NOLOCK)
+		return 0;
+
+	WARN_ON(a->checked);     /* all locks should be held by now! */
+
+retry:
+	ret = ww_mutex_lock(&lock->mutex, &a->ww_ctx);
+	if (!ret) {
+		if (lock->atomic_pending) {
+			/* some other pending update with dropped locks */
+			ww_mutex_unlock(&lock->mutex);
+			if (a->flags & DRM_MODE_ATOMIC_NONBLOCK)
+				return -EBUSY;
+			wait_event(lock->event, !lock->atomic_pending);
+			goto retry;
+		}
+		lock->atomic_pending = true;
+		WARN_ON(!list_empty(&lock->head));
+		list_add(&lock->head, &a->locked);
+	} else if (ret == -EALREADY) {
+		/* we already hold the lock.. this is fine */
+		ret = 0;
+	}
+
+	return ret;
+}
+
+/**
+ * drm_modeset_lock - take modeset lock
+ * @lock: lock to take
+ * @state: atomic state
+ *
+ * If state is not NULL, then then it's acquire context is used
+ * and the lock does not need to be explicitly unlocked, it
+ * will be automatically unlocked when the atomic update is
+ * complete
+ */
+int drm_modeset_lock(struct drm_modeset_lock *lock, void *state)
+{
+	if (state)
+		return modeset_lock_state(lock, state);
+
+	ww_mutex_lock(&lock->mutex, NULL);
+	return 0;
+}
+EXPORT_SYMBOL(drm_modeset_lock);
+
+/**
+ * drm_modeset_lock_all_crtcs - helper to drm_modeset_lock() all CRTCs
+ */
+int drm_modeset_lock_all_crtcs(struct drm_device *dev, void *state)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+	struct drm_crtc *crtc;
+	int ret = 0;
+
+	list_for_each_entry(crtc, &config->crtc_list, head) {
+		ret = drm_modeset_lock(&crtc->mutex, state);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_modeset_lock_all_crtcs);
+
+/**
+ * drm_modeset_unlock - drop modeset lock
+ * @lock: lock to release
+ */
+void drm_modeset_unlock(struct drm_modeset_lock *lock)
+{
+	list_del_init(&lock->head);
+	lock->atomic_pending = false;
+	ww_mutex_unlock(&lock->mutex);
+	wake_up_all(&lock->event);
+}
+EXPORT_SYMBOL(drm_modeset_unlock);
 
 /**
  * drm_modeset_lock_all - take all modeset locks
@@ -52,7 +137,7 @@ void drm_modeset_lock_all(struct drm_device *dev)
 	mutex_lock(&dev->mode_config.mutex);
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		mutex_lock_nest_lock(&crtc->mutex, &dev->mode_config.mutex);
+		drm_modeset_lock(&crtc->mutex, NULL);
 }
 EXPORT_SYMBOL(drm_modeset_lock_all);
 
@@ -65,7 +150,7 @@ void drm_modeset_unlock_all(struct drm_device *dev)
 	struct drm_crtc *crtc;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		mutex_unlock(&crtc->mutex);
+		drm_modeset_unlock(&crtc->mutex);
 
 	mutex_unlock(&dev->mode_config.mutex);
 }
@@ -84,7 +169,7 @@ void drm_warn_on_modeset_not_all_locked(struct drm_device *dev)
 		return;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		WARN_ON(!mutex_is_locked(&crtc->mutex));
+		WARN_ON(!drm_modeset_is_locked(&crtc->mutex));
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
 }
@@ -612,6 +697,8 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 }
 EXPORT_SYMBOL(drm_framebuffer_remove);
 
+DEFINE_WW_CLASS(crtc_ww_class);
+
 /**
  * drm_crtc_init - Initialise a new CRTC object
  * @dev: DRM device
@@ -634,8 +721,8 @@ int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 	crtc->invert_dimensions = false;
 
 	drm_modeset_lock_all(dev);
-	mutex_init(&crtc->mutex);
-	mutex_lock_nest_lock(&crtc->mutex, &dev->mode_config.mutex);
+	drm_modeset_lock_init(&crtc->mutex);
+	drm_modeset_lock(&crtc->mutex, NULL);  /* dropped by _unlock_all() */
 
 	ret = drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
 	if (ret)
@@ -670,6 +757,8 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
 
 	kfree(crtc->gamma_store);
 	crtc->gamma_store = NULL;
+
+	drm_modeset_lock_fini(&crtc->mutex);
 
 	drm_mode_object_put(dev, &crtc->base);
 	list_del(&crtc->head);
@@ -2560,7 +2649,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 	}
 	crtc = obj_to_crtc(obj);
 
-	mutex_lock(&crtc->mutex);
+	drm_modeset_lock(&crtc->mutex, NULL);
 	if (req->flags & DRM_MODE_CURSOR_BO) {
 		if (!crtc->funcs->cursor_set && !crtc->funcs->cursor_set2) {
 			ret = -ENXIO;
@@ -2584,7 +2673,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 		}
 	}
 out:
-	mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock(&crtc->mutex);
 
 	return ret;
 
@@ -3931,7 +4020,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		return -ENOENT;
 	crtc = obj_to_crtc(obj);
 
-	mutex_lock(&crtc->mutex);
+	drm_modeset_lock(&crtc->mutex, NULL);
 	if (crtc->primary->fb == NULL) {
 		/* The framebuffer is currently unbound, presumably
 		 * due to a hotplug event, that userspace has not
@@ -4015,7 +4104,7 @@ out:
 		drm_framebuffer_unreference(fb);
 	if (old_fb)
 		drm_framebuffer_unreference(old_fb);
-	mutex_unlock(&crtc->mutex);
+	drm_modeset_unlock(&crtc->mutex);
 
 	return ret;
 }

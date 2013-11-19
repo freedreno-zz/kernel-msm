@@ -73,6 +73,7 @@ int drm_atomic_set_event(struct drm_device *dev,
 		struct drm_pending_vblank_event *event);
 int drm_atomic_check(struct drm_device *dev, void *state);
 int drm_atomic_commit(struct drm_device *dev, void *state);
+int drm_atomic_commit_unlocked(struct drm_device *dev, void *state);
 void drm_atomic_end(struct drm_device *dev, void *state);
 
 /**
@@ -82,6 +83,23 @@ struct drm_atomic_state {
 	struct kref refcount;
 	struct drm_device *dev;
 	uint32_t flags;
+
+	bool committed;
+	bool checked;       /* just for debugging */
+
+	struct ww_acquire_ctx ww_ctx;
+	/* list of 'struct drm_modeset_lock': */
+	struct list_head locked;
+
+	/* currently simply for protecting against 'locked' list manipulation
+	 * between original thread calling atomic->end() and driver thread
+	 * calling back drm_atomic_commit_unlocked().
+	 *
+	 * Other spots are sufficiently synchronized by virtue of holding
+	 * the lock's ww_mutex.  But during the lock/resource hand-over to the
+	 * driver thread (drop_locks()/grab_locks()), we cannot rely on this.
+	 */
+	struct mutex mutex;
 };
 
 static inline void

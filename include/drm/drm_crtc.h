@@ -27,6 +27,7 @@
 
 #include <linux/i2c.h>
 #include <linux/spinlock.h>
+#include <linux/ww_mutex.h>
 #include <linux/types.h>
 #include <linux/idr.h>
 #include <linux/fb.h>
@@ -311,6 +312,73 @@ struct drm_property {
 	struct list_head enum_blob_list;
 };
 
+/**
+ * drm_modeset_lock - used for locking modeset resources.
+ * @mutex: resource locking
+ * @atomic_pending: is this resource part of a still-pending
+ *    atomic update
+ * @head: used to hold it's place on state->locked list when
+ *    part of an atomic update
+ *
+ * Used for locking CRTCs and other modeset resources.
+ */
+struct drm_modeset_lock {
+	/**
+	 * modeset lock
+	 */
+	struct ww_mutex mutex;
+
+	/**
+	 * Are we busy (pending asynchronous/NONBLOCK update)?  Any further
+	 * asynchronous update will return -EBUSY if it also needs to acquire
+	 * this lock.  While a synchronous update will block until the pending
+	 * async update completes.
+	 *
+	 * Drivers must ensure the update is completed before sending vblank
+	 * event to userspace.  Typically this just means don't send event
+	 * before drm_atomic_commit_unlocked() returns.
+	 */
+	bool atomic_pending;
+
+	/**
+	 * Resources that are locked as part of an atomic update are added
+	 * to a list (so we know what to unlock at the end).
+	 */
+	struct list_head head;
+
+	/**
+	 * For waiting on atomic_pending locks, if not a NONBLOCK operation.
+	 */
+	wait_queue_head_t event;
+};
+
+extern struct ww_class crtc_ww_class;
+
+static inline void drm_modeset_lock_init(struct drm_modeset_lock *lock)
+{
+	ww_mutex_init(&lock->mutex, &crtc_ww_class);
+	INIT_LIST_HEAD(&lock->head);
+	init_waitqueue_head(&lock->event);
+}
+
+static inline void drm_modeset_lock_fini(struct drm_modeset_lock *lock)
+{
+	WARN_ON(!list_empty(&lock->head));
+}
+
+static inline bool drm_modeset_is_locked(struct drm_modeset_lock *lock)
+{
+	return ww_mutex_is_locked(&lock->mutex);
+}
+
+int drm_modeset_lock(struct drm_modeset_lock *lock, void *state);
+int drm_modeset_lock_all_crtcs(struct drm_device *dev, void *state);
+void drm_modeset_unlock(struct drm_modeset_lock *lock);
+
+void drm_modeset_lock_all(struct drm_device *dev);
+void drm_modeset_unlock_all(struct drm_device *dev);
+void drm_warn_on_modeset_not_all_locked(struct drm_device *dev);
+
 struct drm_crtc;
 struct drm_connector;
 struct drm_encoder;
@@ -387,6 +455,7 @@ struct drm_crtc_funcs {
  * drm_crtc - central CRTC control structure
  * @dev: parent DRM device
  * @head: list management
+ * @mutex: per-CRTC locking
  * @base: base KMS object for ID tracking etc.
  * @enabled: is this CRTC enabled?
  * @mode: current mode timings
@@ -419,7 +488,7 @@ struct drm_crtc {
 	 * state, ...) and a write lock for everything which can be update
 	 * without a full modeset (fb, cursor data, ...)
 	 */
-	struct mutex mutex;
+	struct drm_modeset_lock mutex;
 
 	struct drm_mode_object base;
 
@@ -1026,10 +1095,6 @@ struct drm_prop_enum_list {
 	int type;
 	char *name;
 };
-
-extern void drm_modeset_lock_all(struct drm_device *dev);
-extern void drm_modeset_unlock_all(struct drm_device *dev);
-extern void drm_warn_on_modeset_not_all_locked(struct drm_device *dev);
 
 extern int drm_crtc_init(struct drm_device *dev,
 			 struct drm_crtc *crtc,
