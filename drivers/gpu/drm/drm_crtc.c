@@ -52,7 +52,7 @@ void drm_modeset_lock_all(struct drm_device *dev)
 	mutex_lock(&dev->mode_config.mutex);
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		mutex_lock_nest_lock(&crtc->mutex, &dev->mode_config.mutex);
+		mutex_lock_nest_lock(&crtc->mutex.base, &dev->mode_config.mutex);
 }
 EXPORT_SYMBOL(drm_modeset_lock_all);
 
@@ -65,7 +65,7 @@ void drm_modeset_unlock_all(struct drm_device *dev)
 	struct drm_crtc *crtc;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		mutex_unlock(&crtc->mutex);
+		ww_mutex_unlock(&crtc->mutex);
 
 	mutex_unlock(&dev->mode_config.mutex);
 }
@@ -84,7 +84,7 @@ void drm_warn_on_modeset_not_all_locked(struct drm_device *dev)
 		return;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		WARN_ON(!mutex_is_locked(&crtc->mutex));
+		WARN_ON(!ww_mutex_is_locked(&crtc->mutex));
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
 }
@@ -618,6 +618,8 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 }
 EXPORT_SYMBOL(drm_framebuffer_remove);
 
+static DEFINE_WW_CLASS(crtc_ww_class);
+
 /**
  * drm_crtc_init - Initialise a new CRTC object
  * @dev: DRM device
@@ -639,8 +641,8 @@ int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 	crtc->invert_dimensions = false;
 
 	drm_modeset_lock_all(dev);
-	mutex_init(&crtc->mutex);
-	mutex_lock_nest_lock(&crtc->mutex, &dev->mode_config.mutex);
+	ww_mutex_init(&crtc->mutex, &crtc_ww_class);
+	mutex_lock_nest_lock(&crtc->mutex.base, &dev->mode_config.mutex);
 
 	ret = drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
 	if (ret)
@@ -2289,7 +2291,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 	}
 	crtc = obj_to_crtc(obj);
 
-	mutex_lock(&crtc->mutex);
+	ww_mutex_lock(&crtc->mutex, NULL);
 	if (req->flags & DRM_MODE_CURSOR_BO) {
 		if (!crtc->funcs->cursor_set && !crtc->funcs->cursor_set2) {
 			ret = -ENXIO;
@@ -2313,7 +2315,7 @@ static int drm_mode_cursor_common(struct drm_device *dev,
 		}
 	}
 out:
-	mutex_unlock(&crtc->mutex);
+	ww_mutex_unlock(&crtc->mutex);
 
 	return ret;
 
@@ -3662,7 +3664,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		return -ENOENT;
 	crtc = obj_to_crtc(obj);
 
-	mutex_lock(&crtc->mutex);
+	ww_mutex_lock(&crtc->mutex, NULL);
 	if (crtc->fb == NULL) {
 		/* The framebuffer is currently unbound, presumably
 		 * due to a hotplug event, that userspace has not
@@ -3746,7 +3748,7 @@ out:
 		drm_framebuffer_unreference(fb);
 	if (old_fb)
 		drm_framebuffer_unreference(old_fb);
-	mutex_unlock(&crtc->mutex);
+	ww_mutex_unlock(&crtc->mutex);
 
 	return ret;
 }

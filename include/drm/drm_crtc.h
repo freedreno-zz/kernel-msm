@@ -417,7 +417,7 @@ struct drm_crtc {
 	 * state, ...) and a write lock for everything which can be update
 	 * without a full modeset (fb, cursor data, ...)
 	 */
-	struct mutex mutex;
+	struct ww_mutex mutex;
 
 	struct drm_mode_object base;
 
