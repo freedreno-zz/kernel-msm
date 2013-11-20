@@ -410,7 +410,7 @@ struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,
 
 	/* Framebuffers are reference counted and need their own lookup
 	 * function.*/
-	WARN_ON(type == DRM_MODE_OBJECT_FB);
+//	WARN_ON(type == DRM_MODE_OBJECT_FB);
 
 	mutex_lock(&dev->mode_config.idr_mutex);
 	obj = idr_find(&dev->mode_config.crtc_idr, id);
