@@ -441,6 +441,21 @@ static void drm_mode_object_put(struct drm_device *dev,
 	mutex_unlock(&dev->mode_config.idr_mutex);
 }
 
+static struct drm_mode_object *_object_find(struct drm_device *dev,
+		uint32_t id, uint32_t type)
+{
+	struct drm_mode_object *obj = NULL;
+
+	mutex_lock(&dev->mode_config.idr_mutex);
+	obj = idr_find(&dev->mode_config.crtc_idr, id);
+	if (!obj || (type != DRM_MODE_OBJECT_ANY && obj->type != type) ||
+	    (obj->id != id))
+		obj = NULL;
+	mutex_unlock(&dev->mode_config.idr_mutex);
+
+	return obj;
+}
+
 /**
  * drm_mode_object_find - look up a drm object with static lifetime
  * @dev: drm device
@@ -453,22 +468,18 @@ static void drm_mode_object_put(struct drm_device *dev,
 struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,
 		uint32_t id, uint32_t type)
 {
-	struct drm_mode_object *obj = NULL;
-
 	/* Framebuffers are reference counted and need their own lookup
 	 * function.*/
 	WARN_ON(type == DRM_MODE_OBJECT_FB);
-
-	mutex_lock(&dev->mode_config.idr_mutex);
-	obj = idr_find(&dev->mode_config.crtc_idr, id);
-	if (!obj || (type != DRM_MODE_OBJECT_ANY && obj->type != type) ||
-	    (obj->id != id))
-		obj = NULL;
-	mutex_unlock(&dev->mode_config.idr_mutex);
-
-	return obj;
+	return _object_find(dev, id, type);
 }
 EXPORT_SYMBOL(drm_mode_object_find);
+
+static struct drm_mode_object *
+drm_property_get_obj(struct drm_property *property, uint64_t value)
+{
+	return _object_find(property->dev, value, property->values[0]);
+}
 
 /**
  * drm_framebuffer_init - initialize a framebuffer

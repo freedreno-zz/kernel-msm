@@ -1297,12 +1297,6 @@ extern int drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
 extern struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,
 		uint32_t id, uint32_t type);
 
-static inline struct drm_mode_object *
-drm_property_get_obj(struct drm_property *property, uint64_t value)
-{
-	return drm_mode_object_find(property->dev, value, property->values[0]);
-}
-
 /* IOCTLs */
 extern int drm_mode_getresources(struct drm_device *dev,
 				 void *data, struct drm_file *file_priv);
