@@ -2948,6 +2948,11 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 			pdata->io[i].len);
 	}
 
+	__log_ioremap(pdata->io[0].base, pdata->io[0].len, "HDMI");
+	__log_ioremap(pdata->io[1].base, pdata->io[1].len, "HDMI_PHY");
+	__log_ioremap(pdata->io[2].base, pdata->io[2].len, "QFPROM");
+
+
 	/* VREG & CLK */
 	for (i = 0; i < HDMI_TX_MAX_PM; i++) {
 		rc = hdmi_tx_config_power(hdmi_ctrl, i, 1);

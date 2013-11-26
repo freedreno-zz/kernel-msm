@@ -803,6 +803,7 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 				rc = -ENOMEM;
 				goto error_no_mem;
 			}
+			__log_ioremap(mdss_dsi_base, resource_size(mdss_dsi_mres), "DSI");
 		}
 
 		rc = of_platform_populate(pdev->dev.of_node,
@@ -907,6 +908,7 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 			       __func__, __LINE__);
 		return -ENOMEM;
 	}
+	__log_ioremap(ctrl->ctrl_base, resource_size(mdss_dsi_mres), "DSICTRL");
 
 	ctrl->reg_size = resource_size(mdss_dsi_mres);
 

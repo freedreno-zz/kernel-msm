@@ -16,36 +16,13 @@
 #include "mdss_io_util.h"
 
 #define MAX_I2C_CMDS  16
-void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
+int dss_reg_check(struct dss_io_data *io, u32 offset)
 {
 	u32 in_val;
 
 	if (!io || !io->base) {
 		DEV_ERR("%pS->%s: invalid input\n",
 			__builtin_return_address(0), __func__);
-		return;
-	}
-
-	if (offset > io->len) {
-		DEV_ERR("%pS->%s: offset out of range\n",
-			__builtin_return_address(0), __func__);
-		return;
-	}
-
-	writel_relaxed(value, io->base + offset);
-	if (debug) {
-		in_val = readl_relaxed(io->base + offset);
-		DEV_DBG("[%08x] => %08x [%08x]\n", (u32)(io->base + offset),
-			value, in_val);
-	}
-} /* dss_reg_w */
-
-u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
-{
-	u32 value;
-	if (!io || !io->base) {
-		DEV_ERR("%pS->%s: invalid input\n",
-			__builtin_return_address(0), __func__);
 		return -EINVAL;
 	}
 
@@ -55,12 +32,8 @@ u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
 		return -EINVAL;
 	}
 
-	value = readl_relaxed(io->base + offset);
-	if (debug)
-		DEV_DBG("[%08x] <= %08x\n", (u32)(io->base + offset), value);
-
-	return value;
-} /* dss_reg_r */
+	return 0;
+} /* dss_reg_check */
 
 void dss_reg_dump(void __iomem *base, u32 length, const char *prefix,
 	u32 debug)
@@ -107,6 +80,7 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 			__builtin_return_address(0), __func__, name);
 		return -EIO;
 	}
+	__log_ioremap(io_data->base, resource_size(res), name);
 
 	return 0;
 } /* msm_dss_ioremap_byname */

@@ -571,6 +571,7 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_done;
 	}
+	__log_ioremap(qpic_res->qpic_base, resource_size(res), "QPIC");
 	qpic_res->qpic_phys = res->start;
 	pr_info("MDSS QPIC HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,

@@ -21,25 +21,37 @@
 #include <asm/io.h>
 #include <linux/types.h>
 
-void __log_ioremap(void __iomem *base, u32 size, const char *name);
-
-void __log_add(u32 val, u32 addr, const char *func, u32 line, u32 op);
+static inline void __log_ioremap(void __iomem *base, u32 size, const char *name)
+{
+	int printk(const char *fmt, ...);
+	printk("<3>IO:region %s %08x %08x\n", name, (u32)base, size);
+}
 
 #undef __raw_writel
 #undef __raw_readl
 
 #define __raw_writel(val, addr) (void)({ \
-	__log_add((val), (u32)(addr), __func__, __LINE__, 1); \
 	__raw_writel_no_log(val, addr); \
-	printk(KERN_ERR "IO:W %08x %08x (%s:%d)\n", (u32)(addr), (u32)(val), __FILE__, __LINE__); \
+	printk(KERN_DEBUG "IO:W %08x %08x (%s:%d)\n", (u32)(addr), (u32)(val), __FILE__, __LINE__); \
 })
 
 #define __raw_readl(addr) ({ \
 	u32 _val = __raw_readl_no_log(addr); \
-	__log_add(_val, (u32)(addr), __func__, __LINE__, 0); \
-	printk(KERN_ERR "IO:R %08x %08x (%s:%d)\n", (u32)(addr), _val, __FILE__, __LINE__); \
+	printk(KERN_DEBUG "IO:R %08x %08x (%s:%d)\n", (u32)(addr), _val, __FILE__, __LINE__); \
 	_val; \
 })
+
+struct dss_io_data;
+int dss_reg_check(struct dss_io_data *io, u32 offset);
+
+#define dss_reg_w(io, offset, value, debug) do { \
+	if (!dss_reg_check(io, offset)) \
+	writel_relaxed(value, (io)->base + (offset)); \
+} while(0)
+
+#define dss_reg_r(io, offset, debug) (\
+	(dss_reg_check(io, offset) == 0) ? readl_relaxed((io)->base + (offset)) : 0 \
+)
 
 #include <linux/clk.h>
 

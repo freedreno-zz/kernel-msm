@@ -45,11 +45,9 @@ static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
 
-static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
-				   u32 reg, u32 val)
-{
-	writel_relaxed(val, mixer->base + reg);
-}
+#define mdp_mixer_write(mixer, reg, val) \
+	writel_relaxed((val), (mixer)->base + (reg))
+
 
 static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
 {

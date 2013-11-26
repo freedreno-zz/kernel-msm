@@ -376,27 +376,14 @@ struct mdss_mdp_perf_params {
 };
 
 #define is_vig_pipe(_pipe_id_) ((_pipe_id_) <= MDSS_MDP_SSPP_VIG2)
-static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
-				      u32 reg, u32 val)
-{
-	writel_relaxed(val, ctl->base + reg);
-}
-
-static inline u32 mdss_mdp_ctl_read(struct mdss_mdp_ctl *ctl, u32 reg)
-{
-	return readl_relaxed(ctl->base + reg);
-}
-
-static inline void mdss_mdp_pingpong_write(struct mdss_mdp_mixer *mixer,
-				      u32 reg, u32 val)
-{
-	writel_relaxed(val, mixer->pingpong_base + reg);
-}
-
-static inline u32 mdss_mdp_pingpong_read(struct mdss_mdp_mixer *mixer, u32 reg)
-{
-	return readl_relaxed(mixer->pingpong_base + reg);
-}
+#define mdss_mdp_ctl_write(ctl, reg, val) \
+	writel_relaxed((val), (ctl)->base + (reg))
+#define mdss_mdp_ctl_read(ctl, reg) \
+	readl_relaxed((ctl)->base + (reg))
+#define mdss_mdp_pingpong_write(mixer, reg, val) \
+	writel_relaxed(val, (mixer)->pingpong_base + (reg))
+#define mdss_mdp_pingpong_read(mixer, reg) \
+	readl_relaxed((mixer)->pingpong_base + (reg))
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);

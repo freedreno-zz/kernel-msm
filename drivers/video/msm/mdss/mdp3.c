@@ -806,6 +806,7 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 		pr_err("unable to map MDP base\n");
 		return -ENOMEM;
 	}
+	__log_ioremap(mdp3_res->mdp_base, resource_size(res), "MDP3");
 
 	pr_debug("MDP HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,

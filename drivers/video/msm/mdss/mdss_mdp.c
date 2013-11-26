@@ -954,6 +954,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_done;
 	}
+	__log_ioremap(mdata->mdp_base, resource_size(res), "MDP5");
 	pr_info("MDP HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,
 		(int) mdata->mdp_base);
@@ -972,6 +973,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_done;
 	}
+	__log_ioremap(mdata->vbif_base, resource_size(res), "VBIF");
 	pr_info("MDSS VBIF HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,
 		(int) mdata->vbif_base);

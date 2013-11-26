@@ -885,6 +885,7 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 					__func__, __LINE__);
 				return -ENOMEM;
 			}
+			__log_ioremap(dsi_host_private->dsi_base, resource_size(mdss_dsi_mres), "DSIV2");
 		}
 
 		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);

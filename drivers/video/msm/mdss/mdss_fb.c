@@ -1072,8 +1072,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 	result = pm_runtime_get_sync(info->dev);
 
 	if (result < 0)
-		pr_err("pm_runtime: fail to wake up\n");
-
+		pr_err("pm_runtime: fail to wake up: %d\n", result);
 
 	if (!mfd->ref_cnt) {
 		result = mdss_fb_blank_sub(FB_BLANK_UNBLANK, info,

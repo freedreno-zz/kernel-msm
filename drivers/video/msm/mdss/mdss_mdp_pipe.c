@@ -31,16 +31,10 @@ static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
 
-static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
-				       u32 reg, u32 val)
-{
-	writel_relaxed(val, pipe->base + reg);
-}
-
-static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
-{
-	return readl_relaxed(pipe->base + reg);
-}
+#define mdss_mdp_pipe_write(pipe, reg, val) \
+	writel_relaxed((val), (pipe)->base + (reg))
+#define mdss_mdp_pipe_read(pipe, reg) \
+	readl_relaxed((pipe)->base + (reg))
 
 static u32 mdss_mdp_smp_mmb_reserve(unsigned long *existing,
 	unsigned long *reserve, size_t n)

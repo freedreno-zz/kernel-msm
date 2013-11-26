@@ -62,17 +62,8 @@ struct mdss_mdp_video_ctx {
 	struct list_head vsync_handlers;
 };
 
-static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
-				   u32 reg, u32 val)
-{
-	writel_relaxed(val, ctx->base + reg);
-}
-
-static inline u32 mdp_video_read(struct mdss_mdp_video_ctx *ctx,
-				   u32 reg)
-{
-	return readl_relaxed(ctx->base + reg);
-}
+#define mdp_video_write(ctx, reg, val) writel_relaxed((val), (ctx)->base + (reg))
+#define mdp_video_read(ctx, reg) readl_relaxed((ctx)->base + (reg))
 
 static inline u32 mdss_mdp_video_line_count(struct mdss_mdp_ctl *ctl)
 {

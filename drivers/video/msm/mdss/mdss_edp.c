@@ -463,6 +463,7 @@ static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv)
 		pr_err("%s: Unable to remap EDP resources",  __func__);
 		return -ENOMEM;
 	}
+	__log_ioremap(edp_drv->edp_base, resource_size(res), "EDP");
 
 	return 0;
 }
@@ -484,6 +485,7 @@ static int mdss_edp_get_mmss_cc_base_address(struct mdss_edp_drv_pdata
 		pr_err("%s: Unable to remap MMSS_CC resources",  __func__);
 		return -ENOMEM;
 	}
+	__log_ioremap(edp_drv->mmss_cc_base, resource_size(res), "MMSS_CC");
 
 	return 0;
 }
