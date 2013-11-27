@@ -3450,7 +3450,6 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 			&tmp);
 		pdata->primary = tmp ? true : false;
 	}
-pdata->primary = true;
 
 	return rc;
 
