@@ -237,6 +237,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 
+if (1) return 0;
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
@@ -259,6 +260,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+if (1) return 0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
