@@ -37,7 +37,7 @@
 #define DRV_NAME "hdmi-tx"
 #define COMPATIBLE_NAME "qcom,hdmi-tx"
 
-#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
+#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_1920x1080p60_16_9
 
 /* HDMI PHY/PLL bit field macros */
 #define SW_RESET BIT(2)
@@ -3450,6 +3450,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 			&tmp);
 		pdata->primary = tmp ? true : false;
 	}
+pdata->primary = true;
 
 	return rc;
 
