@@ -11,8 +11,6 @@
  *
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
-
 #include <linux/errno.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>

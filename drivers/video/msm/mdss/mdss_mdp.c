@@ -14,8 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
-
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>

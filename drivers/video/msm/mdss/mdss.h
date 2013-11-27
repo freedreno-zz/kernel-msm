@@ -168,4 +168,11 @@ static inline int mdss_get_iommu_domain(u32 type)
 
 	return mdss_res->iommu_map[type].domain_idx;
 }
+
+
+#ifndef KBUILD_MODNAME
+#  define KBUILD_MODNAME "mdss"
+#endif
+
+
 #endif /* MDSS_H */

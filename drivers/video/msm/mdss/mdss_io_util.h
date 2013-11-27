@@ -28,6 +28,10 @@
 #define DEV_WARN(fmt, args...)  pr_warn(fmt, ##args)
 #define DEV_ERR(fmt, args...)   pr_err(fmt, ##args)
 
+#ifndef KBUILD_MODNAME
+#  define KBUILD_MODNAME "mdss"
+#endif
+
 struct dss_io_data {
 	u32 len;
 	void __iomem *base;

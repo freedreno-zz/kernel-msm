@@ -11,8 +11,6 @@
  *
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
-
 #include <linux/iopoll.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
