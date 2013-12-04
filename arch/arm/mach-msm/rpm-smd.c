@@ -839,7 +839,12 @@ static void msm_rpm_smd_work(struct work_struct *work)
 	char buf[MAX_ERR_BUFFER_SIZE] = {0};
 
 	while (1) {
-		wait_for_completion(&data_ready);
+		/* ugg, nice bonghits use of a workqueue.. but lets
+		 * use _interruptable (which won't happen) to avoid
+		 * hung task detection thinking we are wedged, since
+		 * I don't feel like fixing this driver properly:
+		 */
+		while(wait_for_completion_interruptible(&data_ready));
 
 		spin_lock(&msm_rpm_data.smd_lock_read);
 		while (smd_is_pkt_avail(msm_rpm_data.ch_info)) {
