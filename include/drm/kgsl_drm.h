@@ -1,7 +1,7 @@
 #ifndef _KGSL_DRM_H_
 #define _KGSL_DRM_H_
 
-#include "drm.h"
+#include "drm/drm.h"
 
 #define DRM_KGSL_GEM_CREATE 0x00
 #define DRM_KGSL_GEM_PREP   0x01
@@ -104,7 +104,10 @@ struct drm_kgsl_gem_glockinfo)
 
 
 /* Maximum number of sub buffers per GEM object */
+/* TO WHOEVER CHANGED THIS TO 3... DONT.. it's ABI!
 #define DRM_KGSL_GEM_MAX_BUFFERS 3
+ */
+#define DRM_KGSL_GEM_MAX_BUFFERS 2
 
 /* Memory types - these define the source and caching policies
    of the GEM memory chunk */

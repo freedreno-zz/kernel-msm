@@ -15,10 +15,8 @@
  * on
  */
 #include "drmP.h"
-#include "drm.h"
-
-#include <linux/msm_ion.h>
-#include <linux/genlock.h>
+#include "drm/drm.h"
+#include <linux/android_pmem.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -108,7 +106,6 @@ struct drm_kgsl_gem_object {
 	uint32_t type;
 	struct kgsl_memdesc memdesc;
 	struct kgsl_pagetable *pagetable;
-	struct ion_handle *ion_handle;
 	uint64_t mmap_offset;
 	int bufcount;
 	int flags;
@@ -119,8 +116,6 @@ struct drm_kgsl_gem_object {
 		uint32_t offset;
 		uint32_t gpuaddr;
 	} bufs[DRM_KGSL_GEM_MAX_BUFFERS];
-
-	struct genlock_handle *glock_handle[DRM_KGSL_GEM_MAX_BUFFERS];
 
 	int bound;
 	int lockpid;
@@ -134,17 +129,72 @@ struct drm_kgsl_gem_object {
 	struct list_head wait_list;
 };
 
-static struct ion_client *kgsl_drm_ion_client;
-
 static int kgsl_drm_inited = DRM_KGSL_NOT_INITED;
 
 /* This is a global list of all the memory currently mapped in the MMU */
 static struct list_head kgsl_mem_list;
 
+static void kgsl_gem_mem_flush(struct kgsl_memdesc *memdesc, int type, int op)
+{
+	int cacheop = 0;
+
+	switch (op) {
+	case DRM_KGSL_GEM_CACHE_OP_TO_DEV:
+		if (type & (DRM_KGSL_GEM_CACHE_WBACK |
+			    DRM_KGSL_GEM_CACHE_WBACKWA))
+			cacheop = KGSL_CACHE_OP_CLEAN;
+
+		break;
+
+	case DRM_KGSL_GEM_CACHE_OP_FROM_DEV:
+		if (type & (DRM_KGSL_GEM_CACHE_WBACK |
+			    DRM_KGSL_GEM_CACHE_WBACKWA |
+			    DRM_KGSL_GEM_CACHE_WTHROUGH))
+			cacheop = KGSL_CACHE_OP_INV;
+	}
+
+	kgsl_cache_range_op(memdesc, cacheop);
+}
+
+/* TODO:
+ * Add vsync wait */
+
+static int kgsl_drm_load(struct drm_device *dev, unsigned long flags)
+{
+	return 0;
+}
+
+static int kgsl_drm_unload(struct drm_device *dev)
+{
+	return 0;
+}
+
 struct kgsl_drm_device_priv {
 	struct kgsl_device *device[KGSL_DEVICE_MAX];
 	struct kgsl_device_private *devpriv[KGSL_DEVICE_MAX];
 };
+
+void kgsl_drm_preclose(struct drm_device *dev, struct drm_file *file_priv)
+{
+}
+
+static int kgsl_drm_suspend(struct drm_device *dev, pm_message_t state)
+{
+	return 0;
+}
+
+static int kgsl_drm_resume(struct drm_device *dev)
+{
+	return 0;
+}
+
+static void
+kgsl_gem_free_mmap_offset(struct drm_gem_object *obj)
+{
+	struct drm_kgsl_gem_object *priv = obj->driver_private;
+	drm_gem_free_mmap_offset(obj);
+	priv->mmap_offset = 0;
+}
 
 static int
 kgsl_gem_memory_allocated(struct drm_gem_object *obj)
@@ -158,8 +208,6 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 {
 	struct drm_kgsl_gem_object *priv = obj->driver_private;
 	struct kgsl_mmu *mmu;
-	struct sg_table *sg_table;
-	struct scatterlist *s;
 	int index;
 	int result = 0;
 
@@ -190,62 +238,15 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	if (TYPE_IS_PMEM(priv->type)) {
 		if (priv->type == DRM_KGSL_GEM_TYPE_EBI ||
 		    priv->type & DRM_KGSL_GEM_PMEM_EBI) {
-			priv->ion_handle = ion_alloc(kgsl_drm_ion_client,
-				obj->size * priv->bufcount, PAGE_SIZE,
-				ION_HEAP(ION_SF_HEAP_ID), 0);
-			if (IS_ERR_OR_NULL(priv->ion_handle)) {
-				DRM_ERROR(
-				"Unable to allocate ION Phys memory handle\n");
-				return -ENOMEM;
-			}
-
-			priv->memdesc.pagetable = priv->pagetable;
-
-			result = ion_phys(kgsl_drm_ion_client,
-				priv->ion_handle, (ion_phys_addr_t *)
-				&priv->memdesc.physaddr, &priv->memdesc.size);
-			if (result) {
-				DRM_ERROR(
-				"Unable to get ION Physical memory address\n");
-				ion_free(kgsl_drm_ion_client,
-					priv->ion_handle);
-				priv->ion_handle = NULL;
-				return result;
-			}
-
-			result = memdesc_sg_phys(&priv->memdesc,
-				priv->memdesc.physaddr, priv->memdesc.size);
-			if (result) {
-				DRM_ERROR(
-				"Unable to get sg list\n");
-				ion_free(kgsl_drm_ion_client,
-					priv->ion_handle);
-				priv->ion_handle = NULL;
-				return result;
-			}
-
-			result = kgsl_mmu_get_gpuaddr(priv->pagetable,
-							&priv->memdesc);
-			if (result) {
-				DRM_ERROR(
-				"kgsl_mmu_get_gpuaddr failed. result = %d\n",
-				result);
-				ion_free(kgsl_drm_ion_client,
-					priv->ion_handle);
-				priv->ion_handle = NULL;
-				return result;
-			}
-			result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
-			if (result) {
-				DRM_ERROR(
-				"kgsl_mmu_map failed.  result = %d\n", result);
-				kgsl_mmu_put_gpuaddr(priv->pagetable,
-							&priv->memdesc);
-				ion_free(kgsl_drm_ion_client,
-					priv->ion_handle);
-				priv->ion_handle = NULL;
-				return result;
-			}
+				result = kgsl_sharedmem_ebimem_user(
+						&priv->memdesc,
+						priv->pagetable,
+						obj->size * priv->bufcount);
+				if (result) {
+					DRM_ERROR(
+					"Unable to allocate PMEM memory\n");
+					return result;
+				}
 		}
 		else
 			return -EINVAL;
@@ -256,52 +257,32 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 			priv->type & DRM_KGSL_GEM_CACHE_MASK)
 				list_add(&priv->list, &kgsl_mem_list);
 
-		priv->memdesc.pagetable = priv->pagetable;
+		result = kgsl_sharedmem_page_alloc_user(&priv->memdesc,
+					priv->pagetable,
+					obj->size * priv->bufcount);
 
-		priv->ion_handle = ion_alloc(kgsl_drm_ion_client,
-				obj->size * priv->bufcount, PAGE_SIZE,
-				ION_HEAP(ION_IOMMU_HEAP_ID), 0);
-		if (IS_ERR_OR_NULL(priv->ion_handle)) {
-			DRM_ERROR(
-				"Unable to allocate ION IOMMU memory handle\n");
-				return -ENOMEM;
+		if (result != 0) {
+				DRM_ERROR(
+				"Unable to allocate Vmalloc user memory\n");
+				return result;
 		}
-
-		sg_table = ion_sg_table(kgsl_drm_ion_client,
-				priv->ion_handle);
-		if (IS_ERR_OR_NULL(priv->ion_handle)) {
-			DRM_ERROR(
-			"Unable to get ION sg table\n");
-			goto memerr;
-		}
-
-		priv->memdesc.sg = sg_table->sgl;
-
-		/* Calculate the size of the memdesc from the sglist */
-
-		priv->memdesc.sglen = 0;
-
-		for (s = priv->memdesc.sg; s != NULL; s = sg_next(s)) {
-			priv->memdesc.size += s->length;
-			priv->memdesc.sglen++;
-		}
-
-		result = kgsl_mmu_get_gpuaddr(priv->pagetable, &priv->memdesc);
-		if (result) {
-			DRM_ERROR(
-			"kgsl_mmu_get_gpuaddr failed.  result = %d\n", result);
-			goto memerr;
-		}
-		result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
-		if (result) {
-			DRM_ERROR(
-			"kgsl_mmu_map failed.  result = %d\n", result);
-			kgsl_mmu_put_gpuaddr(priv->pagetable, &priv->memdesc);
-			goto memerr;
-		}
-
 	} else
 		return -EINVAL;
+
+	/* TODO would be good to cleanup in the error paths, but right now I
+	 * just need it to work enough to run some simple tests..
+	 */
+	result = kgsl_mmu_get_gpuaddr(priv->pagetable, &priv->memdesc);
+	if (result) {
+		DRM_ERROR("kgsl_mmu_get_gpuaddr failed.  result = %d\n", result);
+		return result;
+	}
+	result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
+	if (result) {
+		DRM_ERROR("kgsl_mmu_map failed.  result = %d\n", result);
+		kgsl_mmu_put_gpuaddr(priv->pagetable, &priv->memdesc);
+		return result;
+	}
 
 	for (index = 0; index < priv->bufcount; index++) {
 		priv->bufs[index].offset = index * obj->size;
@@ -311,46 +292,21 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	}
 	priv->flags |= DRM_KGSL_GEM_FLAG_MAPPED;
 
-
 	return 0;
-
-memerr:
-	ion_free(kgsl_drm_ion_client,
-		priv->ion_handle);
-	priv->ion_handle = NULL;
-	return -ENOMEM;
-
 }
 
 static void
 kgsl_gem_free_memory(struct drm_gem_object *obj)
 {
 	struct drm_kgsl_gem_object *priv = obj->driver_private;
-	int index;
 
 	if (!kgsl_gem_memory_allocated(obj) || TYPE_IS_FD(priv->type))
 		return;
 
-	if (priv->memdesc.gpuaddr) {
-		kgsl_mmu_unmap(priv->memdesc.pagetable, &priv->memdesc);
-		kgsl_mmu_put_gpuaddr(priv->memdesc.pagetable, &priv->memdesc);
-	}
+	kgsl_gem_mem_flush(&priv->memdesc,  priv->type,
+			   DRM_KGSL_GEM_CACHE_OP_FROM_DEV);
 
-	/* ION will take care of freeing the sg table. */
-	priv->memdesc.sg = NULL;
-	priv->memdesc.sglen = 0;
-
-	if (priv->ion_handle)
-		ion_free(kgsl_drm_ion_client, priv->ion_handle);
-
-	priv->ion_handle = NULL;
-
-	memset(&priv->memdesc, 0, sizeof(priv->memdesc));
-
-	for (index = 0; index < priv->bufcount; index++) {
-		if (priv->glock_handle[index])
-			genlock_put_handle(priv->glock_handle[index]);
-	}
+	kgsl_sharedmem_free(&priv->memdesc);
 
 	kgsl_mmu_putpagetable(priv->pagetable);
 	priv->pagetable = NULL;
@@ -383,8 +339,31 @@ void
 kgsl_gem_free_object(struct drm_gem_object *obj)
 {
 	kgsl_gem_free_memory(obj);
+	kgsl_gem_free_mmap_offset(obj);
 	drm_gem_object_release(obj);
 	kfree(obj->driver_private);
+}
+
+static int
+kgsl_gem_create_mmap_offset(struct drm_gem_object *obj)
+{
+	struct drm_device *dev = obj->dev;
+	struct drm_kgsl_gem_object *priv = obj->driver_private;
+	int ret;
+
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
+
+	/* Make it mmapable */
+	ret = drm_gem_create_mmap_offset(obj);
+
+	if (ret) {
+		dev_err(dev->dev, "could not allocate mmap offset\n");
+		return ret;
+	}
+
+	priv->mmap_offset = drm_vma_node_offset_addr(&obj->vma_node);
+
+	return 0;
 }
 
 int
@@ -433,6 +412,9 @@ kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
 			priv->bufs[priv->active].offset;
 
 		*len = priv->memdesc.size;
+
+		kgsl_gem_mem_flush(&priv->memdesc,
+				   priv->type, DRM_KGSL_GEM_CACHE_OP_TO_DEV);
 	} else {
 		*start = 0;
 		*len = 0;
@@ -463,7 +445,10 @@ kgsl_gem_init_obj(struct drm_device *dev,
 	priv->active = 0;
 	priv->bound = 0;
 
-	priv->type = DRM_KGSL_GEM_TYPE_KMEM;
+	/* To preserve backwards compatability, the default memory source
+	   is EBI */
+
+	priv->type = DRM_KGSL_GEM_TYPE_PMEM | DRM_KGSL_GEM_PMEM_EBI;
 
 	ret = drm_gem_handle_create(file_priv, obj, handle);
 
@@ -505,11 +490,8 @@ kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
 	}
 
 	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
-	if (ret) {
-		drm_gem_object_release(obj);
-		DRM_ERROR("Unable to initialize GEM object ret = %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	create->handle = handle;
 	return 0;
@@ -577,167 +559,6 @@ kgsl_gem_create_fd_ioctl(struct drm_device *dev, void *data,
 
 error_fput:
 	fput_light(file, put_needed);
-
-	return ret;
-}
-
-int
-kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
-		      struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_create_from_ion *args = data;
-	struct drm_gem_object *obj;
-	struct ion_handle *ion_handle;
-	struct drm_kgsl_gem_object *priv;
-	struct sg_table *sg_table;
-	struct scatterlist *s;
-	int ret, handle;
-	unsigned long size;
-	struct kgsl_mmu *mmu;
-
-	ion_handle = ion_import_dma_buf(kgsl_drm_ion_client, args->ion_fd);
-	if (IS_ERR_OR_NULL(ion_handle)) {
-		DRM_ERROR("Unable to import dmabuf.  Error number = %d\n",
-			(int)PTR_ERR(ion_handle));
-		return -EINVAL;
-	}
-
-	ion_handle_get_size(kgsl_drm_ion_client, ion_handle, &size);
-
-	if (size == 0) {
-		ion_free(kgsl_drm_ion_client, ion_handle);
-		DRM_ERROR(
-		"cannot create GEM object from zero size ION buffer\n");
-		return -EINVAL;
-	}
-
-	obj = drm_gem_object_alloc(dev, size);
-
-	if (obj == NULL) {
-		ion_free(kgsl_drm_ion_client, ion_handle);
-		DRM_ERROR("Unable to allocate the GEM object\n");
-		return -ENOMEM;
-	}
-
-	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
-	if (ret) {
-		ion_free(kgsl_drm_ion_client, ion_handle);
-		drm_gem_object_release(obj);
-		DRM_ERROR("Unable to initialize GEM object ret = %d\n", ret);
-		return ret;
-	}
-
-	priv = obj->driver_private;
-	priv->ion_handle = ion_handle;
-
-	priv->type = DRM_KGSL_GEM_TYPE_KMEM;
-	list_add(&priv->list, &kgsl_mem_list);
-
-#if defined(CONFIG_ARCH_MSM7X27) || defined(CONFIG_ARCH_MSM8625)
-	mmu = &kgsl_get_device(KGSL_DEVICE_2D0)->mmu;
-#else
-	mmu = &kgsl_get_device(KGSL_DEVICE_3D0)->mmu;
-#endif
-
-	priv->pagetable = kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
-
-	priv->memdesc.pagetable = priv->pagetable;
-
-	sg_table = ion_sg_table(kgsl_drm_ion_client,
-		priv->ion_handle);
-	if (IS_ERR_OR_NULL(priv->ion_handle)) {
-		DRM_ERROR("Unable to get ION sg table\n");
-		ion_free(kgsl_drm_ion_client,
-			priv->ion_handle);
-		priv->ion_handle = NULL;
-		kgsl_mmu_putpagetable(priv->pagetable);
-		drm_gem_object_release(obj);
-		kfree(priv);
-		return -ENOMEM;
-	}
-
-	priv->memdesc.sg = sg_table->sgl;
-
-	/* Calculate the size of the memdesc from the sglist */
-
-	priv->memdesc.sglen = 0;
-
-	for (s = priv->memdesc.sg; s != NULL; s = sg_next(s)) {
-		priv->memdesc.size += s->length;
-		priv->memdesc.sglen++;
-	}
-
-	ret = kgsl_mmu_get_gpuaddr(priv->pagetable, &priv->memdesc);
-	if (ret) {
-		DRM_ERROR("kgsl_mmu_get_gpuaddr failed.  ret = %d\n", ret);
-		ion_free(kgsl_drm_ion_client,
-			priv->ion_handle);
-		priv->ion_handle = NULL;
-		kgsl_mmu_putpagetable(priv->pagetable);
-		drm_gem_object_release(obj);
-		kfree(priv);
-		return -ENOMEM;
-	}
-	ret = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
-	if (ret) {
-		DRM_ERROR("kgsl_mmu_map failed.  ret = %d\n", ret);
-		kgsl_mmu_put_gpuaddr(priv->pagetable, &priv->memdesc);
-		ion_free(kgsl_drm_ion_client,
-			priv->ion_handle);
-		priv->ion_handle = NULL;
-		kgsl_mmu_putpagetable(priv->pagetable);
-		drm_gem_object_release(obj);
-		kfree(priv);
-		return -ENOMEM;
-	}
-
-	priv->bufs[0].offset = 0;
-	priv->bufs[0].gpuaddr = priv->memdesc.gpuaddr;
-	priv->flags |= DRM_KGSL_GEM_FLAG_MAPPED;
-
-	args->handle = handle;
-	return 0;
-}
-
-int
-kgsl_gem_get_ion_fd_ioctl(struct drm_device *dev, void *data,
-			struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_get_ion_fd *args = data;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object *priv;
-	int ret = 0;
-
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-
-	if (obj == NULL) {
-		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
-		return -EBADF;
-	}
-
-	mutex_lock(&dev->struct_mutex);
-	priv = obj->driver_private;
-
-	if (TYPE_IS_FD(priv->type))
-		ret = -EINVAL;
-	else if (TYPE_IS_PMEM(priv->type) || TYPE_IS_MEM(priv->type)) {
-		if (priv->ion_handle) {
-			args->ion_fd = ion_share_dma_buf(
-				kgsl_drm_ion_client, priv->ion_handle);
-			if (args->ion_fd < 0) {
-				DRM_ERROR(
-				"Could not share ion buffer. Error = %d\n",
-					args->ion_fd);
-				ret = -EINVAL;
-			}
-		} else {
-			DRM_ERROR("GEM object has no ion memory allocated.\n");
-			ret = -EINVAL;
-		}
-	}
-
-	drm_gem_object_unreference(obj);
-	mutex_unlock(&dev->struct_mutex);
 
 	return ret;
 }
@@ -841,9 +662,13 @@ kgsl_gem_alloc_ioctl(struct drm_device *dev, void *data,
 
 	if (ret) {
 		DRM_ERROR("Unable to allocate object memory\n");
+	} else if (!priv->mmap_offset) {
+		ret = kgsl_gem_create_mmap_offset(obj);
+		if (ret)
+			DRM_ERROR("Unable to create a mmap offset\n");
 	}
 
-	args->offset = 0;
+	args->offset = priv->mmap_offset;
 
 	drm_gem_object_unreference(obj);
 	mutex_unlock(&dev->struct_mutex);
@@ -855,7 +680,33 @@ int
 kgsl_gem_mmap_ioctl(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
-	/* Ion is used for mmap at this time */
+	struct drm_kgsl_gem_mmap *args = data;
+	struct drm_gem_object *obj;
+	unsigned long addr;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	down_write(&current->mm->mmap_sem);
+
+	addr = do_mmap(obj->filp, 0, args->size,
+		       PROT_READ | PROT_WRITE, MAP_SHARED,
+		       args->offset);
+
+	up_write(&current->mm->mmap_sem);
+
+	mutex_lock(&dev->struct_mutex);
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	if (IS_ERR((void *) addr))
+		return addr;
+
+	args->hostptr = (uint32_t) addr;
 	return 0;
 }
 
@@ -887,6 +738,18 @@ kgsl_gem_prep_ioctl(struct drm_device *dev, void *data,
 		mutex_unlock(&dev->struct_mutex);
 		return ret;
 	}
+
+	if (priv->mmap_offset == 0) {
+		ret = kgsl_gem_create_mmap_offset(obj);
+		if (ret) {
+			drm_gem_object_unreference(obj);
+			mutex_unlock(&dev->struct_mutex);
+			return ret;
+		}
+	}
+
+	args->offset = priv->mmap_offset;
+	args->phys = priv->memdesc.physaddr;
 
 	drm_gem_object_unreference(obj);
 	mutex_unlock(&dev->struct_mutex);
@@ -930,68 +793,6 @@ kgsl_gem_get_bufinfo_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
-/* Get the genlock handles base off the GEM handle
- */
-
-int
-kgsl_gem_get_glock_handles_ioctl(struct drm_device *dev, void *data,
-					struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_glockinfo *args = data;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object *priv;
-	int index;
-
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-
-	if (obj == NULL) {
-		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
-		return -EBADF;
-	}
-
-	mutex_lock(&dev->struct_mutex);
-	priv = obj->driver_private;
-
-	for (index = 0; index < priv->bufcount; index++) {
-		args->glockhandle[index] = genlock_get_fd_handle(
-						priv->glock_handle[index]);
-	}
-
-	drm_gem_object_unreference(obj);
-	mutex_unlock(&dev->struct_mutex);
-	return 0;
-}
-
-int
-kgsl_gem_set_glock_handles_ioctl(struct drm_device *dev, void *data,
-					struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_glockinfo *args = data;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object *priv;
-	int index;
-
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-
-	if (obj == NULL) {
-		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
-		return -EBADF;
-	}
-
-	mutex_lock(&dev->struct_mutex);
-	priv = obj->driver_private;
-
-	for (index = 0; index < priv->bufcount; index++) {
-		priv->glock_handle[index] = genlock_get_handle_fd(
-						args->glockhandle[index]);
-	}
-
-	drm_gem_object_unreference(obj);
-	mutex_unlock(&dev->struct_mutex);
-
-	return 0;
-}
-
 int
 kgsl_gem_set_bufcount_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *file_priv)
@@ -1031,32 +832,6 @@ out:
 	mutex_unlock(&dev->struct_mutex);
 
 	return ret;
-}
-
-int
-kgsl_gem_get_bufcount_ioctl(struct drm_device *dev, void *data,
-			  struct drm_file *file_priv)
-{
-	struct drm_kgsl_gem_bufcount *args = data;
-	struct drm_gem_object *obj;
-	struct drm_kgsl_gem_object *priv;
-
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-
-	if (obj == NULL) {
-		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
-		return -EBADF;
-	}
-
-	mutex_lock(&dev->struct_mutex);
-	priv = obj->driver_private;
-
-	args->bufcount =  priv->bufcount;
-
-	drm_gem_object_unreference(obj);
-	mutex_unlock(&dev->struct_mutex);
-
-	return 0;
 }
 
 int
@@ -1145,6 +920,113 @@ int kgsl_gem_phys_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	default:
 		return VM_FAULT_NOPAGE;
 	}
+}
+
+static struct vm_operations_struct kgsl_gem_kmem_vm_ops = {
+	.fault = kgsl_gem_kmem_fault,
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
+
+static struct vm_operations_struct kgsl_gem_phys_vm_ops = {
+	.fault = kgsl_gem_phys_fault,
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
+
+/* This is a clone of the standard drm_gem_mmap function modified to allow
+   us to properly map KMEM regions as well as the PMEM regions */
+
+int msm_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	struct drm_file *priv = filp->private_data;
+	struct drm_device *dev = priv->minor->dev;
+	struct drm_gem_mm *mm = dev->mm_private;
+	struct drm_vma_offset_node *node;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *gpriv;
+	int ret = 0;
+
+	mutex_lock(&dev->struct_mutex);
+
+	node = drm_vma_offset_exact_lookup(&mm->vma_manager, vma->vm_pgoff,
+					   vma_pages(vma));
+	if (!node) {
+		mutex_unlock(&dev->struct_mutex);
+		return drm_mmap(filp, vma);
+	} else if (!drm_vma_node_is_allowed(node, filp)) {
+		mutex_unlock(&dev->struct_mutex);
+		return -EACCES;
+	}
+
+	obj = container_of(node, struct drm_gem_object, vma_node);
+
+	gpriv = obj->driver_private;
+
+	/* VM_PFNMAP is only for memory that doesn't use struct page
+	 * in other words, not "normal" memory.  If you try to use it
+	 * with "normal" memory then the mappings don't get flushed. */
+
+	if (TYPE_IS_MEM(gpriv->type)) {
+		vma->vm_flags |= VM_RESERVED | VM_DONTEXPAND;
+		vma->vm_ops = &kgsl_gem_kmem_vm_ops;
+	} else {
+		vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP |
+			VM_DONTEXPAND;
+		vma->vm_ops = &kgsl_gem_phys_vm_ops;
+	}
+
+	vma->vm_private_data = obj;
+
+
+	/* Take care of requested caching policy */
+	if (gpriv->type == DRM_KGSL_GEM_TYPE_KMEM ||
+	    gpriv->type & DRM_KGSL_GEM_CACHE_MASK) {
+		if (gpriv->type & DRM_KGSL_GEM_CACHE_WBACKWA)
+			vma->vm_page_prot =
+			pgprot_writebackwacache(vma->vm_page_prot);
+		else if (gpriv->type & DRM_KGSL_GEM_CACHE_WBACK)
+				vma->vm_page_prot =
+				pgprot_writebackcache(vma->vm_page_prot);
+		else if (gpriv->type & DRM_KGSL_GEM_CACHE_WTHROUGH)
+				vma->vm_page_prot =
+				pgprot_writethroughcache(vma->vm_page_prot);
+		else
+			vma->vm_page_prot =
+			pgprot_writecombine(vma->vm_page_prot);
+	} else {
+		if (gpriv->type == DRM_KGSL_GEM_TYPE_KMEM_NOCACHE)
+			vma->vm_page_prot =
+			pgprot_noncached(vma->vm_page_prot);
+		else
+			/* default pmem is WC */
+			vma->vm_page_prot =
+			pgprot_writecombine(vma->vm_page_prot);
+	}
+
+	/* flush out existing KMEM cached mappings if new ones are
+	 * of uncached type */
+	if (IS_MEM_UNCACHED(gpriv->type))
+		kgsl_cache_range_op(&gpriv->memdesc,
+				    KGSL_CACHE_OP_FLUSH);
+
+	/* Add the other memory types here */
+
+	/* Take a ref for this mapping of the object, so that the fault
+	 * handler can dereference the mmap offset's pointer to the object.
+	 * This reference is cleaned up by the corresponding vm_close
+	 * (which should happen whether the vma was created by this call, or
+	 * by a vm_open due to mremap or partial unmap or whatever).
+	 */
+	drm_gem_object_reference(obj);
+
+	vma->vm_file = filp;	/* Needed for drm_vm_open() */
+	drm_vm_open_locked(dev, vma);
+
+//out_unlock:
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
 }
 
 void
@@ -1508,17 +1390,8 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_ALLOC, kgsl_gem_alloc_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_MMAP, kgsl_gem_mmap_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFINFO, kgsl_gem_get_bufinfo_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_ION_FD, kgsl_gem_get_ion_fd_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_CREATE_FROM_ION,
-				kgsl_gem_create_from_ion_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_BUFCOUNT,
-				kgsl_gem_set_bufcount_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFCOUNT,
-				kgsl_gem_get_bufcount_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_GLOCK_HANDLES_INFO,
-				kgsl_gem_set_glock_handles_ioctl, 0),
-	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_GLOCK_HANDLES_INFO,
-				kgsl_gem_get_glock_handles_ioctl, 0),
+		      kgsl_gem_set_bufcount_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_ACTIVE, kgsl_gem_set_active_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_LOCK_HANDLE,
 				  kgsl_gem_lock_handle_ioctl, 0),
@@ -1530,22 +1403,28 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 		      DRM_MASTER),
 };
 
-static const struct file_operations kgsl_drm_driver_fops = {
-	.owner = THIS_MODULE,
-	.open = drm_open,
-	.release = drm_release,
-	.unlocked_ioctl = drm_ioctl,
-	.mmap = drm_gem_mmap,
-	.poll = drm_poll,
-	.fasync = drm_fasync,
+static const const struct file_operations fops = {
+		.owner = THIS_MODULE,
+		.open = drm_open,
+		.release = drm_release,
+		.unlocked_ioctl = drm_ioctl,
+		.mmap = msm_drm_gem_mmap,
+		.poll = drm_poll,
 };
 
 static struct drm_driver driver = {
 	.driver_features = DRIVER_GEM,
+	.load = kgsl_drm_load,
+	.unload = kgsl_drm_unload,
+	.preclose = kgsl_drm_preclose,
+	.suspend = kgsl_drm_suspend,
+	.resume = kgsl_drm_resume,
 	.gem_init_object = kgsl_gem_init_object,
 	.gem_free_object = kgsl_gem_free_object,
 	.ioctls = kgsl_drm_ioctls,
-	.fops = &kgsl_drm_driver_fops,
+
+	.fops = &fops,
+
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
 	.date = DRIVER_DATE,
@@ -1574,24 +1453,11 @@ int kgsl_drm_init(struct platform_device *dev)
 		gem_buf_fence[i].fence_id = ENTRY_EMPTY;
 	}
 
-	/* Create ION Client */
-	kgsl_drm_ion_client = msm_ion_client_create(
-			0xffffffff, "kgsl_drm");
-	if (!kgsl_drm_ion_client) {
-		DRM_ERROR("Unable to create ION client\n");
-		return -ENOMEM;
-	}
-
 	return drm_platform_init(&driver, dev);
 }
 
 void kgsl_drm_exit(void)
 {
 	kgsl_drm_inited = DRM_KGSL_NOT_INITED;
-
-	if (kgsl_drm_ion_client)
-		ion_client_destroy(kgsl_drm_ion_client);
-	kgsl_drm_ion_client = NULL;
-
 	drm_platform_exit(&driver, driver.kdriver.platform_device);
 }
