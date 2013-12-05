@@ -3606,7 +3606,6 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		if (_check_pending_timestamp(device, context, timestamp))
 			return -EINVAL;
 
-		/* Reset the invalid timestamp flag on a valid wait */
 		context->wait_on_invalid_ts = false;
 	}
 	 */
