@@ -26,12 +26,13 @@
 	};
 
 	qcom,mdss_dsi_sharp_qhd_video {
-		status = "ok";
+		status = "disabled";
 		qcom,cont-splash-enabled;
 	};
 
 	qcom,hdmi_tx@fd922100 {
 		status = "ok";
+		qcom,primary_panel =<1>;
 	};
 
 	gpio_keys {
