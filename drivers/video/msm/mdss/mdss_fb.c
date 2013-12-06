@@ -14,6 +14,7 @@
  * GNU General Public License for more details.
  */
 
+#define DEBUG
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/bootmem.h>
@@ -827,7 +828,8 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 
 static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 {
-
+printk(KERN_ERR"###### fb_mem_alloc_fnc=%pS, mfd->mdp.fb_mem_get_iommu_domain=%pS\n",
+mfd->mdp.fb_mem_alloc_fnc, mfd->mdp.fb_mem_get_iommu_domain);
 	if (mfd->mdp.fb_mem_alloc_fnc)
 		return mfd->mdp.fb_mem_alloc_fnc(mfd);
 	else if (mfd->mdp.fb_mem_get_iommu_domain) {

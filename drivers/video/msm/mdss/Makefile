@@ -1,4 +1,4 @@
-ccflags-y := -include ../reg_log.h
+ccflags-y := -include ../reg_log.h -DDEBUG=1
 mdss-mdp3-objs = mdp3.o mdp3_dma.o mdp3_ctrl.o
 mdss-mdp3-objs += mdp3_ppp.o mdp3_ppp_hwio.o mdp3_ppp_data.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp3.o
