@@ -794,13 +794,15 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 	if (of_property_read_u32(pdev->dev.of_node,
 				 "qcom,memory-reservation-size",
 				 &size) || !size) {
-		mfd->fbi->screen_base = NULL;
-		mfd->fbi->fix.smem_start = 0;
-		mfd->fbi->fix.smem_len = 0;
-		return 0;
+dump_stack();
+//		mfd->fbi->screen_base = NULL;
+//		mfd->fbi->fix.smem_start = 0;
+//		mfd->fbi->fix.smem_len = 0;
+//		return 0;
+size = SZ_16M;
 	}
 
-	pr_info("%s frame buffer reserve_size=0x%x\n", __func__, size);
+printk(KERN_ERR"**** %s: frame buffer '%s' reserve_size=0x%x\n", __func__, pdev->name, size);
 
 	if (size < PAGE_ALIGN(mfd->fbi->fix.line_length *
 			      mfd->fbi->var.yres_virtual))
@@ -813,6 +815,7 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 	}
 
 	phys = memory_pool_node_paddr(virt);
+printk(KERN_ERR"**** virt=%p, phys=%08x\n", virt, (uint32_t)phys);
 
 	msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
 					    &mfd->iova);
@@ -834,8 +837,11 @@ mfd->mdp.fb_mem_alloc_fnc, mfd->mdp.fb_mem_get_iommu_domain);
 		return mfd->mdp.fb_mem_alloc_fnc(mfd);
 	else if (mfd->mdp.fb_mem_get_iommu_domain) {
 		int dom = mfd->mdp.fb_mem_get_iommu_domain();
-		if (dom >= 0)
-			return mdss_fb_alloc_fbmem_iommu(mfd, dom);
+		if (dom >= 0) {
+			int ret = mdss_fb_alloc_fbmem_iommu(mfd, dom);
+printk(KERN_ERR"###### ret=>%d\n", ret);
+			return ret;
+		}
 		else
 			return -ENOMEM;
 	} else {
