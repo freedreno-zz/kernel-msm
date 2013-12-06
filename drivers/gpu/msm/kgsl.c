@@ -3397,6 +3397,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	device->reg_virt = devm_ioremap(device->dev, device->reg_phys,
 					device->reg_len);
+	__log_ioremap(device->reg_virt, device->reg_len, "A3XX");
 
 	if (device->reg_virt == NULL) {
 		KGSL_DRV_ERR(device, "ioremap failed\n");
