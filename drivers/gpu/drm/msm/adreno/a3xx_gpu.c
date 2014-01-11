@@ -619,7 +619,7 @@ static int a3xx_bind(struct device *dev, struct device *master, void *data)
 		config.bus_freq  = 4;
 		config.rev = ADRENO_REV(3, 2, 1, 0);
 	} else if (cpu_is_apq8064()) {
-		config.fast_rate = 400000000;
+		config.fast_rate = 487500000;
 		config.slow_rate = 27000000;
 		config.bus_freq  = 4;
 
