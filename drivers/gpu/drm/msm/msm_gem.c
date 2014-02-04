@@ -639,7 +639,19 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 		if (ret)
 			goto fail;
 	} else {
+		struct page **p;
+
 		drm_gem_private_object_init(dev, obj, size);
+
+		/* force things to fail early if we are memory
+		 * constrained.. hack to make userspace bo cache
+		 * behave if allocation fails!
+		 */
+		p = get_pages(obj);
+		if (IS_ERR(p)) {
+			ret = PTR_ERR(p);
+			goto fail;
+		}
 	}
 
 	return obj;
