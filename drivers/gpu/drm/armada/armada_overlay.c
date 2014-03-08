@@ -444,7 +444,8 @@ int armada_overlay_plane_create(struct drm_device *dev, unsigned long crtcs)
 				  dplane);
 
 	drm_plane_init(dev, &dplane->base, crtcs, &armada_plane_funcs,
-		       armada_formats, ARRAY_SIZE(armada_formats), false);
+		       armada_formats, ARRAY_SIZE(armada_formats),
+		       DRM_PLANE_TYPE_OVERLAY);
 
 	dplane->prop.colorkey_yr = 0xfefefe00;
 	dplane->prop.colorkey_ug = 0x01010100;

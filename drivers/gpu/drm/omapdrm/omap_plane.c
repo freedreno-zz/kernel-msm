@@ -384,6 +384,7 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	struct omap_plane *omap_plane;
 	struct omap_overlay_info *info;
 	int ret;
+	enum drm_plane_type type;
 
 	DBG("%s: priv=%d", plane_names[id], private_plane);
 
@@ -413,8 +414,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	omap_plane->error_irq.irq = omap_plane_error_irq;
 	omap_irq_register(dev, &omap_plane->error_irq);
 
+	type = private_plane ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	drm_plane_init(dev, plane, (1 << priv->num_crtcs) - 1, &omap_plane_funcs,
-			omap_plane->formats, omap_plane->nformats, private_plane);
+			omap_plane->formats, omap_plane->nformats, type);
 
 	omap_plane_install_properties(plane, &plane->base);
 

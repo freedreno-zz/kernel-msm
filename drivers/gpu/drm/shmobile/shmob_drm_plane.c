@@ -257,7 +257,7 @@ int shmob_drm_plane_create(struct shmob_drm_device *sdev, unsigned int index)
 
 	ret = drm_plane_init(sdev->ddev, &splane->plane, 1,
 			     &shmob_drm_plane_funcs, formats,
-			     ARRAY_SIZE(formats), false);
+			     ARRAY_SIZE(formats), DRM_PLANE_TYPE_OVERLAY);
 
 	return ret;
 }

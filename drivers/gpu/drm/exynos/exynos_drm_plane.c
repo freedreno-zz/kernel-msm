@@ -263,14 +263,16 @@ struct drm_plane *exynos_plane_init(struct drm_device *dev,
 {
 	struct exynos_plane *exynos_plane;
 	int err;
+	enum drm_plane_type type;
 
 	exynos_plane = kzalloc(sizeof(struct exynos_plane), GFP_KERNEL);
 	if (!exynos_plane)
 		return NULL;
 
+	type = priv ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	err = drm_plane_init(dev, &exynos_plane->base, possible_crtcs,
 			      &exynos_plane_funcs, formats, ARRAY_SIZE(formats),
-			      priv);
+			      type);
 	if (err) {
 		DRM_ERROR("failed to initialize plane\n");
 		kfree(exynos_plane);

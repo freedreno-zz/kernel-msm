@@ -976,6 +976,7 @@ struct drm_mode_config {
 	struct list_head property_blob_list;
 	struct drm_property *edid_property;
 	struct drm_property *dpms_property;
+	struct drm_property *plane_type_property;
 
 	/* DVI-I properties */
 	struct drm_property *dvi_i_subconnector_property;
@@ -1084,7 +1085,7 @@ extern int drm_plane_init(struct drm_device *dev,
 			  unsigned long possible_crtcs,
 			  const struct drm_plane_funcs *funcs,
 			  const uint32_t *formats, uint32_t format_count,
-			  bool priv);
+			  enum drm_plane_type type);
 extern void drm_plane_cleanup(struct drm_plane *plane);
 extern void drm_plane_force_disable(struct drm_plane *plane);
 

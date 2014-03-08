@@ -137,7 +137,8 @@ static int tegra_dc_add_planes(struct drm_device *drm, struct tegra_dc *dc)
 
 		err = drm_plane_init(drm, &plane->base, 1 << dc->pipe,
 				     &tegra_plane_funcs, plane_formats,
-				     ARRAY_SIZE(plane_formats), false);
+				     ARRAY_SIZE(plane_formats),
+				     DRM_PLANE_TYPE_OVERLAY);
 		if (err < 0) {
 			kfree(plane);
 			return err;

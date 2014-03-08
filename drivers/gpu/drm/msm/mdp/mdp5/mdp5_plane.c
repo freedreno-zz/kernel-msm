@@ -373,9 +373,10 @@ struct drm_plane *mdp5_plane_init(struct drm_device *dev,
 	mdp5_plane->nformats = mdp5_get_formats(pipe, mdp5_plane->formats,
 			ARRAY_SIZE(mdp5_plane->formats));
 
+	type = private_plane ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	drm_plane_init(dev, plane, 0xff, &mdp5_plane_funcs,
 			mdp5_plane->formats, mdp5_plane->nformats,
-			private_plane);
+			type);
 
 	mdp5_plane_install_properties(plane, &plane->base);
 

@@ -114,6 +114,15 @@ static const struct drm_prop_enum_list drm_dpms_enum_list[] =
 
 DRM_ENUM_NAME_FN(drm_get_dpms_name, drm_dpms_enum_list)
 
+static const struct drm_prop_enum_list drm_plane_type_enum_list[] =
+{
+	{ DRM_PLANE_TYPE_OVERLAY, "Overlay" },
+	{ DRM_PLANE_TYPE_PRIMARY, "Primary" },
+	{ DRM_PLANE_TYPE_CURSOR, "Cursor" },
+};
+
+DRM_ENUM_NAME_FN(drm_get_plane_type, drm_plane_type_enum_list)
+
 /*
  * Optional properties
  */
@@ -910,7 +919,7 @@ EXPORT_SYMBOL(drm_encoder_cleanup);
  * @funcs: callbacks for the new plane
  * @formats: array of supported formats (%DRM_FORMAT_*)
  * @format_count: number of elements in @formats
- * @priv: plane is private (hidden from userspace)?
+ * @type: type of plane (overlay, primary, cursor)
  *
  * Inits a new object created as base part of a driver plane object.
  *
@@ -921,7 +930,7 @@ int drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
 		   unsigned long possible_crtcs,
 		   const struct drm_plane_funcs *funcs,
 		   const uint32_t *formats, uint32_t format_count,
-		   bool priv)
+		   enum drm_plane_type type)
 {
 	int ret;
 
@@ -946,20 +955,16 @@ int drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
 	memcpy(plane->format_types, formats, format_count * sizeof(uint32_t));
 	plane->format_count = format_count;
 	plane->possible_crtcs = possible_crtcs;
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
+	plane->type = type;
 
-	/* private planes are not exposed to userspace, but depending on
-	 * display hardware, might be convenient to allow sharing programming
-	 * for the scanout engine with the crtc implementation.
-	 */
-	if (!priv) {
-		list_add_tail(&plane->head, &dev->mode_config.plane_list);
-		dev->mode_config.num_total_plane++;
-		if (plane->type == DRM_PLANE_TYPE_OVERLAY)
-			dev->mode_config.num_overlay_plane++;
-	} else {
-		INIT_LIST_HEAD(&plane->head);
-	}
+	list_add_tail(&plane->head, &dev->mode_config.plane_list);
+	dev->mode_config.num_total_plane++;
+	if (plane->type == DRM_PLANE_TYPE_OVERLAY)
+		dev->mode_config.num_overlay_plane++;
+
+	drm_object_attach_property(&plane->base,
+				   dev->mode_config.plane_type_property,
+				   plane->type);
 
  out:
 	drm_modeset_unlock_all(dev);
@@ -983,13 +988,13 @@ void drm_plane_cleanup(struct drm_plane *plane)
 	drm_modeset_lock_all(dev);
 	kfree(plane->format_types);
 	drm_mode_object_put(dev, &plane->base);
-	/* if not added to a list, it must be a private plane */
-	if (!list_empty(&plane->head)) {
-		list_del(&plane->head);
-	        dev->mode_config.num_total_plane--;
-		if (plane->type == DRM_PLANE_TYPE_OVERLAY)
-			dev->mode_config.num_overlay_plane--;
-	}
+
+	BUG_ON(list_empty(&plane->head));
+
+	list_del(&plane->head);
+	dev->mode_config.num_total_plane--;
+	if (plane->type == DRM_PLANE_TYPE_OVERLAY)
+		dev->mode_config.num_overlay_plane--;
 	drm_modeset_unlock_all(dev);
 }
 EXPORT_SYMBOL(drm_plane_cleanup);
@@ -1335,6 +1340,21 @@ static int drm_mode_create_standard_connector_properties(struct drm_device *dev)
 				   "DPMS", drm_dpms_enum_list,
 				   ARRAY_SIZE(drm_dpms_enum_list));
 	dev->mode_config.dpms_property = dpms;
+
+	return 0;
+}
+
+static int drm_mode_create_standard_plane_properties(struct drm_device *dev)
+{
+	struct drm_property *type;
+
+	/*
+	 * Standard properties (apply to all planes)
+	 */
+	type = drm_property_create_enum(dev, 0,
+					"TYPE", drm_plane_type_enum_list,
+					ARRAY_SIZE(drm_plane_type_enum_list));
+	dev->mode_config.plane_type_property = type;
 
 	return 0;
 }
@@ -4259,6 +4279,7 @@ void drm_mode_config_init(struct drm_device *dev)
 
 	drm_modeset_lock_all(dev);
 	drm_mode_create_standard_connector_properties(dev);
+	drm_mode_create_standard_plane_properties(dev);
 	drm_modeset_unlock_all(dev);
 
 	/* Just to be sure */
