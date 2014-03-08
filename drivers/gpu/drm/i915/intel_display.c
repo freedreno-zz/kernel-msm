@@ -3428,6 +3428,9 @@ static void intel_enable_planes(struct drm_crtc *crtc)
 	struct intel_plane *intel_plane;
 
 	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head)
+		if (intel_plane->base.type != DRM_PLANE_TYPE_OVERLAY)
+			continue;
+
 		if (intel_plane->pipe == pipe)
 			intel_plane_restore(&intel_plane->base);
 }
@@ -3439,6 +3442,9 @@ static void intel_disable_planes(struct drm_crtc *crtc)
 	struct intel_plane *intel_plane;
 
 	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head)
+		if (intel_plane->base.type != DRM_PLANE_TYPE_OVERLAY)
+			continue;
+
 		if (intel_plane->pipe == pipe)
 			intel_plane_disable(&intel_plane->base);
 }

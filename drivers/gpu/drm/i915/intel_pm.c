@@ -2126,6 +2126,9 @@ static void ilk_compute_wm_parameters(struct drm_crtc *crtc,
 	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
 		struct intel_plane *intel_plane = to_intel_plane(plane);
 
+		if (plane->type != DRM_PLANE_TYPE_OVERLAY)
+			continue;
+
 		if (intel_plane->pipe == pipe)
 			p->spr = intel_plane->wm;
 
