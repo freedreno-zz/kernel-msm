@@ -127,6 +127,9 @@ static void disable_plane_to_crtc(struct drm_device *dev,
 	 * (encoder->crtc)
 	 */
 	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
+		if (plane->type != DRM_PLANE_TYPE_OVERLAY)
+			continue;
+
 		if (plane->crtc == old_crtc) {
 			/*
 			 * do not change below call order.
@@ -247,6 +250,9 @@ static void exynos_drm_encoder_disable(struct drm_encoder *encoder)
 
 	/* all planes connected to this encoder should be also disabled. */
 	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
+		if (plane->type != DRM_PLANE_TYPE_OVERLAY)
+			continue;
+
 		if (plane->crtc == encoder->crtc)
 			plane->funcs->disable_plane(plane);
 	}
