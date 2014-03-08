@@ -705,6 +705,87 @@ struct drm_plane {
 	enum drm_plane_type type;
 };
 
+extern int drm_primary_helper_update(struct drm_plane *plane,
+				     struct drm_crtc *crtc,
+				     struct drm_framebuffer *fb,
+				     int crtc_x, int crtc_y,
+				     unsigned int crtc_w, unsigned int crtc_h,
+				     uint32_t src_x, uint32_t src_y,
+				     uint32_t src_w, uint32_t src_h);
+extern int drm_primary_helper_disable(struct drm_plane *plane);
+extern void drm_primary_helper_destroy(struct drm_plane *plane);
+extern const struct drm_plane_funcs drm_primary_helper_funcs;
+extern struct drm_plane *drm_primary_helper_create_plane(struct drm_device *dev);
+
+/*
+ * This is the list of formats that have historically been accepted by the
+ * modeset API.  The primary plane helpers use this list by default, but
+ * individual drivers may provide their own primary plane initialization
+ * that provides a more hw-specific format list.
+ */
+const static uint32_t legacy_modeset_formats[] = {
+       DRM_FORMAT_C8,
+       DRM_FORMAT_RGB332,
+       DRM_FORMAT_BGR233,
+       DRM_FORMAT_XRGB4444,
+       DRM_FORMAT_XBGR4444,
+       DRM_FORMAT_RGBX4444,
+       DRM_FORMAT_BGRX4444,
+       DRM_FORMAT_ARGB4444,
+       DRM_FORMAT_ABGR4444,
+       DRM_FORMAT_RGBA4444,
+       DRM_FORMAT_BGRA4444,
+       DRM_FORMAT_XRGB1555,
+       DRM_FORMAT_XBGR1555,
+       DRM_FORMAT_RGBX5551,
+       DRM_FORMAT_BGRX5551,
+       DRM_FORMAT_ARGB1555,
+       DRM_FORMAT_ABGR1555,
+       DRM_FORMAT_RGBA5551,
+       DRM_FORMAT_BGRA5551,
+       DRM_FORMAT_RGB565,
+       DRM_FORMAT_BGR565,
+       DRM_FORMAT_RGB888,
+       DRM_FORMAT_BGR888,
+       DRM_FORMAT_XRGB8888,
+       DRM_FORMAT_XBGR8888,
+       DRM_FORMAT_RGBX8888,
+       DRM_FORMAT_BGRX8888,
+       DRM_FORMAT_ARGB8888,
+       DRM_FORMAT_ABGR8888,
+       DRM_FORMAT_RGBA8888,
+       DRM_FORMAT_BGRA8888,
+       DRM_FORMAT_XRGB2101010,
+       DRM_FORMAT_XBGR2101010,
+       DRM_FORMAT_RGBX1010102,
+       DRM_FORMAT_BGRX1010102,
+       DRM_FORMAT_ARGB2101010,
+       DRM_FORMAT_ABGR2101010,
+       DRM_FORMAT_RGBA1010102,
+       DRM_FORMAT_BGRA1010102,
+       DRM_FORMAT_YUYV,
+       DRM_FORMAT_YVYU,
+       DRM_FORMAT_UYVY,
+       DRM_FORMAT_VYUY,
+       DRM_FORMAT_AYUV,
+       DRM_FORMAT_NV12,
+       DRM_FORMAT_NV21,
+       DRM_FORMAT_NV16,
+       DRM_FORMAT_NV61,
+       DRM_FORMAT_NV24,
+       DRM_FORMAT_NV42,
+       DRM_FORMAT_YUV410,
+       DRM_FORMAT_YVU410,
+       DRM_FORMAT_YUV411,
+       DRM_FORMAT_YVU411,
+       DRM_FORMAT_YUV420,
+       DRM_FORMAT_YVU420,
+       DRM_FORMAT_YUV422,
+       DRM_FORMAT_YVU422,
+       DRM_FORMAT_YUV444,
+       DRM_FORMAT_YVU444,
+};
+
 /**
  * drm_bridge_funcs - drm_bridge control functions
  * @mode_fixup: Try to fixup (or reject entirely) proposed mode for this bridge
