@@ -381,6 +381,7 @@ static void cirrus_crtc_init(struct drm_device *dev)
 {
 	struct cirrus_device *cdev = dev->dev_private;
 	struct cirrus_crtc *cirrus_crtc;
+	struct drm_plane *primary;
 	int i;
 
 	cirrus_crtc = kzalloc(sizeof(struct cirrus_crtc) +
@@ -390,7 +391,8 @@ static void cirrus_crtc_init(struct drm_device *dev)
 	if (cirrus_crtc == NULL)
 		return;
 
-	drm_crtc_init(dev, &cirrus_crtc->base, &cirrus_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, &cirrus_crtc->base, primary, &cirrus_crtc_funcs);
 
 	drm_mode_crtc_set_gamma_size(&cirrus_crtc->base, CIRRUS_LUT_SIZE);
 	cdev->mode_info.crtc = cirrus_crtc;

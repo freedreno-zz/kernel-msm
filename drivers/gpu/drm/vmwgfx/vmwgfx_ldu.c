@@ -343,6 +343,7 @@ static int vmw_ldu_init(struct vmw_private *dev_priv, unsigned unit)
 	struct drm_connector *connector;
 	struct drm_encoder *encoder;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 
 	ldu = kzalloc(sizeof(*ldu), GFP_KERNEL);
 	if (!ldu)
@@ -373,7 +374,8 @@ static int vmw_ldu_init(struct vmw_private *dev_priv, unsigned unit)
 
 	(void) drm_sysfs_connector_add(connector);
 
-	drm_crtc_init(dev, crtc, &vmw_legacy_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &vmw_legacy_crtc_funcs);
 
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 

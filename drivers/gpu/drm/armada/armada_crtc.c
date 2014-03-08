@@ -1030,6 +1030,7 @@ int armada_drm_crtc_create(struct drm_device *dev, unsigned num,
 {
 	struct armada_private *priv = dev->dev_private;
 	struct armada_crtc *dcrtc;
+	struct drm_plane *primary;
 	void __iomem *base;
 	int ret;
 
@@ -1086,7 +1087,8 @@ int armada_drm_crtc_create(struct drm_device *dev, unsigned num,
 
 	priv->dcrtc[dcrtc->num] = dcrtc;
 
-	drm_crtc_init(dev, &dcrtc->crtc, &armada_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, &dcrtc->crtc, primary, &armada_crtc_funcs);
 	drm_crtc_helper_add(&dcrtc->crtc, &armada_crtc_helper_funcs);
 
 	drm_object_attach_property(&dcrtc->crtc.base, priv->csc_yuv_prop,

@@ -10182,13 +10182,15 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc;
+	struct drm_plane *primary;
 	int i;
 
 	intel_crtc = kzalloc(sizeof(*intel_crtc), GFP_KERNEL);
 	if (intel_crtc == NULL)
 		return;
 
-	drm_crtc_init(dev, &intel_crtc->base, &intel_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, &intel_crtc->base, primary, &intel_crtc_funcs);
 
 	drm_mode_crtc_set_gamma_size(&intel_crtc->base, 256);
 	for (i = 0; i < 256; i++) {

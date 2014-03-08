@@ -1348,6 +1348,7 @@ nv50_crtc_create(struct drm_device *dev, struct nouveau_object *core, int index)
 	struct nv50_disp *disp = nv50_disp(dev);
 	struct nv50_head *head;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 	int ret, i;
 
 	head = kzalloc(sizeof(*head), GFP_KERNEL);
@@ -1369,7 +1370,8 @@ nv50_crtc_create(struct drm_device *dev, struct nouveau_object *core, int index)
 	}
 
 	crtc = &head->base.base;
-	drm_crtc_init(dev, crtc, &nv50_crtc_func);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &nv50_crtc_func);
 	drm_crtc_helper_add(crtc, &nv50_crtc_hfunc);
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 

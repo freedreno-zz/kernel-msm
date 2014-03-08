@@ -389,12 +389,14 @@ static const struct drm_crtc_funcs udl_crtc_funcs = {
 static int udl_crtc_init(struct drm_device *dev)
 {
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 
 	crtc = kzalloc(sizeof(struct drm_crtc) + sizeof(struct drm_connector *), GFP_KERNEL);
 	if (crtc == NULL)
 		return -ENOMEM;
 
-	drm_crtc_init(dev, crtc, &udl_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &udl_crtc_funcs);
 	drm_crtc_helper_add(crtc, &udl_helper_funcs);
 
 	return 0;

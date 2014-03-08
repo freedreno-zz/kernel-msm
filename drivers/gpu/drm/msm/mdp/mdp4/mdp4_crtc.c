@@ -753,6 +753,7 @@ struct drm_crtc *mdp4_crtc_init(struct drm_device *dev,
 		enum mdp4_dma dma_id)
 {
 	struct drm_crtc *crtc = NULL;
+	struct drm_plane *primary;
 	struct mdp4_crtc *mdp4_crtc;
 	int ret;
 
@@ -791,7 +792,8 @@ struct drm_crtc *mdp4_crtc_init(struct drm_device *dev,
 
 	INIT_FENCE_CB(&mdp4_crtc->pageflip_cb, pageflip_cb);
 
-	drm_crtc_init(dev, crtc, &mdp4_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &mdp4_crtc_funcs);
 	drm_crtc_helper_add(crtc, &mdp4_crtc_helper_funcs);
 
 	mdp4_plane_install_properties(mdp4_crtc->plane, &crtc->base);

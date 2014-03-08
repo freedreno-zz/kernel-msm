@@ -1106,6 +1106,7 @@ int
 nv04_crtc_create(struct drm_device *dev, int crtc_num)
 {
 	struct nouveau_crtc *nv_crtc;
+	struct drm_plane *primary;
 	int ret, i;
 
 	nv_crtc = kzalloc(sizeof(*nv_crtc), GFP_KERNEL);
@@ -1122,7 +1123,8 @@ nv04_crtc_create(struct drm_device *dev, int crtc_num)
 	nv_crtc->index = crtc_num;
 	nv_crtc->last_dpms = NV_DPMS_CLEARED;
 
-	drm_crtc_init(dev, &nv_crtc->base, &nv04_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, &nv_crtc->base, primary, &nv04_crtc_funcs);
 	drm_crtc_helper_add(&nv_crtc->base, &nv04_crtc_helper_funcs);
 	drm_mode_crtc_set_gamma_size(&nv_crtc->base, 256);
 

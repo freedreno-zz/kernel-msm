@@ -512,11 +512,12 @@ static const struct drm_crtc_funcs crtc_funcs = {
 int shmob_drm_crtc_create(struct shmob_drm_device *sdev)
 {
 	struct drm_crtc *crtc = &sdev->crtc.crtc;
+	struct drm_plane *primary;
 	int ret;
 
 	sdev->crtc.dpms = DRM_MODE_DPMS_OFF;
 
-	ret = drm_crtc_init(sdev->ddev, crtc, &crtc_funcs);
+	ret = drm_crtc_init(sdev->ddev, crtc, primary, &crtc_funcs);
 	if (ret < 0)
 		return ret;
 

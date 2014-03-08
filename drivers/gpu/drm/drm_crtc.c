@@ -639,7 +639,8 @@ EXPORT_SYMBOL(drm_framebuffer_remove);
  * Zero on success, error code on failure.
  */
 int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
-		   const struct drm_crtc_funcs *funcs)
+		  struct drm_plane *primary,
+		  const struct drm_crtc_funcs *funcs)
 {
 	int ret;
 
@@ -659,6 +660,9 @@ int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 
 	list_add_tail(&crtc->head, &dev->mode_config.crtc_list);
 	dev->mode_config.num_crtc++;
+
+	crtc->primary = primary;
+	primary->possible_crtcs = 1 << drm_crtc_index(crtc);
 
  out:
 	drm_modeset_unlock_all(dev);
@@ -2358,6 +2362,8 @@ int drm_mode_set_config_internal(struct drm_mode_set *set)
 
 	ret = crtc->funcs->set_config(set);
 	if (ret == 0) {
+		crtc->primary->crtc = crtc;
+
 		/* crtc->fb must be updated by ->set_config, enforces this. */
 		WARN_ON(fb != crtc->fb);
 	}

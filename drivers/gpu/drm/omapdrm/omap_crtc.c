@@ -633,6 +633,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, enum omap_channel channel, int id)
 {
 	struct drm_crtc *crtc = NULL;
+	struct drm_plane *primary;
 	struct omap_crtc *omap_crtc;
 	struct omap_overlay_manager_info *info;
 
@@ -677,7 +678,8 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 	info->trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
 	info->trans_enabled = false;
 
-	drm_crtc_init(dev, crtc, &omap_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &omap_crtc_funcs);
 	drm_crtc_helper_add(crtc, &omap_crtc_helper_funcs);
 
 	omap_plane_install_properties(omap_crtc->plane, &crtc->base);

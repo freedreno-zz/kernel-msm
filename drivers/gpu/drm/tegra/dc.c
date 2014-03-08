@@ -1099,9 +1099,11 @@ static int tegra_dc_init(struct host1x_client *client)
 {
 	struct tegra_drm *tegra = dev_get_drvdata(client->parent);
 	struct tegra_dc *dc = host1x_client_to_dc(client);
+	struct drm_plane *primary;
 	int err;
 
-	drm_crtc_init(tegra->drm, &dc->base, &tegra_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(tegra->drm, &dc->base, primary, &tegra_crtc_funcs);
 	drm_mode_crtc_set_gamma_size(&dc->base, 256);
 	drm_crtc_helper_add(&dc->base, &tegra_crtc_helper_funcs);
 

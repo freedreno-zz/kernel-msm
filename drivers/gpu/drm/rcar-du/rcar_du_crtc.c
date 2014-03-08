@@ -540,6 +540,7 @@ int rcar_du_crtc_create(struct rcar_du_group *rgrp, unsigned int index)
 	struct platform_device *pdev = to_platform_device(rcdu->dev);
 	struct rcar_du_crtc *rcrtc = &rcdu->crtcs[index];
 	struct drm_crtc *crtc = &rcrtc->crtc;
+	struct drm_plane *primary;
 	unsigned int irqflags;
 	char clk_name[5];
 	char *name;
@@ -568,7 +569,8 @@ int rcar_du_crtc_create(struct rcar_du_group *rgrp, unsigned int index)
 
 	rcrtc->plane->crtc = crtc;
 
-	ret = drm_crtc_init(rcdu->ddev, crtc, &crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	ret = drm_crtc_init(rcdu->ddev, crtc, primary, &crtc_funcs);
 	if (ret < 0)
 		return ret;
 

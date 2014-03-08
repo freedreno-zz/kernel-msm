@@ -422,6 +422,9 @@ struct drm_crtc {
 
 	struct drm_mode_object base;
 
+	/* primary plane for CRTC */
+	struct drm_plane *primary;
+
 	/* framebuffer the connector is currently bound to */
 	struct drm_framebuffer *fb;
 
@@ -1031,6 +1034,7 @@ extern void drm_warn_on_modeset_not_all_locked(struct drm_device *dev);
 
 extern int drm_crtc_init(struct drm_device *dev,
 			 struct drm_crtc *crtc,
+			 struct drm_plane *primary,
 			 const struct drm_crtc_funcs *funcs);
 extern void drm_crtc_cleanup(struct drm_crtc *crtc);
 extern unsigned int drm_crtc_index(struct drm_crtc *crtc);

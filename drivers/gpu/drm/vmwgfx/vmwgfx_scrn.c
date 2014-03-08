@@ -439,6 +439,7 @@ static int vmw_sou_init(struct vmw_private *dev_priv, unsigned unit)
 	struct drm_connector *connector;
 	struct drm_encoder *encoder;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 
 	sou = kzalloc(sizeof(*sou), GFP_KERNEL);
 	if (!sou)
@@ -469,7 +470,8 @@ static int vmw_sou_init(struct vmw_private *dev_priv, unsigned unit)
 
 	(void) drm_sysfs_connector_add(connector);
 
-	drm_crtc_init(dev, crtc, &vmw_screen_object_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &vmw_screen_object_crtc_funcs);
 
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 

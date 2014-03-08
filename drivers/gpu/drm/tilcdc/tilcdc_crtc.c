@@ -651,6 +651,7 @@ struct drm_crtc *tilcdc_crtc_create(struct drm_device *dev)
 {
 	struct tilcdc_crtc *tilcdc_crtc;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 	int ret;
 
 	tilcdc_crtc = kzalloc(sizeof(*tilcdc_crtc), GFP_KERNEL);
@@ -671,7 +672,8 @@ struct drm_crtc *tilcdc_crtc_create(struct drm_device *dev)
 		goto fail;
 	}
 
-	ret = drm_crtc_init(dev, crtc, &tilcdc_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	ret = drm_crtc_init(dev, crtc, primary, &tilcdc_crtc_funcs);
 	if (ret < 0)
 		goto fail;
 

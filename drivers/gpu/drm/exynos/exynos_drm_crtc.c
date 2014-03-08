@@ -323,6 +323,7 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
 	struct exynos_drm_crtc *exynos_crtc;
 	struct exynos_drm_private *private = dev->dev_private;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 
 	exynos_crtc = kzalloc(sizeof(*exynos_crtc), GFP_KERNEL);
 	if (!exynos_crtc)
@@ -342,7 +343,8 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
 
 	private->crtc[nr] = crtc;
 
-	drm_crtc_init(dev, crtc, &exynos_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, crtc, primary, &exynos_crtc_funcs);
 	drm_crtc_helper_add(crtc, &exynos_crtc_helper_funcs);
 
 	exynos_drm_crtc_attach_mode_property(crtc);

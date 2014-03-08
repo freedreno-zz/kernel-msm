@@ -626,13 +626,15 @@ static const struct drm_crtc_funcs ast_crtc_funcs = {
 static int ast_crtc_init(struct drm_device *dev)
 {
 	struct ast_crtc *crtc;
+	struct drm_plane *primary;
 	int i;
 
 	crtc = kzalloc(sizeof(struct ast_crtc), GFP_KERNEL);
 	if (!crtc)
 		return -ENOMEM;
 
-	drm_crtc_init(dev, &crtc->base, &ast_crtc_funcs);
+	primary = drm_primary_helper_create_plane(dev);
+	drm_crtc_init(dev, &crtc->base, primary, &ast_crtc_funcs);
 	drm_mode_crtc_set_gamma_size(&crtc->base, 256);
 	drm_crtc_helper_add(&crtc->base, &ast_crtc_helper_funcs);
 
