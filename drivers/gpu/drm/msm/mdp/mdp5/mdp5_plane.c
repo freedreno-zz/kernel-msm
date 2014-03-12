@@ -357,6 +357,7 @@ struct drm_plane *mdp5_plane_init(struct drm_device *dev,
 {
 	struct drm_plane *plane = NULL;
 	struct mdp5_plane *mdp5_plane;
+	enum drm_plane_type type;
 	int ret;
 
 	mdp5_plane = kzalloc(sizeof(*mdp5_plane), GFP_KERNEL);
