@@ -524,6 +524,9 @@ void mdp5_crtc_attach(struct drm_crtc *crtc, struct drm_plane *plane)
 
 void mdp5_crtc_detach(struct drm_crtc *crtc, struct drm_plane *plane)
 {
+	/* don't actually detatch our primary plane: */
+	if (to_mdp5_crtc(crtc)->plane == plane)
+		return;
 	set_attach(crtc, mdp5_plane_pipe(plane), NULL);
 }
 
@@ -533,7 +536,6 @@ struct drm_crtc *mdp5_crtc_init(struct drm_device *dev,
 {
 	struct drm_crtc *crtc = NULL;
 	struct mdp5_crtc *mdp5_crtc;
-	struct drm_plane *primary;
 	int ret;
 
 	mdp5_crtc = kzalloc(sizeof(*mdp5_crtc), GFP_KERNEL);
@@ -560,8 +562,7 @@ struct drm_crtc *mdp5_crtc_init(struct drm_device *dev,
 
 	INIT_FENCE_CB(&mdp5_crtc->pageflip_cb, pageflip_cb);
 
-	primary = drm_primary_helper_create_plane(dev);
-	drm_crtc_init(dev, crtc, primary, &mdp5_crtc_funcs);
+	drm_crtc_init(dev, crtc, plane, &mdp5_crtc_funcs);
 	drm_crtc_helper_add(crtc, &mdp5_crtc_helper_funcs);
 
 	mdp5_plane_install_properties(mdp5_crtc->plane, &crtc->base);
