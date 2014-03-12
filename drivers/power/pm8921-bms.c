@@ -2036,6 +2036,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 100;
 
 	if (soc < 0) {
+/*
 		pr_err("bad rem_usb_chg = %d rem_chg %d,"
 				"cc_uah %d, unusb_chg %d\n",
 				remaining_usable_charge_uah,
@@ -2047,6 +2048,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 				"fcc = %d soc =%d\n",
 				chip->last_ocv_uv, chargecycles, batt_temp,
 				fcc_uah, soc);
+*/
 		soc = 0;
 	}
 

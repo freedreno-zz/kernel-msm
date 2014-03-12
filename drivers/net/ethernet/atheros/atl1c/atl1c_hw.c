@@ -220,8 +220,27 @@ int atl1c_read_mac_addr(struct atl1c_hw *hw)
 	int err = 0;
 
 	err = atl1c_get_permanent_address(hw);
-	if (err)
-		random_ether_addr(hw->perm_mac_addr);
+	if (err) {
+		// 5e:86:53:c4:a9:29
+/*
+[root@reptile ~]# ifconfig
+enp1s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.1.24  netmask 255.255.255.0  broadcast 192.168.1.255
+        inet6 fe80::5c86:53ff:fec4:a929  prefixlen 64  scopeid 0x20<link>
+        ether 5e:86:53:c4:a9:29  txqueuelen 1000  (Ethernet)
+        RX packets 30  bytes 3954 (3.8 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 64  bytes 7640 (7.4 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 1  collisions 0
+        device interrupt 153
+ */
+		hw->perm_mac_addr[0] = 0x5e;
+		hw->perm_mac_addr[1] = 0x86;
+		hw->perm_mac_addr[2] = 0x53;
+		hw->perm_mac_addr[3] = 0xc4;
+		hw->perm_mac_addr[4] = 0xa9;
+		hw->perm_mac_addr[5] = 0x29;
+	}
 
 	memcpy(hw->mac_addr, hw->perm_mac_addr, sizeof(hw->perm_mac_addr));
 	return err;
