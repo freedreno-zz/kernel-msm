@@ -39,10 +39,12 @@
 void *drm_atomic_begin(struct drm_device *dev, uint32_t flags)
 {
 	struct drm_atomic_state *state;
+	int nplanes = dev->mode_config.num_total_plane;
 	int sz;
 	void *ptr;
 
 	sz = sizeof(*state);
+	sz += (sizeof(state->planes) + sizeof(state->pstates)) * nplanes;
 
 	ptr = kzalloc(sz, GFP_KERNEL);
 
@@ -56,6 +58,12 @@ void *drm_atomic_begin(struct drm_device *dev, uint32_t flags)
 	kref_init(&state->refcount);
 	state->dev = dev;
 	state->flags = flags;
+
+	state->planes = ptr;
+	ptr = &state->planes[nplanes];
+
+	state->pstates = ptr;
+	ptr = &state->pstates[nplanes];
 
 	return state;
 }
@@ -92,8 +100,21 @@ EXPORT_SYMBOL(drm_atomic_set_event);
  */
 int drm_atomic_check(struct drm_device *dev, void *state)
 {
+	struct drm_atomic_state *a = state;
+	int nplanes = dev->mode_config.num_total_plane;
+	int i, ret = 0;
+
+	for (i = 0; i < nplanes; i++) {
+		if (a->planes[i]) {
+			ret = drm_atomic_check_plane_state(a->planes[i], a->pstates[i]);
+			if (ret)
+				break;
+		}
+	}
+
 	a->checked = true;
-	return 0;  /* for now */
+
+	return ret;
 }
 EXPORT_SYMBOL(drm_atomic_check);
 
@@ -169,6 +190,18 @@ fail:
 static void commit_locks(struct drm_atomic_state *a,
 		struct ww_acquire_ctx *ww_ctx)
 {
+	struct drm_device *dev = a->dev;
+	int nplanes = dev->mode_config.num_total_plane;
+	int i;
+
+	for (i = 0; i < nplanes; i++) {
+		struct drm_plane *plane = a->planes[i];
+		if (plane) {
+			plane->state->state = NULL;
+			drm_plane_destroy_state(plane, a->pstates[i]);
+		}
+	}
+
 	/* and properly release them (clear in_atomic, remove from list): */
 	mutex_lock(&a->mutex);
 	while (!list_empty(&a->locked)) {
@@ -187,7 +220,17 @@ static void commit_locks(struct drm_atomic_state *a,
 static int atomic_commit(struct drm_atomic_state *a,
 		struct ww_acquire_ctx *ww_ctx)
 {
-	int ret = 0;
+	int nplanes = a->dev->mode_config.num_total_plane;
+	int i, ret = 0;
+
+	for (i = 0; i < nplanes; i++) {
+		struct drm_plane *plane = a->planes[i];
+		if (plane) {
+			ret = drm_atomic_commit_plane_state(plane, a->pstates[i]);
+			if (ret)
+				break;
+		}
+	}
 
 	commit_locks(a, ww_ctx);
 
@@ -264,7 +307,171 @@ void _drm_atomic_state_free(struct kref *kref)
 }
 EXPORT_SYMBOL(_drm_atomic_state_free);
 
+int drm_atomic_plane_set_property(struct drm_plane *plane, void *state,
+		struct drm_property *property, uint64_t val, void *blob_data)
+{
+	struct drm_plane_state *pstate = drm_atomic_get_plane_state(plane, state);
+	if (IS_ERR(pstate))
+		return PTR_ERR(pstate);
+	return drm_plane_set_property(plane, pstate, property, val, blob_data);
+}
+EXPORT_SYMBOL(drm_atomic_plane_set_property);
+
+static void init_plane_state(struct drm_plane *plane,
+		struct drm_plane_state *pstate, void *state)
+{
+	/* snapshot current state: */
+	*pstate = *plane->state;
+	pstate->state = state;
+	if (pstate->fb)
+		drm_framebuffer_reference(pstate->fb);
+}
+
+struct drm_plane_state *
+drm_atomic_get_plane_state(struct drm_plane *plane, void *state)
+{
+	struct drm_atomic_state *a = state;
+	struct drm_plane_state *pstate;
+	int ret;
+
+	pstate = a->pstates[plane->id];
+
+	if (!pstate) {
+		/* grab lock of current crtc.. if crtc is NULL then grab all: */
+		if (plane->state->crtc)
+			ret = drm_modeset_lock(&plane->state->crtc->mutex, state);
+		else
+			ret = drm_modeset_lock_all_crtcs(plane->dev, state);
+		if (ret)
+			return ERR_PTR(ret);
+
+		pstate = drm_plane_create_state(plane);
+		if (!pstate)
+			return ERR_PTR(-ENOMEM);
+		init_plane_state(plane, pstate, state);
+		a->planes[plane->id] = plane;
+		a->pstates[plane->id] = pstate;
+	}
+
+	return pstate;
+}
+
+static void
+swap_plane_state(struct drm_plane *plane, struct drm_atomic_state *a)
+{
+	struct drm_plane_state *pstate = a->pstates[plane->id];
+
+	/* clear transient state (only valid during atomic update): */
+	pstate->update_plane = false;
+	pstate->new_fb = false;
+
+	swap(plane->state, a->pstates[plane->id]);
+	plane->base.propvals = &plane->state->propvals;
+}
+
+/* For primary plane, if the driver implements ->page_flip(), then
+ * we can use that.  But drivers can now choose not to bother with
+ * implementing page_flip().
+ */
+static bool can_flip(struct drm_plane *plane, struct drm_plane_state *pstate)
+{
+	struct drm_crtc *crtc = pstate->crtc;
+	return (plane == crtc->primary) && crtc->funcs->page_flip &&
+			!pstate->update_plane;
+}
+
+/* clear crtc/fb, ie. after disable_plane().  But takes care to keep
+ * the property state in sync.  Once we get rid of plane->crtc/fb ptrs
+ * and just use state, we can get rid of this fxn:
+ */
+static void
+reset_plane(struct drm_plane *plane, struct drm_plane_state *pstate)
+{
+	struct drm_mode_config *config = &plane->dev->mode_config;
+	drm_plane_set_property(plane, pstate, config->prop_fb_id, 0, NULL);
+	drm_plane_set_property(plane, pstate, config->prop_crtc_id, 0, NULL);
+	plane->crtc = NULL;
+	plane->fb = NULL;
+}
+
+static int
+commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
+{
+	struct drm_atomic_state *a = pstate->state;
+	struct drm_framebuffer *old_fb = plane->fb;
+	struct drm_framebuffer *fb = pstate->fb;
+	bool enabled = pstate->crtc && fb;
+	int ret = 0;
+
+	if (fb)
+		drm_framebuffer_reference(fb);
+
+	if (!enabled) {
+		ret = plane->funcs->disable_plane(plane);
+		reset_plane(plane, pstate);
+	} else {
+		struct drm_crtc *crtc = pstate->crtc;
+		if (pstate->update_plane ||
+				(pstate->new_fb && !can_flip(plane, pstate))) {
+			ret = plane->funcs->update_plane(plane, crtc, pstate->fb,
+					pstate->crtc_x, pstate->crtc_y,
+					pstate->crtc_w, pstate->crtc_h,
+					pstate->src_x,  pstate->src_y,
+					pstate->src_w,  pstate->src_h);
+			if (ret == 0) {
+				/*
+				 * For page_flip(), the driver does this, but for
+				 * update_plane() it doesn't.. hurray \o/
+				 */
+				plane->crtc = crtc;
+				plane->fb = fb;
+				fb = NULL;  /* don't unref */
+			}
+
+		} else if (pstate->new_fb) {
+			ret = crtc->funcs->page_flip(crtc, fb, NULL, a->flags);
+			if (ret == 0) {
+				/*
+				 * Warn if the driver hasn't properly updated the plane->fb
+				 * field to reflect that the new framebuffer is now used.
+				 * Failing to do so will screw with the reference counting
+				 * on framebuffers.
+				 */
+				WARN_ON(plane->fb != fb);
+				fb = NULL;  /* don't unref */
+			}
+		} else {
+			old_fb = NULL;
+			ret = 0;
+		}
+	}
+
+	if (ret) {
+		/* Keep the old fb, don't unref it. */
+		old_fb = NULL;
+	} else {
+		/* on success, update state and fb refcnting: */
+		/* NOTE: if we ensure no driver sets plane->state->fb = NULL
+		 * on disable, we can move this up a level and not duplicate
+		 * nearly the same thing for both update_plane and disable_plane
+		 * cases..  I leave it like this for now to be paranoid due to
+		 * the slightly different ordering in the two cases in the
+		 * original code.
+		 */
+		swap_plane_state(plane, pstate->state);
+	}
+
+
+	if (fb)
+		drm_framebuffer_unreference(fb);
+	if (old_fb)
+		drm_framebuffer_unreference(old_fb);
+
+	return ret;
+}
 
 const struct drm_atomic_funcs drm_atomic_funcs = {
+		.check_plane_state  = drm_plane_check_state,
+		.commit_plane_state = commit_plane_state,
 };
 EXPORT_SYMBOL(drm_atomic_funcs);
