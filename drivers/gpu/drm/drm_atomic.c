@@ -40,11 +40,13 @@ void *drm_atomic_begin(struct drm_device *dev, uint32_t flags)
 {
 	struct drm_atomic_state *state;
 	int nplanes = dev->mode_config.num_total_plane;
+	int ncrtcs  = dev->mode_config.num_crtc;
 	int sz;
 	void *ptr;
 
 	sz = sizeof(*state);
 	sz += (sizeof(state->planes) + sizeof(state->pstates)) * nplanes;
+	sz += (sizeof(state->crtcs) + sizeof(state->cstates)) * ncrtcs;
 
 	ptr = kzalloc(sz, GFP_KERNEL);
 
@@ -65,6 +67,12 @@ void *drm_atomic_begin(struct drm_device *dev, uint32_t flags)
 	state->pstates = ptr;
 	ptr = &state->pstates[nplanes];
 
+	state->crtcs = ptr;
+	ptr = &state->crtcs[ncrtcs];
+
+	state->cstates = ptr;
+	ptr = &state->cstates[ncrtcs];
+
 	return state;
 }
 EXPORT_SYMBOL(drm_atomic_begin);
@@ -83,7 +91,18 @@ int drm_atomic_set_event(struct drm_device *dev,
 		void *state, struct drm_mode_object *obj,
 		struct drm_pending_vblank_event *event)
 {
-	return -EINVAL;  /* for now */
+	switch (obj->type) {
+	case DRM_MODE_OBJECT_CRTC: {
+		struct drm_crtc_state *cstate =
+			drm_atomic_get_crtc_state(obj_to_crtc(obj), state);
+		if (IS_ERR(cstate))
+			return PTR_ERR(cstate);
+		cstate->event = event;
+		return 0;
+	}
+	default:
+		return -EINVAL;
+	}
 }
 EXPORT_SYMBOL(drm_atomic_set_event);
 
@@ -102,11 +121,20 @@ int drm_atomic_check(struct drm_device *dev, void *state)
 {
 	struct drm_atomic_state *a = state;
 	int nplanes = dev->mode_config.num_total_plane;
+	int ncrtcs = dev->mode_config.num_crtc;
 	int i, ret = 0;
 
 	for (i = 0; i < nplanes; i++) {
 		if (a->planes[i]) {
 			ret = drm_atomic_check_plane_state(a->planes[i], a->pstates[i]);
+			if (ret)
+				break;
+		}
+	}
+
+	for (i = 0; i < ncrtcs; i++) {
+		if (a->crtcs[i]) {
+			ret = drm_atomic_check_crtc_state(a->crtcs[i], a->cstates[i]);
 			if (ret)
 				break;
 		}
@@ -192,6 +220,7 @@ static void commit_locks(struct drm_atomic_state *a,
 {
 	struct drm_device *dev = a->dev;
 	int nplanes = dev->mode_config.num_total_plane;
+	int ncrtcs = dev->mode_config.num_crtc;
 	int i;
 
 	for (i = 0; i < nplanes; i++) {
@@ -199,6 +228,14 @@ static void commit_locks(struct drm_atomic_state *a,
 		if (plane) {
 			plane->state->state = NULL;
 			drm_plane_destroy_state(plane, a->pstates[i]);
+		}
+	}
+
+	for (i = 0; i < ncrtcs; i++) {
+		struct drm_crtc *crtc = a->crtcs[i];
+		if (crtc) {
+			crtc->state->state = NULL;
+			drm_crtc_destroy_state(crtc, a->cstates[i]);
 		}
 	}
 
@@ -221,7 +258,17 @@ static int atomic_commit(struct drm_atomic_state *a,
 		struct ww_acquire_ctx *ww_ctx)
 {
 	int nplanes = a->dev->mode_config.num_total_plane;
+	int ncrtcs = a->dev->mode_config.num_crtc;
 	int i, ret = 0;
+
+	for (i = 0; i < ncrtcs; i++) {
+		struct drm_crtc *crtc = a->crtcs[i];
+		if (crtc) {
+			ret = drm_atomic_commit_crtc_state(crtc, a->cstates[i]);
+			if (ret)
+				break;
+		}
+	}
 
 	for (i = 0; i < nplanes; i++) {
 		struct drm_plane *plane = a->planes[i];
@@ -398,6 +445,7 @@ static int
 commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
 {
 	struct drm_atomic_state *a = pstate->state;
+	struct drm_crtc_state *cstate = NULL;
 	struct drm_framebuffer *old_fb = plane->fb;
 	struct drm_framebuffer *fb = pstate->fb;
 	bool enabled = pstate->crtc && fb;
@@ -411,8 +459,11 @@ commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
 		reset_plane(plane, pstate);
 	} else {
 		struct drm_crtc *crtc = pstate->crtc;
+		cstate = drm_atomic_get_crtc_state(crtc, pstate->state);
 		if (pstate->update_plane ||
 				(pstate->new_fb && !can_flip(plane, pstate))) {
+/* TODO pass event to update_plane().. */
+WARN_ON(cstate->event);
 			ret = plane->funcs->update_plane(plane, crtc, pstate->fb,
 					pstate->crtc_x, pstate->crtc_y,
 					pstate->crtc_w, pstate->crtc_h,
@@ -429,7 +480,7 @@ commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
 			}
 
 		} else if (pstate->new_fb) {
-			ret = crtc->funcs->page_flip(crtc, fb, NULL, a->flags);
+			ret = crtc->funcs->page_flip(crtc, fb, cstate->event, a->flags);
 			if (ret == 0) {
 				/*
 				 * Warn if the driver hasn't properly updated the plane->fb
@@ -459,8 +510,9 @@ commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
 		 * original code.
 		 */
 		swap_plane_state(plane, pstate->state);
+		if (cstate)
+			cstate->event = NULL;
 	}
-
 
 	if (fb)
 		drm_framebuffer_unreference(fb);
@@ -470,8 +522,181 @@ commit_plane_state(struct drm_plane *plane, struct drm_plane_state *pstate)
 	return ret;
 }
 
+int drm_atomic_crtc_set_property(struct drm_crtc *crtc, void *state,
+		struct drm_property *property, uint64_t val, void *blob_data)
+{
+	struct drm_crtc_state *cstate = drm_atomic_get_crtc_state(crtc, state);
+	if (IS_ERR(cstate))
+		return PTR_ERR(cstate);
+	return drm_crtc_set_property(crtc, cstate, property, val, blob_data);
+}
+EXPORT_SYMBOL(drm_atomic_crtc_set_property);
+
+static void init_crtc_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *cstate, void *state)
+{
+	/* snapshot current state: */
+	*cstate = *crtc->state;
+	cstate->state = state;
+
+	if (cstate->connector_ids) {
+		int sz = cstate->num_connector_ids * sizeof(cstate->connector_ids[0]);
+		cstate->connector_ids = kmemdup(cstate->connector_ids, sz, GFP_KERNEL);
+	}
+
+	/* this should never happen.. but make sure! */
+	WARN_ON(cstate->event);
+	cstate->event = NULL;
+}
+
+struct drm_crtc_state *
+drm_atomic_get_crtc_state(struct drm_crtc *crtc, void *state)
+{
+	struct drm_atomic_state *a = state;
+	struct drm_crtc_state *cstate;
+	int ret;
+
+	cstate = a->cstates[crtc->id];
+
+	if (!cstate) {
+		ret = drm_modeset_lock(&crtc->mutex, state);
+		if (ret)
+			return ERR_PTR(ret);
+
+		cstate = drm_crtc_create_state(crtc);
+		if (!cstate)
+			return ERR_PTR(-ENOMEM);
+		init_crtc_state(crtc, cstate, state);
+		a->crtcs[crtc->id] = crtc;
+		a->cstates[crtc->id] = cstate;
+
+		/* we'll need it later, so make sure we have state
+		 * for primary plane too:
+		 */
+		drm_atomic_get_plane_state(crtc->primary, state);
+	}
+	return cstate;
+}
+
+static void
+swap_crtc_state(struct drm_crtc *crtc, struct drm_atomic_state *a)
+{
+	struct drm_crtc_state *cstate = a->cstates[crtc->id];
+	struct drm_device *dev = crtc->dev;
+	struct drm_pending_vblank_event *event = cstate->event;
+
+	if (event) {
+		/* hrm, need to sort out a better way to send events for
+		 * other-than-pageflip.. but modeset is not async, so:
+		 */
+		unsigned long flags;
+		spin_lock_irqsave(&dev->event_lock, flags);
+		drm_send_vblank_event(dev, crtc->id, event);
+		cstate->event = NULL;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
+
+	/* clear transient state (only valid during atomic update): */
+	cstate->set_config = false;
+	cstate->connectors_change = false;
+
+	swap(crtc->state, a->cstates[crtc->id]);
+	crtc->base.propvals = &crtc->state->propvals;
+}
+
+static struct drm_connector **get_connector_set(struct drm_device *dev,
+		uint32_t *connector_ids, uint32_t num_connector_ids)
+{
+	struct drm_connector **connector_set = NULL;
+	int i;
+
+	connector_set = kmalloc(num_connector_ids *
+			sizeof(struct drm_connector *),
+			GFP_KERNEL);
+	if (!connector_set)
+		return NULL;
+
+	for (i = 0; i < num_connector_ids; i++)
+		connector_set[i] = drm_connector_find(dev, connector_ids[i]);
+
+	return connector_set;
+}
+
+static int set_config(struct drm_crtc *crtc, struct drm_crtc_state *cstate)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_plane_state *pstate =
+			drm_atomic_get_plane_state(crtc->primary, cstate->state);
+	struct drm_framebuffer *fb = pstate->fb;
+	struct drm_connector **connector_set = get_connector_set(crtc->dev,
+			cstate->connector_ids, cstate->num_connector_ids);
+	struct drm_display_mode *mode = drm_crtc_get_mode(crtc, cstate);
+	struct drm_mode_set set = {
+			.crtc = crtc,
+			.x = pstate->src_x >> 16,
+			.y = pstate->src_y >> 16,
+			.mode = mode,
+			.num_connectors = cstate->num_connector_ids,
+			.connectors = connector_set,
+			.fb = fb,
+	};
+	int ret;
+
+	if (IS_ERR(mode)) {
+		ret = PTR_ERR(mode);
+		return ret;
+	}
+
+	if (fb)
+		drm_framebuffer_reference(fb);
+
+	ret = drm_mode_set_config_internal(&set);
+	if (!ret) {
+		swap_crtc_state(crtc, cstate->state);
+		pstate->new_fb = pstate->update_plane = false;
+	}
+
+	if (fb)
+		drm_framebuffer_unreference(fb);
+
+	kfree(connector_set);
+	if (mode)
+		drm_mode_destroy(dev, mode);
+	return ret;
+}
+
+static int
+commit_crtc_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *cstate)
+{
+	struct drm_plane_state *pstate =
+			drm_atomic_get_plane_state(crtc->primary, cstate->state);
+	int ret = -EINVAL;
+
+	if (cstate->set_config)
+		return set_config(crtc, cstate);
+
+	if (!pstate->fb) {
+		/* disable */
+		struct drm_mode_set set = {
+				.crtc = crtc,
+				.fb = NULL,
+		};
+
+		ret = drm_mode_set_config_internal(&set);
+		if (!ret) {
+			swap_crtc_state(crtc, cstate->state);
+		}
+	}
+
+	return ret;
+}
+
 const struct drm_atomic_funcs drm_atomic_funcs = {
 		.check_plane_state  = drm_plane_check_state,
 		.commit_plane_state = commit_plane_state,
+
+		.check_crtc_state   = drm_crtc_check_state,
+		.commit_crtc_state  = commit_crtc_state,
 };
 EXPORT_SYMBOL(drm_atomic_funcs);
