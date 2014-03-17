@@ -677,7 +677,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 		goto error_unlock;
 	}
 
-	ret = kgsl_active_count_get(device);
+	ret = kgsl_active_count_get(&device->pwrctrl);
 	if (ret)
 		return -EINVAL;
 
@@ -734,7 +734,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 error_free:
 	kfree(buf);
 error_put:
-	kgsl_active_count_put(device);
+	kgsl_active_count_put(&device->pwrctrl);
 error_unlock:
 	mutex_unlock(&device->mutex);
 	return size;

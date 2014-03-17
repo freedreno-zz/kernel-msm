@@ -608,13 +608,13 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	KGSL_PWR_WARN(device, "suspend start\n");
 
 	mutex_lock(&device->mutex);
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
+	kgsl_pwrctrl_request_state(&device->pwrctrl, KGSL_STATE_SUSPEND);
 
 	/* Tell the device to drain the submission queue */
 	device->ftbl->drain(device);
 
 	/* Wait for the active count to hit zero */
-	status = kgsl_active_count_wait(device, 0);
+	status = kgsl_active_count_wait(&device->pwrctrl, 0);
 	if (status)
 		goto end;
 
@@ -622,10 +622,10 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	 * An interrupt could have snuck in and requested NAP in
 	 * the meantime, make sure we're on the SUSPEND path.
 	 */
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
+	kgsl_pwrctrl_request_state(&device->pwrctrl, KGSL_STATE_SUSPEND);
 
 	/* Don't let the timer wake us during suspended sleep. */
-	del_timer_sync(&device->idle_timer);
+	kgsl_pwrctrl_del_timer(&device->pwrctrl);
 	switch (device->state) {
 		case KGSL_STATE_INIT:
 			break;
@@ -633,26 +633,26 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 		case KGSL_STATE_NAP:
 		case KGSL_STATE_SLEEP:
 			/* make sure power is on to stop the device */
-			kgsl_pwrctrl_enable(device);
+			kgsl_pwrctrl_enable(&device->pwrctrl);
 			/* Get the completion ready to be waited upon. */
 			INIT_COMPLETION(device->hwaccess_gate);
 			device->ftbl->suspend_context(device);
 			device->ftbl->stop(device);
 			pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
+			kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_SUSPEND);
 			break;
 		case KGSL_STATE_SLUMBER:
 			INIT_COMPLETION(device->hwaccess_gate);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
+			kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_SUSPEND);
 			break;
 		default:
 			KGSL_PWR_ERR(device, "suspend fail, device %d\n",
 					device->id);
 			goto end;
 	}
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	kgsl_pwrscale_sleep(device);
+	kgsl_pwrctrl_request_state(&device->pwrctrl, KGSL_STATE_NONE);
+	kgsl_pwrscale_sleep(&device->pwrscale);
 	status = 0;
 
 end:
@@ -675,7 +675,7 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
+		kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_SLUMBER);
 		complete_all(&device->hwaccess_gate);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*
@@ -686,12 +686,12 @@ static int kgsl_resume_device(struct kgsl_device *device)
 		 */
 		if (device->state == KGSL_STATE_ACTIVE)
 			device->ftbl->idle(device);
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
-		kgsl_pwrctrl_sleep(device);
+		kgsl_pwrctrl_request_state(&device->pwrctrl, KGSL_STATE_SLUMBER);
+		kgsl_pwrctrl_sleep(&device->pwrctrl);
 		KGSL_PWR_ERR(device,
 			"resume invoked without a suspend\n");
 	}
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
+	kgsl_pwrctrl_request_state(&device->pwrctrl, KGSL_STATE_NONE);
 
 	/* Call the GPU specific resume function */
 	if (device->ftbl->resume)
@@ -905,15 +905,15 @@ static int kgsl_close_device(struct kgsl_device *device)
 	if (device->open_count == 0) {
 
 		/* Wait for the active count to go to 0 */
-		kgsl_active_count_wait(device, 0);
+		kgsl_active_count_wait(&device->pwrctrl, 0);
 
 		/* Fail if the wait times out */
-		BUG_ON(atomic_read(&device->active_cnt) > 0);
+		BUG_ON(atomic_read(&device->pwrctrl.active_cnt) > 0);
 
 		/* Force power on to do the stop */
-		kgsl_pwrctrl_enable(device);
+		kgsl_pwrctrl_enable(&device->pwrctrl);
 		result = device->ftbl->stop(device);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+		kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_INIT);
 	}
 	return result;
 
@@ -999,7 +999,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 		 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
 		 * which will be called by kgsl_active_count_get().
 		 */
-		atomic_inc(&device->active_cnt);
+		atomic_inc(&device->pwrctrl.active_cnt);
 		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
 				device->memstore.size);
 
@@ -1015,13 +1015,13 @@ static int kgsl_open_device(struct kgsl_device *device)
 		 * we start suspend or FT.
 		 */
 		complete_all(&device->hwaccess_gate);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
-		kgsl_active_count_put(device);
+		kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_ACTIVE);
+		kgsl_active_count_put(&device->pwrctrl);
 	}
 	device->open_count++;
 err:
 	if (result)
-		atomic_dec(&device->active_cnt);
+		atomic_dec(&device->pwrctrl.active_cnt);
 
 	return result;
 }
@@ -1087,10 +1087,10 @@ err_stop:
 	device->open_count--;
 	if (device->open_count == 0) {
 		/* make sure power is on to stop the device */
-		kgsl_pwrctrl_enable(device);
+		kgsl_pwrctrl_enable(&device->pwrctrl);
 		device->ftbl->stop(device);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
-		atomic_dec(&device->active_cnt);
+		kgsl_pwrctrl_set_state(&device->pwrctrl, KGSL_STATE_INIT);
+		atomic_dec(&device->pwrctrl.active_cnt);
 	}
 err_freedevpriv:
 	mutex_unlock(&device->mutex);
@@ -4099,7 +4099,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	/* Initialize logging first, so that failures below actually print. */
 	kgsl_device_debugfs_init(device);
 
-	status = kgsl_pwrctrl_init(device);
+	status = kgsl_pwrctrl_init(&device->pwrctrl, &pdev->dev);
 	if (status)
 		goto error;
 
@@ -4196,7 +4196,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 
 
-	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	status = kgsl_create_device_workqueue(device);
 	if (status)
 		goto error_pwrctrl_close;
@@ -4230,7 +4229,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	kgsl_device_snapshot_init(device);
 
 	/* Initialize common sysfs entries */
-	kgsl_pwrctrl_init_sysfs(device);
+	kgsl_pwrctrl_init_sysfs(device->parentdev);
 
 	return 0;
 
@@ -4240,7 +4239,7 @@ error_dest_work_q:
 	destroy_workqueue(device->work_queue);
 	device->work_queue = NULL;
 error_pwrctrl_close:
-	kgsl_pwrctrl_close(device);
+	kgsl_pwrctrl_close(&device->pwrctrl);
 error:
 	_unregister_device(device);
 	return status;
@@ -4256,7 +4255,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_device_snapshot_close(device);
 
-	kgsl_pwrctrl_uninit_sysfs(device);
+	kgsl_pwrctrl_uninit_sysfs(device->parentdev);
 
 	pm_qos_remove_request(&device->pwrctrl.pm_qos_req_dma);
 
@@ -4270,7 +4269,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		destroy_workqueue(device->work_queue);
 		device->work_queue = NULL;
 	}
-	kgsl_pwrctrl_close(device);
+	kgsl_pwrctrl_close(&device->pwrctrl);
 
 	_unregister_device(device);
 }

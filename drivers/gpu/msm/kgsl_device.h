@@ -298,8 +298,6 @@ struct kgsl_device {
 	struct completion hwaccess_gate;
 	struct completion cmdbatch_gate;
 	const struct kgsl_functable *ftbl;
-	struct work_struct idle_check_ws;
-	struct timer_list idle_timer;
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
 
@@ -307,10 +305,7 @@ struct kgsl_device {
 	uint32_t state;
 	uint32_t requested_state;
 
-	atomic_t active_cnt;
-
 	wait_queue_head_t wait_queue;
-	wait_queue_head_t active_cnt_wq;
 	struct workqueue_struct *work_queue;
 	struct device *parentdev;
 	struct dentry *d_debugfs;
@@ -358,12 +353,21 @@ struct kgsl_device {
 	struct kgsl_event_group iommu_events;
 };
 
+static inline struct kgsl_pwrctrl *get_pwrctrl(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	return device ? &device->pwrctrl : NULL;
+}
+
+static inline struct kgsl_pwrscale *get_pwrscale(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	return device ? &device->pwrscale : NULL;
+}
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
 	.cmdbatch_gate = COMPLETION_INITIALIZER((_dev).cmdbatch_gate),\
-	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
-			kgsl_idle_check),\
 	.event_work  = __WORK_INITIALIZER((_dev).event_work,\
 			kgsl_process_events),\
 	.snapshot_obj_ws = \
@@ -371,7 +375,6 @@ struct kgsl_device {
 		kgsl_snapshot_save_frozen_objs),\
 	.context_idr = IDR_INIT((_dev).context_idr),\
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
-	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
 	.state = KGSL_STATE_INIT,\
 	.ver_major = DRIVER_VERSION_MAJOR,\

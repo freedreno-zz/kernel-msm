@@ -27,7 +27,7 @@ DEFINE_SIMPLE_ATTRIBUTE(kgsl_cff_dump_enable_fops, kgsl_cff_dump_enable_get,
 static int _active_count_get(void *data, u64 *val)
 {
 	struct kgsl_device *device = data;
-	unsigned int i = atomic_read(&device->active_cnt);
+	unsigned int i = atomic_read(&device->pwrctrl.active_cnt);
 
 	*val = (u64) i;
 	return 0;

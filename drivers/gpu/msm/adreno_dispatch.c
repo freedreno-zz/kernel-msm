@@ -90,7 +90,7 @@ static inline bool _isidle(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int ts, i;
 
-	if (!kgsl_pwrctrl_isenabled(device))
+	if (!kgsl_pwrctrl_isenabled(&device->pwrctrl))
 		goto ret;
 
 	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED, &ts);
@@ -303,7 +303,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	if (dispatcher->inflight == 1 &&
 			!test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
 		/* Time to make the donuts.  Turn on the GPU */
-		ret = kgsl_active_count_get(device);
+		ret = kgsl_active_count_get(&device->pwrctrl);
 		if (ret) {
 			dispatcher->inflight--;
 			mutex_unlock(&device->mutex);
@@ -325,7 +325,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 			fault_detect_read(device);
 			init_completion(&dispatcher->idle_gate);
 		} else {
-			kgsl_active_count_put(device);
+			kgsl_active_count_put(&device->pwrctrl);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 		}
 	}
@@ -995,8 +995,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		 * For certain faults like h/w fault the interrupts are
 		 * turned off, re-enable here
 		 */
-		if (kgsl_pwrctrl_isenabled(device))
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+		if (kgsl_pwrctrl_isenabled(&device->pwrctrl))
+			kgsl_pwrctrl_irq(&device->pwrctrl, KGSL_PWRFLAGS_ON);
 		return 0;
 	}
 
@@ -1491,7 +1491,7 @@ done:
 
 		/* There are still things in flight - update the idle counts */
 		mutex_lock(&device->mutex);
-		kgsl_pwrscale_update(device);
+		kgsl_pwrscale_update(&device->pwrscale);
 		mutex_unlock(&device->mutex);
 	} else {
 		/* There is nothing left in the pipeline.  Shut 'er down boys */
@@ -1505,7 +1505,7 @@ done:
 		del_timer_sync(&dispatcher->fault_timer);
 
 		if (test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
-			kgsl_active_count_put(device);
+			kgsl_active_count_put(&device->pwrctrl);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 		}
 
