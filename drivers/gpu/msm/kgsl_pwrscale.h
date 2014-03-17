@@ -41,18 +41,22 @@ struct kgsl_pwrscale {
 	struct work_struct devfreq_resume_ws;
 	struct work_struct devfreq_notify_ws;
 	unsigned long next_governor_call;
+	struct kgsl_pwrctrl *pwrctrl;
+	void *dev;
 };
 
-int kgsl_pwrscale_init(struct device *dev, const char *governor);
-void kgsl_pwrscale_close(struct kgsl_device *device);
+int kgsl_pwrscale_init(struct kgsl_pwrscale *pwrscale,
+		struct kgsl_pwrctrl *pwr,
+		struct device *dev, const char *governor);
+void kgsl_pwrscale_close(struct kgsl_pwrscale *pwrscale);
 
-void kgsl_pwrscale_update(struct kgsl_device *device);
-void kgsl_pwrscale_busy(struct kgsl_device *device);
-void kgsl_pwrscale_sleep(struct kgsl_device *device);
-void kgsl_pwrscale_wake(struct kgsl_device *device);
+void kgsl_pwrscale_update(struct kgsl_pwrscale *pwrscale);
+void kgsl_pwrscale_busy(struct kgsl_pwrscale *pwrscale);
+void kgsl_pwrscale_sleep(struct kgsl_pwrscale *pwrscale);
+void kgsl_pwrscale_wake(struct kgsl_pwrscale *pwrscale);
 
-void kgsl_pwrscale_enable(struct kgsl_device *device);
-void kgsl_pwrscale_disable(struct kgsl_device *device);
+void kgsl_pwrscale_enable(struct kgsl_pwrscale *pwrscale);
+void kgsl_pwrscale_disable(struct kgsl_pwrscale *pwrscale);
 
 int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags);
 int kgsl_devfreq_get_dev_status(struct device *, struct devfreq_dev_status *);

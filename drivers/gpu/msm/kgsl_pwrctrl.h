@@ -111,26 +111,32 @@ struct kgsl_pwrctrl {
 	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
 	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];
 	struct kgsl_pwr_constraint constraint;
+	struct work_struct idle_check_ws;
+	struct timer_list idle_timer;
+	atomic_t active_cnt;
+	wait_queue_head_t active_cnt_wq;
+	struct kgsl_pwrscale *pwrscale;
+	void *dev;
 };
 
-void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
-int kgsl_pwrctrl_init(struct kgsl_device *device);
-void kgsl_pwrctrl_close(struct kgsl_device *device);
-void kgsl_timer(unsigned long data);
-void kgsl_idle_check(struct work_struct *work);
-void kgsl_pre_hwaccess(struct kgsl_device *device);
-int kgsl_pwrctrl_sleep(struct kgsl_device *device);
-int kgsl_pwrctrl_wake(struct kgsl_device *device, int priority);
-void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
+void kgsl_pwrctrl_irq(struct kgsl_pwrctrl *pwr, int state);
+int kgsl_pwrctrl_init(struct kgsl_pwrctrl *pwr, struct device *dev);
+void kgsl_pwrctrl_close(struct kgsl_pwrctrl *pwr);
+int kgsl_pwrctrl_mod_timer(struct kgsl_pwrctrl *pwr, unsigned long expires);
+int kgsl_pwrctrl_del_timer(struct kgsl_pwrctrl *pwr);
+void kgsl_pre_hwaccess(struct kgsl_pwrctrl *pwr);
+int kgsl_pwrctrl_sleep(struct kgsl_pwrctrl *pwr);
+int kgsl_pwrctrl_wake(struct kgsl_pwrctrl *pwr, int priority);
+void kgsl_pwrctrl_pwrlevel_change(struct kgsl_pwrctrl *pwr,
 	unsigned int level);
-void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
+void kgsl_pwrctrl_buslevel_update(struct kgsl_pwrctrl *pwr,
 	bool on);
-int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
-void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
-void kgsl_pwrctrl_enable(struct kgsl_device *device);
-void kgsl_pwrctrl_disable(struct kgsl_device *device);
-bool kgsl_pwrctrl_isenabled(struct kgsl_device *device);
-bool kgsl_pwrrail_isenabled(struct kgsl_device *device);
+int kgsl_pwrctrl_init_sysfs(struct device *dev);
+void kgsl_pwrctrl_uninit_sysfs(struct device *dev);
+void kgsl_pwrctrl_enable(struct kgsl_pwrctrl *pwr);
+void kgsl_pwrctrl_disable(struct kgsl_pwrctrl *pwr);
+bool kgsl_pwrctrl_isenabled(struct kgsl_pwrctrl *pwr);
+bool kgsl_pwrrail_isenabled(struct kgsl_pwrctrl *pwr);
 
 static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 {
@@ -149,13 +155,13 @@ kgsl_pwrctrl_active_freq(struct kgsl_pwrctrl *pwr)
 	return pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq;
 }
 
-void kgsl_pwrctrl_set_state(struct kgsl_device *device, unsigned int state);
-void kgsl_pwrctrl_request_state(struct kgsl_device *device, unsigned int state);
+void kgsl_pwrctrl_set_state(struct kgsl_pwrctrl *pwr, unsigned int state);
+void kgsl_pwrctrl_request_state(struct kgsl_pwrctrl *pwr, unsigned int state);
 
-int __must_check kgsl_active_count_get(struct kgsl_device *device);
-void kgsl_active_count_put(struct kgsl_device *device);
-int kgsl_active_count_wait(struct kgsl_device *device, int count);
-void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
+int __must_check kgsl_active_count_get(struct kgsl_pwrctrl *pwr);
+void kgsl_active_count_put(struct kgsl_pwrctrl *pwr);
+int kgsl_active_count_wait(struct kgsl_pwrctrl *pwr, int count);
+void kgsl_pwrctrl_clk(struct kgsl_pwrctrl *pwr, int state,
 				int requested_state);
 
 #endif /* __KGSL_PWRCTRL_H */

@@ -50,10 +50,10 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 
 		if (device->state == KGSL_STATE_ACTIVE ||
 			device->state == KGSL_STATE_NAP) {
-			if (!kgsl_active_count_get(device)) {
+			if (!kgsl_active_count_get(&device->pwrctrl)) {
 				kgsl_regread(device, cattr->reg->offset,
 					&cattr->reg->value);
-				kgsl_active_count_put(device);
+				kgsl_active_count_put(&device->pwrctrl);
 			}
 		}
 
@@ -96,10 +96,10 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	/* Program the hardware if it is not power collapsed */
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_NAP) {
-		if (!kgsl_active_count_get(device)) {
+		if (!kgsl_active_count_get(&device->pwrctrl)) {
 			kgsl_regwrite(device, cattr->reg->offset,
 					cattr->reg->value);
-			kgsl_active_count_put(device);
+			kgsl_active_count_put(&device->pwrctrl);
 		}
 	}
 
@@ -139,12 +139,12 @@ static void adreno_coresight_disable(struct coresight_device *csdev)
 
 	mutex_lock(&device->mutex);
 
-	if (!kgsl_active_count_get(device)) {
+	if (!kgsl_active_count_get(&device->pwrctrl)) {
 		for (i = 0; i < coresight->count; i++)
 			kgsl_regwrite(device, coresight->registers[i].offset,
 				0);
 
-		kgsl_active_count_put(device);
+		kgsl_active_count_put(&device->pwrctrl);
 	}
 
 	clear_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv);
@@ -161,12 +161,12 @@ static int _adreno_coresight_get(struct adreno_device *adreno_dev)
 	if (coresight == NULL)
 		return -ENODEV;
 
-	if (!kgsl_active_count_get(device)) {
+	if (!kgsl_active_count_get(&device->pwrctrl)) {
 		for (i = 0; i < coresight->count; i++)
 			kgsl_regread(device, coresight->registers[i].offset,
 				&coresight->registers[i].value);
 
-		kgsl_active_count_put(device);
+		kgsl_active_count_put(&device->pwrctrl);
 	}
 
 	return 0;
@@ -181,12 +181,12 @@ static int _adreno_coresight_set(struct adreno_device *adreno_dev)
 	if (coresight == NULL)
 		return -ENODEV;
 
-	if (!kgsl_active_count_get(device)) {
+	if (!kgsl_active_count_get(&device->pwrctrl)) {
 		for (i = 0; i < coresight->count; i++)
 			kgsl_regwrite(device, coresight->registers[i].offset,
 				coresight->registers[i].value);
 
-		kgsl_active_count_put(device);
+		kgsl_active_count_put(&device->pwrctrl);
 	}
 
 	return 0;

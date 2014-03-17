@@ -841,7 +841,7 @@ void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit)
 		a3xx_a4xx_err_callback(adreno_dev, bit);
 	}
 
-	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+	kgsl_pwrctrl_irq(&device->pwrctrl, KGSL_PWRFLAGS_OFF);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
 	adreno_dispatcher_irq_fault(device);

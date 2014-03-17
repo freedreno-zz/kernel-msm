@@ -37,7 +37,7 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 
 	/* Let the pwrscale policy know that new commands have
 	 been submitted. */
-	kgsl_pwrscale_busy(rb->device);
+	kgsl_pwrscale_busy(&rb->device->pwrscale);
 
 	/*synchronize memory before informing the hardware of the
 	 *new commands.
@@ -1151,7 +1151,7 @@ void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			KGSL_CONSTRAINT_NONE) || (constraint <
 			device->pwrctrl.constraint.hint.pwrlevel.level)) {
 
-			kgsl_pwrctrl_pwrlevel_change(device, constraint);
+			kgsl_pwrctrl_pwrlevel_change(&device->pwrctrl, constraint);
 			device->pwrctrl.constraint.type =
 					context->pwr_constraint.type;
 			device->pwrctrl.constraint.hint.

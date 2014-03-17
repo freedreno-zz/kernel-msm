@@ -645,7 +645,7 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 	 * Bail if failed to get active count for GPU,
 	 * try again
 	 */
-	if (kgsl_active_count_get(device)) {
+	if (kgsl_active_count_get(&device->pwrctrl)) {
 		KGSL_DRV_ERR(device, "Failed to get GPU active count");
 		return -EINVAL;
 	}
@@ -718,7 +718,7 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 		sysfs_notify(&device->snapshot_kobj, NULL, "timestamp");
 
 done:
-	kgsl_active_count_put(device);
+	kgsl_active_count_put(&device->pwrctrl);
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
@@ -870,9 +870,9 @@ static ssize_t trigger_store(struct kgsl_device *device, const char *buf,
 {
 	if (device && count > 0) {
 		mutex_lock(&device->mutex);
-		if (!kgsl_active_count_get(device)) {
+		if (!kgsl_active_count_get(&device->pwrctrl)) {
 				kgsl_device_snapshot(device, 0);
-				kgsl_active_count_put(device);
+				kgsl_active_count_put(&device->pwrctrl);
 		}
 		mutex_unlock(&device->mutex);
 	}
