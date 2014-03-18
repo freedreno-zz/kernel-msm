@@ -582,7 +582,7 @@ EXPORT_SYMBOL(drm_framebuffer_lookup);
  */
 void drm_framebuffer_unreference(struct drm_framebuffer *fb)
 {
-	DRM_DEBUG("FB ID: %d\n", fb->base.id);
+	DRM_DEBUG("%p: FB ID: %d (%d)\n", fb, fb->base.id, fb->refcount.refcount.counter);
 	kref_put(&fb->refcount, drm_framebuffer_free);
 }
 EXPORT_SYMBOL(drm_framebuffer_unreference);
@@ -593,7 +593,7 @@ EXPORT_SYMBOL(drm_framebuffer_unreference);
  */
 void drm_framebuffer_reference(struct drm_framebuffer *fb)
 {
-	DRM_DEBUG("FB ID: %d\n", fb->base.id);
+	DRM_DEBUG("%p: FB ID: %d (%d)\n", fb, fb->base.id, fb->refcount.refcount.counter);
 	kref_get(&fb->refcount);
 }
 EXPORT_SYMBOL(drm_framebuffer_reference);
@@ -605,7 +605,7 @@ static void drm_framebuffer_free_bug(struct kref *kref)
 
 static void __drm_framebuffer_unreference(struct drm_framebuffer *fb)
 {
-	DRM_DEBUG("FB ID: %d\n", fb->base.id);
+	DRM_DEBUG("%p: FB ID: %d (%d)\n", fb, fb->base.id, fb->refcount.refcount.counter);
 	kref_put(&fb->refcount, drm_framebuffer_free_bug);
 }
 
