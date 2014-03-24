@@ -417,7 +417,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	 * and have separate page tables per context.  For now, to keep things
 	 * simple and to get something working, just use a single address space:
 	 */
-	iommu = iommu_domain_alloc(&platform_bus_type);
+	iommu = iommu_domain_alloc(&platform_bus_type, 0);
 	if (iommu) {
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
 		gpu->mmu = msm_iommu_new(drm, iommu);
