@@ -86,8 +86,10 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
+#include <linux/trapz.h>   /* ACOS_MOD_ONELINE */
 
 ATOMIC_NOTIFIER_HEAD(migration_notifier_head);
+
 
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
@@ -2056,6 +2058,22 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next)
 {
 	struct mm_struct *mm, *oldmm;
+
+	/* ACOS_MOD_BEGIN */
+#ifdef ENABLE_TRAPZ
+	/* The context switch is very chatty.  By stuffing the info into the
+	 * lower 8 bits of extra 1 and 2, only one trapz record is used This
+	 * is because values <= 255 only use the 'mini' extras built into
+	 * the main record.
+	 */
+	int trapz_e1 = next->pid & 0xff;
+	int trapz_e2 = (next->pid >> 8) & 0xff;
+	TRAPZ_DESCRIBE(TRAPZ_KERN_SCHED, CtxSw,
+			"Logs prev and next pids on a context switch.");
+	TRAPZ_LOG(TRAPZ_LOG_VERBOSE, 0, TRAPZ_KERN_SCHED, CtxSw,
+			trapz_e1, trapz_e2, 0, 0);
+#endif /* ENABLE_TRAPZ */
+	/* ACOS_MOD_END */
 
 	prepare_task_switch(rq, prev, next);
 

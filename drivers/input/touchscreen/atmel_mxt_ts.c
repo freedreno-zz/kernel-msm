@@ -1612,7 +1612,7 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 	}
 
 	ret = request_firmware(&fw, fn, dev);
-	if (ret < 0 || !fw) {
+	if (ret < 0) {
 		dev_err(dev, "Unable to open firmware %s\n", fn);
 		goto free_frame;
 	}

@@ -933,14 +933,18 @@ int rfcomm_connect_ind(struct rfcomm_session *s, u8 channel, struct rfcomm_dlc *
 	bdaddr_t src, dst;
 	int result = 0;
 
-	BT_DBG("session %p channel %d", s, channel);
+	BT_ERR("session: %p channel: %d", s, channel);
 
 	rfcomm_session_getaddr(s, &src, &dst);
 
 	/* Check if we have socket listening on channel */
+	BT_ERR("Check if we have socket listening on channel: %d", channel);
 	parent = rfcomm_get_sock_by_channel(BT_LISTEN, channel, &src);
-	if (!parent)
+	if (!parent) {
+		BT_ERR("RFCOMM OOPS: No parent socket listening for incoming connection requests");
 		return 0;
+	} else
+		BT_ERR("Parent socket: %p listening for incoming connection requests", parent);
 
 	bh_lock_sock(parent);
 
@@ -951,8 +955,10 @@ int rfcomm_connect_ind(struct rfcomm_session *s, u8 channel, struct rfcomm_dlc *
 	}
 
 	sk = rfcomm_sock_alloc(sock_net(parent), NULL, BTPROTO_RFCOMM, GFP_ATOMIC);
-	if (!sk)
+	if (!sk) {
+		BT_ERR("RFCOMM OOPS: failed to alloacate memory for sock 'sk' !!!");
 		goto done;
+	}
 
 	rfcomm_sock_init(sk, parent);
 	bacpy(&bt_sk(sk)->src, &src);
@@ -963,6 +969,7 @@ int rfcomm_connect_ind(struct rfcomm_session *s, u8 channel, struct rfcomm_dlc *
 	bt_accept_enqueue(parent, sk);
 
 	/* Accept connection and return socket DLC */
+	BT_ERR("Accepting connection and return socket DLC");
 	*d = rfcomm_pi(sk)->dlc;
 	result = 1;
 

@@ -375,6 +375,13 @@ static struct resource resources_uart_gsbi4[] = {
 	},
 };
 
+struct platform_device mpq8064_device_uart_gsbi4 = {
+	.name	= "msm_serial_hsl",
+	.id	= 2,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi4),
+	.resource	= resources_uart_gsbi4,
+};
+
 struct platform_device apq8064_device_uart_gsbi4 = {
 	.name = "msm_serial_hsl",
 	.id = 1,
@@ -464,6 +471,50 @@ struct platform_device apq8064_device_qup_i2c_gsbi4 = {
 	.id		= 4,
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi4),
 	.resource	= resources_qup_i2c_gsbi4,
+};
+
+/* Bueller uses
+ * 	GPIO_12 as I2C_GSBI4_DATA	- SDA
+ * 	GPIO_13 as I2C_GSBI4_CLK	- SCL
+ */
+static struct resource mpq8064_resources_qup_i2c_gsbi4[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI4_PHYS,
+		.end	= MSM_GSBI4_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI4_QUP_PHYS,
+		.end	= MSM_GSBI4_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI4_QUP_IRQ,
+		.end	= GSBI4_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= 13,
+		.end	= 13,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= 12,
+		.end	= 12,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device mpq8064_device_qup_i2c_gsbi4 = {
+	.name		= "qup_i2c",
+	.id		= 4,
+	.num_resources	= ARRAY_SIZE(mpq8064_resources_qup_i2c_gsbi4),
+	.resource	= mpq8064_resources_qup_i2c_gsbi4,
 };
 
 static struct resource resources_qup_spi_gsbi5[] = {
@@ -605,6 +656,58 @@ struct platform_device mpq8064_device_uartdm_gsbi6 = {
 	},
 };
 
+static struct resource resources_qup_spi_gsbi7[] = {
+	{
+		.name   = "spi_base",
+		.start  = MSM_GSBI7_QUP_PHYS,
+		.end    = MSM_GSBI7_QUP_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "gsbi_base",
+		.start  = MSM_GSBI7_PHYS,
+		.end    = MSM_GSBI7_PHYS + 4 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "spi_irq_in",
+		.start  = GSBI7_QUP_IRQ,
+		.end    = GSBI7_QUP_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "spi_clk",
+		.start  = 85,
+		.end    = 85,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_miso",
+		.start  = 83,
+		.end    = 83,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_mosi",
+		.start  = 82,
+		.end    = 82,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 84,
+		.end    = 84,
+		.flags  = IORESOURCE_IO,
+	}
+};
+
+struct platform_device apq8064_device_qup_spi_gsbi7 = {
+	.name		= "spi_qsd",
+	.id		= 2,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi7),
+	.resource	= resources_qup_spi_gsbi7,
+};
+
 static struct resource resources_uart_gsbi7[] = {
 	{
 		.start	= GSBI7_UARTDM_IRQ,
@@ -694,6 +797,12 @@ struct platform_device mpq_cpudai_pseudo = {
 	.name   = "msm-dai-q6",
 	.id     = 0x8001,
 };
+
+struct platform_device apq_cpudai_pseudo = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8001,
+};
+
 #define MSM_TSIF0_PHYS       (0x18200000)
 #define MSM_TSIF1_PHYS       (0x18201000)
 #define MSM_TSIF_SIZE        (0x200)
@@ -938,6 +1047,42 @@ struct platform_device mpq_cpudai_mi2s_tx = {
 	.dev = {
 		.platform_data = &mpq_mi2s_tx_data,
 	},
+};
+
+struct msm_mi2s_pdata apq_mi2s_rx_data = {
+	.rx_sd_lines = MSM_MI2S_SD0,
+	.tx_sd_lines = 0,
+};
+
+struct platform_device apq_cpudai_mi2s_rx = {
+	.name	= "msm-dai-q6-mi2s",
+	.id	= -1,
+	.dev = {
+		.platform_data = &apq_mi2s_rx_data,
+	},
+};
+
+struct msm_mi2s_pdata apq_mi2s_data = {
+	.rx_sd_lines = MSM_MI2S_SD0,
+	.tx_sd_lines = MSM_MI2S_SD3,
+};
+
+struct platform_device apq_cpudai_mi2s = {
+	.name	= "msm-dai-q6-mi2s",
+	.id	= -1,
+	.dev = {
+		.platform_data = &apq_mi2s_data,
+	},
+};
+
+struct platform_device apq_cpudai_i2s_rx = {
+	.name	= "msm-dai-q6",
+	.id	= PRIMARY_I2S_RX,
+};
+
+struct platform_device apq_cpudai_i2s_tx = {
+	.name	= "msm-dai-q6",
+	.id	= PRIMARY_I2S_TX,
 };
 
 struct platform_device apq_cpu_fe = {
@@ -3419,8 +3564,8 @@ static struct mem_pool apq8064_display_read_pools[] =  {
 	[GEN_POOL] =
 	/* One address space for display reads */
 		{
-			.paddr	= SZ_2G,
-			.size	= SZ_2G - SZ_4K,
+			.paddr	= SZ_128K,
+			.size	= SZ_2G - SZ_128K,
 		},
 };
 

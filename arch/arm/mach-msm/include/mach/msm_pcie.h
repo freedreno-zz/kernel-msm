@@ -19,7 +19,6 @@
 enum msm_pcie_gpio {
 	MSM_PCIE_GPIO_RST_N,
 	MSM_PCIE_GPIO_PWR_EN,
-	MSM_PCIE_GPIO_CLK_SRC,
 	MSM_PCIE_MAX_GPIO
 };
 

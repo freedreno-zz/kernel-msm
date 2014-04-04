@@ -102,6 +102,12 @@ config HID_ACRUX_FF
 	Say Y here if you want to enable force feedback support for ACRUX
 	game controllers.
 
+config HID_AMAZON_GP
+	tristate "Amazon.com game controller support"
+	depends on AMAZON && BT_HIDP
+	---help---
+	Say Y here if you want to enable support for Amazon.com game controllers.
+
 config HID_APPLE
 	tristate "Apple {i,Power,Mac}Books" if EXPERT
 	depends on (USB_HID || BT_HIDP)

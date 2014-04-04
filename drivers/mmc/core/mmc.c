@@ -22,7 +22,8 @@
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
-
+#include <linux/reboot.h>
+static int mmc_reboot_notify(struct notifier_block *notify_block, unsigned long event, void *unused);
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -900,6 +901,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->type = MMC_TYPE_MMC;
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
+		card->reboot_notify.notifier_call = mmc_reboot_notify;
 	}
 
 	/*
@@ -1008,6 +1010,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				 card->ext_csd.part_time);
 		if (err && err != -EBADMSG)
 			goto free_card;
+		card->part_curr = card->ext_csd.part_config &
+				  EXT_CSD_PART_CONFIG_ACC_MASK;
 	}
 
 	/*
@@ -1380,6 +1384,22 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 
 	return err;
 }
+int mmc_send_long_pon(struct mmc_card *card)
+{
+	int err = 0;
+	struct mmc_host *host = card->host;
+
+	mmc_claim_host(host);
+//	if (card->issue_long_pon && mmc_can_poweroff_notify(card)) {
+	if (mmc_can_poweroff_notify(card)) {
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
+		if (err)
+			pr_warning("%s: error %d sending Long PON",
+					mmc_hostname(host), err);
+	}
+	mmc_release_host(host);
+	return err;
+}
 
 /*
  * Host is being removed. Free up the current card.
@@ -1390,7 +1410,7 @@ static void mmc_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_remove_card(host->card);
-
+	unregister_reboot_notifier(&host->card->reboot_notify);
 	mmc_claim_host(host);
 	host->card = NULL;
 	mmc_release_host(host);
@@ -1622,7 +1642,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	mmc_claim_host(host);
 	if (err)
 		goto remove_card;
-
+	unregister_reboot_notifier(&host->card->reboot_notify);
 	return 0;
 
 remove_card:
@@ -1637,4 +1657,20 @@ err:
 		mmc_hostname(host), err);
 
 	return err;
+}
+static int mmc_reboot_notify(struct notifier_block *notify_block,
+		unsigned long event, void *unused)
+{
+	struct mmc_card *card = container_of(
+			notify_block, struct mmc_card, reboot_notify);
+
+	if (!card)
+		return -EINVAL;
+
+	if (event != SYS_RESTART)
+		card->issue_long_pon = true;
+	else
+		card->issue_long_pon = false;
+
+	return NOTIFY_OK;
 }

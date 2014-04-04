@@ -604,7 +604,7 @@ int hci_dev_open(__u16 dev)
 			hci_dev_lock_bh(hdev);
 			BT_INFO("%s: Configuring Interlaced Scan", __func__);
 			set_page_scan_type(hdev, INTERLACED_SCAN,
-				PAGE_SCAN_INTERVAL_300);
+				PAGE_SCAN_INTERVAL_700);
 			mgmt_powered(hdev->id, 1);
 			hci_dev_unlock_bh(hdev);
 		}
@@ -2251,7 +2251,7 @@ static inline void hci_link_tx_to(struct hci_dev *hdev, __u8 type)
 	list_for_each(p, &h->list) {
 		c = list_entry(p, struct hci_conn, list);
 		if (c->type == type && c->sent) {
-			BT_ERR("%s killing stalled connection %s",
+			BT_DBG("%s killing stalled connection %s",
 				hdev->name, batostr(&c->dst));
 			hci_acl_disconn(c, 0x13);
 		}
@@ -2301,8 +2301,7 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 			if (conn->type == ACL_LINK) {
 				hdev->acl_last_tx = jiffies;
 				hdev->acl_cnt -= count;
-				BT_DBG("%s: Decrementing ACL Buffer Count",
-					__func__);
+				BT_DBG("%s: Decrementing ACL Buffer Count", __func__);
 			} else if (conn->type == LE_LINK){
 				hdev->le_last_tx = jiffies;
 				if (hdev->le_pkts) {
@@ -2310,8 +2309,7 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 				} else {
 					hdev->acl_cnt -= count;
 				}
-				BT_DBG("%s: Decrementing LE Buffer Count",
-					__func__);
+				BT_DBG("%s: Decrementing LE Buffer Count", __func__);
 			}
 			quote -= count;
 

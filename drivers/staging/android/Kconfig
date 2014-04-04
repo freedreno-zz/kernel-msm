@@ -89,4 +89,36 @@ config ANDROID_INTF_ALARM_DEV
 
 endif # if ANDROID
 
+
+config AMAZON
+	bool "AMAZON Features"
+	default N
+	---help---
+	  Enable support for various Amazon Common Features needed on the Android platform
+
+if AMAZON
+
+config AMAZON_METRICS_LOG
+	bool "Amazon metrics logging support"
+	default y
+	help
+		Enables a new metrics log for collecting metrics information. These
+		logs will be present at /dev/log/metrics.
+
+config AMAZON_LOG
+	bool "Amazon Log"
+	default y
+	help
+		Create a special Amazon Log area for all Amazon applications.
+
+config IDME
+	bool "IDME Features"
+	default y
+	---help---
+	  Enable IDME various functions to save and read important information.
+
+endif # if AMAZON
+# ACOS_MOD_END
+
+
 endmenu

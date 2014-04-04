@@ -24,7 +24,6 @@
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
-#include <linux/leds-pm8xxx.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
@@ -315,7 +314,7 @@ static struct mfd_cell misc_cell __devinitdata = {
 };
 
 static struct mfd_cell leds_cell __devinitdata = {
-	.name		= PM8XXX_LEDS_DEV_NAME,
+	.name		= "bueller-leds",
 	.id		= -1,
 };
 
@@ -777,17 +776,13 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 			goto bail;
 		}
 
-		if (pdata->leds_pdata) {
-			leds_cell.platform_data = pdata->leds_pdata;
-			leds_cell.pdata_size =
-				sizeof(struct pm8xxx_led_platform_data);
-			ret = mfd_add_devices(pmic->dev, 0, &leds_cell,
-					      1, NULL, 0);
-			if (ret) {
-				pr_err("Failed to add leds subdevice ret=%d\n",
-						ret);
-				goto bail;
-			}
+		/* Add the Bueller LED device with the PMIC as its parent */
+		ret = mfd_add_devices(pmic->dev, 0, &leds_cell,
+				      1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add leds subdevice ret=%d\n",
+					ret);
+			goto bail;
 		}
 
 		if (pdata->vibrator_pdata) {

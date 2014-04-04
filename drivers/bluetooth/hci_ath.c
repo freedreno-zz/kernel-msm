@@ -47,7 +47,7 @@
 #include <mach/msm_serial_hs.h>
 #endif
 
-unsigned int enableuartsleep = 1;
+unsigned int enableuartsleep = 0;
 module_param(enableuartsleep, uint, 0644);
 /*
  * Global variables

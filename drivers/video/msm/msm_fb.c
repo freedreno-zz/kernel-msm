@@ -937,6 +937,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 		printk(KERN_ERR "msm_fb_blank_sub: no panel operation detected!\n");
 		return -ENODEV;
 	}
+	pr_info("%s mode=%d", __func__, blank_mode);
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
@@ -1088,6 +1089,13 @@ static void msm_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 static int msm_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (!mfd->cont_splash_done && (blank_mode == FB_BLANK_UNBLANK))
+			return 0;
+
+	pr_debug("%s : %d  %d \n", __func__, blank_mode, mfd->cont_splash_done);
+	if ((blank_mode == FB_BLANK_POWERDOWN) && (!mfd->cont_splash_done))
+		return 0;
 
 	if (blank_mode == FB_BLANK_POWERDOWN) {
 		struct fb_event event;
@@ -2362,11 +2370,12 @@ static int msm_fb_set_par(struct fb_info *info)
 		if (mfd->update_panel_info)
 			mfd->update_panel_info(mfd);
 
-		blank = 1;
 	}
+	blank = 1;
 	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres,
 						       var->bits_per_pixel/8);
 
+	pr_info("%s panel power=%d",__func__, mfd->panel_power_on);
 	if (mfd->cont_splash_done) {
 		if ((mfd->panel_info.type == DTV_PANEL) &&
 				!mfd->panel_power_on) {
@@ -3341,8 +3350,6 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		return ret;
 	}
 
-	mdp4_overlay_check_splash(mfd, req.id);
-
 	if (info->node == 0 && !(mfd->cont_splash_done)) { /* primary */
 		mdp_set_dma_pan_info(info, NULL, TRUE);
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {
@@ -3777,9 +3784,7 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		goto buf_sync_err_1;
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
-		mutex_unlock(&mfd->sync_mutex);
 		msm_fb_wait_for_fence(mfd);
-		mutex_lock(&mfd->sync_mutex);
 	}
 	if (mfd->panel.type == WRITEBACK_PANEL)
 		threshold = 1;
@@ -3868,12 +3873,16 @@ static int msmfb_get_metadata(struct msm_fb_data_type *mfd,
 			mfdtemp = (struct msm_fb_data_type *)fbi_list[c]->par;
 			if (mfdtemp->panel.type == DTV_PANEL) {
 				metadata_ptr->data.res_cfg.vFmt =
-					mfdtemp->var_vic;
-				metadata_ptr->data.res_cfg.set_default_res =
-					mfdtemp->set_default_res;
-				pr_info("%s vic: %d res: %d\n",
-					__func__, mfdtemp->var_vic,
-					mfdtemp->set_default_res);
+					mfdtemp->vfmt_kernel;
+				if ((mfdtemp->var_xres < 1920) &&
+				(mfdtemp->var_yres < 1080))
+					metadata_ptr->data.res_cfg.goDefaultRes = 1;
+
+				pr_info("%s vic: %d res: (%d x %d)default: %d \n",
+				__func__, mfdtemp->var_vic,
+				mfdtemp->var_xres,
+				mfdtemp->var_yres,
+				metadata_ptr->data.res_cfg.goDefaultRes);
 				return ret;
 			}
 		}
@@ -4281,7 +4290,7 @@ void msm_fb_print_fence_log(void)
 			fence_log[i].action_id, fence_log[i].fb_index,
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
 			fence_log[i].timestamp, fence_log[i].update_cnt);
-		if ((i & 0xf) == 0xf)
+		if ((i % 0x8) == 0x0)
 			msleep(20);
 	}
 
@@ -4292,7 +4301,7 @@ void msm_fb_print_fence_log(void)
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
 			fence_log[i].timestamp, fence_log[i].update_cnt);
 		i--;
-		if ((i & 0xf) == 0xf)
+		if ((i % 0x8) == 0x0)
 			msleep(20);
 	};
 

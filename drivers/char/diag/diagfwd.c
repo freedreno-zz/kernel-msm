@@ -315,9 +315,9 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				return;
 			}
 			if (pkt_len > r) {
-				pr_err("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
-				__func__, pkt_len, r, total_recd, loop_count,
-				smd_info->peripheral, smd_info->type);
+				//pr_err("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
+				//__func__, pkt_len, r, total_recd, loop_count,
+				//smd_info->peripheral, smd_info->type);
 			}
 
 			/* keep reading for complete packet */

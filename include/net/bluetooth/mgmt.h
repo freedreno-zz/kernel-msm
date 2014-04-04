@@ -425,3 +425,14 @@ struct mgmt_ev_remote_battery_level {
 	bdaddr_t bdaddr;
 	uint8_t battery_level;
 } __packed;
+
+#define MGMT_OP_CFG_PAGE_SCAN_INTERVAL	0x0C1C
+#define MGMT_OP_CFG_PAGE_SCAN_MODE	0x0C47
+struct mgmt_op_write_page_scan_interval {
+	__u16   interval;
+	__u16   window;
+} __packed;
+
+struct mgmt_op_write_page_scan_mode {
+	__u8   mode;
+} __packed;

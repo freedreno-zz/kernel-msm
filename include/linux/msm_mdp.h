@@ -557,7 +557,7 @@ enum {
 
 struct mdp_res_cfg {
 	uint32_t vFmt;
-	uint32_t set_default_res;
+	uint32_t goDefaultRes;
 };
 
 struct mdp_blend_cfg {

@@ -484,9 +484,26 @@ static void hci_conn_timeout(unsigned long arg)
 static void hci_conn_idle(unsigned long arg)
 {
 	struct hci_conn *conn = (void *) arg;
+	int err = 0;
 
 	BT_DBG("conn %p mode %d", conn, conn->mode);
 
+	BT_INFO("Checking Controller's Role with remote device");
+	if (conn->link_mode & HCI_LM_MASTER)
+		BT_INFO("Controller is in MASTER mode");
+	else {
+		BT_INFO("Controller is in SLAVE mode. Requesting Role Switch");
+		err = hci_conn_switch_role(conn, 0);
+		if (err < 0) {
+			BT_ERR("Role switch failed with return value: %d", err);
+			goto exit;
+		}
+		set_bit(HCI_CONN_MODE_CHANGE_DEFERRED, &conn->pend);
+		BT_INFO("Wait for the Role change event");
+		return;
+	}
+exit:
+	BT_INFO("Requesting Controller to enter into Sniff mode");
 	hci_conn_enter_sniff_mode(conn);
 }
 
@@ -525,7 +542,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 {
 	struct hci_conn *conn;
 
-	BT_DBG("%s dst %s", hdev->name, batostr(dst));
+	BT_DBG("%s dst BDADDR: %s of type: %d", hdev->name, batostr(dst), type);
 
 	conn = kzalloc(sizeof(struct hci_conn), GFP_ATOMIC);
 	if (!conn)
@@ -1153,8 +1170,8 @@ void hci_conn_enter_sniff_mode(struct hci_conn *conn)
 	if (lmp_sniffsubr_capable(hdev) && lmp_sniffsubr_capable(conn)) {
 		struct hci_cp_sniff_subrate cp;
 		cp.handle             = cpu_to_le16(conn->handle);
-		cp.max_latency        = cpu_to_le16(0);
-		cp.min_remote_timeout = cpu_to_le16(0);
+		cp.max_latency        = cpu_to_le16(3200);   // 2 secs
+		cp.min_remote_timeout = cpu_to_le16(320);    // 200 ms
 		cp.min_local_timeout  = cpu_to_le16(0);
 		hci_send_cmd(hdev, HCI_OP_SNIFF_SUBRATE, sizeof(cp), &cp);
 	}

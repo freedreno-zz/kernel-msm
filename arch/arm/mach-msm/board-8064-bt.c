@@ -61,32 +61,7 @@ static struct platform_device msm_bluesleep_device = {
 };
 #endif
 
-#if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
-
-#define BAHAMA_SLAVE_ID_FM_ADDR  0x2A
-#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
-
-struct bt_vreg_info {
-	const char *name;
-	unsigned int pmapp_id;
-	unsigned int min_level;
-	unsigned int max_level;
-	unsigned int is_pin_controlled;
-	struct regulator *reg;
-};
-
-struct bahama_config_register {
-	u8 reg;
-	u8 value;
-	u8 mask;
-};
-static struct bt_vreg_info bt_vregs[] = {
-	{"bha_vddxo",  2, 1800000, 1800000, 0, NULL},
-	{"bha_vddpx", 21, 1800000, 1800000, 0, NULL},
-	{"bha_vddpa", 21, 2900000, 3300000, 0, NULL}
-};
-
-static struct msm_xo_voter *bt_clock;
+#if defined(CONFIG_BT)
 
 static unsigned bt_config_pcm_on[] = {
 	/*PCM_DOUT*/
@@ -137,6 +112,33 @@ static int config_pcm(int mode)
 
 	return rc;
 }
+
+#if defined(CONFIG_MARIMBA_CORE)
+
+#define BAHAMA_SLAVE_ID_FM_ADDR  0x2A
+#define BAHAMA_SLAVE_ID_QMEMBIST_ADDR   0x7B
+
+struct bt_vreg_info {
+	const char *name;
+	unsigned int pmapp_id;
+	unsigned int min_level;
+	unsigned int max_level;
+	unsigned int is_pin_controlled;
+	struct regulator *reg;
+};
+
+struct bahama_config_register {
+	u8 reg;
+	u8 value;
+	u8 mask;
+};
+static struct bt_vreg_info bt_vregs[] = {
+	{"bha_vddxo",  2, 1800000, 1800000, 0, NULL},
+	{"bha_vddpx", 21, 1800000, 1800000, 0, NULL},
+	{"bha_vddpa", 21, 2900000, 3300000, 0, NULL}
+};
+
+static struct msm_xo_voter *bt_clock;
 
 static int bahama_bt(int on)
 {
@@ -552,6 +554,7 @@ static struct i2c_board_info bahama_devices[] = {
 	.platform_data = &marimba_pdata,
 },
 };
+#endif
 
 struct regulator *vreg_s4;
 struct regulator *vreg_gpio_8;
@@ -673,6 +676,8 @@ out:
 int bluetooth_power(int on)
 {
 	int rc = 0;
+
+#if defined(CONFIG_MARIMBA_CORE)
 	int conn_chip = 0;
 
 	conn_chip = adie_get_detected_connectivity_type();
@@ -692,7 +697,9 @@ int bluetooth_power(int on)
 			else
 				pr_debug("%s: BT powered off\n", __func__);
 		}
-	} else {
+	} else
+#endif
+	{
 		printk(KERN_INFO "%s: Chip type is AR3002\n", __func__);
 		rc = atheros_bluetooth_power(on);
 		if (rc < 0) {
@@ -716,13 +723,16 @@ int bluetooth_power(int on)
 
 void __init apq8064_bt_power_init(void)
 {
+#if defined(CONFIG_MARIMBA_CORE)
 	int rc = 0;
-	struct device *dev;
 	uint32_t hrd_version = socinfo_get_version();
+#endif
+	struct device *dev;
 
 	dev = &msm_bt_power_device.dev;
 	dev->platform_data = bluetooth_power;
 
+#if defined(CONFIG_MARIMBA_CORE)
 	pr_debug("%s: Registering WCN2243 specific information\n", __func__);
 	/* I2C registration for WCN2243 */
 	if (machine_is_mpq8064_hrd()
@@ -741,6 +751,7 @@ void __init apq8064_bt_power_init(void)
 		pr_err("%s: I2C Register failed\n", __func__);
 	else
 		pr_debug("%s: I2C Registration successful\n", __func__);
+#endif
 
 	if (platform_device_register(&msm_bt_power_device) < 0)
 		pr_err("%s: Platform dev. registration failed\n", __func__);
@@ -749,9 +760,10 @@ void __init apq8064_bt_power_init(void)
 
 #if defined CONFIG_BT_HCIUART_ATH3K
 	pr_debug("%s: Registering AR3002 specific information\n", __func__);
-	if (machine_is_apq8064_dma())
+	if (machine_is_apq8064_dma() || machine_is_apq8064_bueller()) {
+		printk(KERN_ERR "gpio_bt_sys_reset_en=%d\n", QCA6234_BT_RST_N);
 		gpio_bt_sys_reset_en = QCA6234_BT_RST_N;
-	else
+	} else
 		gpio_bt_sys_reset_en = PM8921_MPP_PM_TO_SYS(10);
 	if (platform_device_register(&msm_bluesleep_device) < 0)
 		pr_err("%s: Bluesleep registration failed\n", __func__);

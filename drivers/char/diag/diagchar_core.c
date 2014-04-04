@@ -270,7 +270,6 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		}
 	}
 	/* If the exiting process is the socket process */
-	mutex_lock(&driver->diagchar_mutex);
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
 		driver->socket_process = NULL;
@@ -279,7 +278,6 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		(driver->callback_process->tgid == current->tgid)) {
 		driver->callback_process = NULL;
 	}
-	mutex_unlock(&driver->diagchar_mutex);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */

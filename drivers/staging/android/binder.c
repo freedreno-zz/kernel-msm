@@ -2549,7 +2549,7 @@ static void binder_release_work(struct list_head *list)
 			struct binder_transaction *t;
 
 			t = container_of(w, struct binder_transaction, work);
-			if (t->buffer->target_node && 
+			if (t->buffer->target_node &&
 				!(t->flags & TF_ONE_WAY)){
 				binder_send_failed_reply(t, BR_DEAD_REPLY);
 			}else {
@@ -2563,23 +2563,23 @@ static void binder_release_work(struct list_head *list)
 		} break;
 		case BINDER_WORK_TRANSACTION_COMPLETE: {
 			binder_debug(BINDER_DEBUG_DEAD_TRANSACTION,
-                                    "binder: undelivered TRANSACTION_COMPLETE\n");
+					"binder: undelivered TRANSACTION_COMPLETE\n");
 			kfree(w);
 			binder_stats_deleted(BINDER_STAT_TRANSACTION_COMPLETE);
 		} break;
-	              case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
-                      case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
-                               struct binder_ref_death *death;
-                               death = container_of(w, struct binder_ref_death, work);
-                               binder_debug(BINDER_DEBUG_DEAD_TRANSACTION,
-                                      "binder: undelivered death notification, %p\n",
-                                      death->cookie);
-                              kfree(death);
-                              binder_stats_deleted(BINDER_STAT_DEATH);
-                      } break;
+		case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
+		case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
+			struct binder_ref_death *death;
+			death = container_of(w, struct binder_ref_death, work);
+			binder_debug(BINDER_DEBUG_DEAD_TRANSACTION,
+						"binder: undelivered death notification, %p\n",
+			death->cookie);
+			kfree(death);
+			binder_stats_deleted(BINDER_STAT_DEATH);
+		} break;
 		default:
-				pr_err("binder: unexpected work type, %d, not freed\n",
-                                   w->type);
+			pr_err("binder: unexpected work type, %d, not freed\n",
+					w->type);
 			break;
 		}
 	}

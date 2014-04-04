@@ -25,11 +25,18 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/vmalloc.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
 
-/*
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+static int metrics_init;
+#endif
+
+/**
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
  *
  * This structure lives from module insertion until module removal, so it does
@@ -45,7 +52,11 @@ struct logger_log {
 	size_t			w_off;	/* current write head offset */
 	size_t			head;	/* new readers start here */
 	size_t			size;	/* size of the log */
+	struct list_head	logs;	/* list of log channels (myself)*/
 };
+
+static LIST_HEAD(log_list);
+
 
 /*
  * struct logger_reader - a logging device open for reading
@@ -505,7 +516,31 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	return ret;
 }
 
-static struct logger_log *get_log_from_minor(int);
+static struct logger_log *get_log_from_minor(int minor)
+{
+	struct logger_log *log;
+
+	list_for_each_entry(log, &log_list, logs)
+		if (log->misc.minor == minor)
+			return log;
+	return NULL;
+}
+
+//ACOS_MOD_BEGIN
+#ifdef CONFIG_AMAZON_METRICS_LOG
+static struct logger_log *get_log_from_name(char* name)
+{
+    struct logger_log *log;
+    if (0 == name) {
+        return NULL;
+    }
+    list_for_each_entry(log, &log_list, logs)
+        if (0 == strcmp(log->misc.name, name))
+            return log;
+    return NULL;
+}
+#endif
+//ACOS_MOD_END
 
 /*
  * logger_open - the log's open() file operation
@@ -705,85 +740,187 @@ static const struct file_operations logger_fops = {
 	.release = logger_release,
 };
 
+
+
 /*
- * Defines a log structure with name 'NAME' and a size of 'SIZE' bytes, which
- * must be a power of two, and greater than
- * (LOGGER_ENTRY_MAX_PAYLOAD + sizeof(struct logger_entry)).
+ * Log size must be a power of two, greater than LOGGER_ENTRY_MAX_LEN,
+ * and less than LONG_MAX minus LOGGER_ENTRY_MAX_LEN.
  */
-#define DEFINE_LOGGER_DEVICE(VAR, NAME, SIZE) \
-static unsigned char _buf_ ## VAR[SIZE]; \
-static struct logger_log VAR = { \
-	.buffer = _buf_ ## VAR, \
-	.misc = { \
-		.minor = MISC_DYNAMIC_MINOR, \
-		.name = NAME, \
-		.fops = &logger_fops, \
-		.parent = NULL, \
-	}, \
-	.wq = __WAIT_QUEUE_HEAD_INITIALIZER(VAR .wq), \
-	.readers = LIST_HEAD_INIT(VAR .readers), \
-	.mutex = __MUTEX_INITIALIZER(VAR .mutex), \
-	.w_off = 0, \
-	.head = 0, \
-	.size = SIZE, \
-};
-
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 256*1024)
-DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
-DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
-
-static struct logger_log *get_log_from_minor(int minor)
+static int __init create_log(char *log_name, int size)
 {
-	if (log_main.misc.minor == minor)
-		return &log_main;
-	if (log_events.misc.minor == minor)
-		return &log_events;
-	if (log_radio.misc.minor == minor)
-		return &log_radio;
-	if (log_system.misc.minor == minor)
-		return &log_system;
-	return NULL;
-}
+	int ret = 0;
+	struct logger_log *log;
+	unsigned char *buffer;
 
-static int __init init_log(struct logger_log *log)
-{
-	int ret;
+	buffer = vmalloc(size);
+	if (buffer == NULL)
+		return -ENOMEM;
 
+	log = kzalloc(sizeof(struct logger_log), GFP_KERNEL);
+	if (log == NULL) {
+		ret = -ENOMEM;
+		goto out_free_buffer;
+	}
+	log->buffer = buffer;
+
+	log->misc.minor = MISC_DYNAMIC_MINOR;
+	log->misc.name = kstrdup(log_name, GFP_KERNEL);
+	if (log->misc.name == NULL) {
+		ret = -ENOMEM;
+		goto out_free_log;
+	}
+
+	log->misc.fops = &logger_fops;
+	log->misc.parent = NULL;
+
+	init_waitqueue_head(&log->wq);
+	INIT_LIST_HEAD(&log->readers);
+	mutex_init(&log->mutex);
+	log->w_off = 0;
+	log->head = 0;
+	log->size = size;
+
+	INIT_LIST_HEAD(&log->logs);
+	list_add_tail(&log->logs, &log_list);
+
+	/* finally, initialize the misc device for this log */
 	ret = misc_register(&log->misc);
 	if (unlikely(ret)) {
 		printk(KERN_ERR "logger: failed to register misc "
 		       "device for log '%s'!\n", log->misc.name);
-		return ret;
+		goto out_free_log;
 	}
 
 	printk(KERN_INFO "logger: created %luK log '%s'\n",
 	       (unsigned long) log->size >> 10, log->misc.name);
 
 	return 0;
+
+out_free_log:
+	kfree(log);
+
+out_free_buffer:
+	vfree(buffer);
+	return ret;
 }
 
+//ACOS_MOD_BEGIN
+#ifdef CONFIG_AMAZON_METRICS_LOG
+static void logger_kernel_write(const struct iovec *iov, unsigned long nr_segs)
+{
+    struct logger_log *log = get_log_from_name(LOGGER_LOG_METRICS);
+    struct logger_entry header;
+    struct timespec now;
+    unsigned long count = nr_segs;
+    size_t total_len = 0;
+
+    while (count-- > 0) {
+        total_len += iov[count].iov_len;
+    }
+
+    now = current_kernel_time();
+
+    header.pid = current->tgid;
+    header.tid = current->pid;
+    header.sec = now.tv_sec;
+    header.nsec = now.tv_nsec;
+    header.len = min_t(size_t, total_len, LOGGER_ENTRY_MAX_PAYLOAD);
+
+    /* null writes succeed, return zero */
+    if (unlikely(!header.len))
+        return;
+
+    mutex_lock(&log->mutex);
+
+    /*
+     * Fix up any readers, pulling them forward to the first readable
+     * entry after (what will be) the new write offset. We do this now
+     * because if we partially fail, we can end up with clobbered log
+     * entries that encroach on readable buffer.
+     */
+    fix_up_readers(log, sizeof(struct logger_entry) + header.len);
+
+    do_write_log(log, &header, sizeof(struct logger_entry));
+
+    total_len = 0;
+
+    while (nr_segs-- > 0) {
+        size_t len;
+
+        /* figure out how much of this vector we can keep */
+        len = min_t(size_t, iov->iov_len, header.len - total_len);
+
+        /* write out this segment's payload */
+        do_write_log(log, iov->iov_base, len);
+
+        iov++;
+        total_len += len;
+    }
+
+    mutex_unlock(&log->mutex);
+
+    /* wake up any blocked readers */
+    wake_up_interruptible(&log->wq);
+}
+
+void log_to_metrics(android_LogPriority priority, const char *domain, const char *log_msg)
+{
+    if (metrics_init != 0 && log_msg != NULL) {
+        struct iovec vec[3];
+
+        if (domain == NULL) {
+            domain = "kernel";
+        }
+
+        vec[0].iov_base = (unsigned char *)&priority;
+        vec[0].iov_len  = 1;
+
+        vec[1].iov_base = (void *)domain;
+        vec[1].iov_len  = strlen(domain) + 1;
+
+        vec[2].iov_base = (void *)log_msg;
+        vec[2].iov_len  = strlen(log_msg) + 1;
+
+        logger_kernel_write(vec, 3);
+    }
+}
+#endif
+//ACOS_MOD_END
 static int __init logger_init(void)
 {
 	int ret;
 
-	ret = init_log(&log_main);
+	ret = create_log(LOGGER_LOG_MAIN, 256*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = init_log(&log_events);
+	ret = create_log(LOGGER_LOG_EVENTS, 256*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = init_log(&log_radio);
+	ret = create_log(LOGGER_LOG_RADIO, 256*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = init_log(&log_system);
+	ret = create_log(LOGGER_LOG_SYSTEM, 256*1024);
 	if (unlikely(ret))
 		goto out;
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+    ret = create_log(LOGGER_LOG_METRICS, 256*1024);
+    if (unlikely(ret))
+        goto out;
+    metrics_init = 1;
+#endif
+
+#ifdef CONFIG_AMAZON_LOG
+    ret = create_log(LOGGER_LOG_AMAZON_MAIN, 256*1024);
+    if (unlikely(ret))
+        goto out;
+#endif
 
 out:
 	return ret;
 }
+
 device_initcall(logger_init);

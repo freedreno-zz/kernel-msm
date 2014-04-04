@@ -29,6 +29,8 @@
 #include <linux/mutex.h>
 #include "lm75.h"
 
+/* Change in temperature that triggers an event to user mode. (500 == 0.5 Celsius) */
+#define TEMP_CHANGE_STEP 500
 
 /*
  * This driver handles the LM75 and compatible digital temperature sensors.
@@ -407,8 +409,18 @@ static struct lm75_data *lm75_update_device(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct lm75_data *data = i2c_get_clientdata(client);
 	struct lm75_data *ret = data;
+	/* temporary buffer to hold the new temperature value */
+	char envp_temp[32];
+	char *envp[2] = {envp_temp, NULL};
+	int last_valid_temp = 0;
+	int cur_temp = 0;
 
 	mutex_lock(&data->update_lock);
+
+	/* If data is valid, before updating the current value, store it */
+	if (data->valid) {
+		last_valid_temp = LM75_TEMP_FROM_REG(data->temp[0]);
+	}
 
 	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
@@ -431,6 +443,18 @@ static struct lm75_data *lm75_update_device(struct device *dev)
 		}
 		data->last_updated = jiffies;
 		data->valid = 1;
+
+		/* If absolute change in temperature >= TEMP_CHANGE_STEP trigger uevent to notify user mode */
+		cur_temp = LM75_TEMP_FROM_REG(data->temp[0]);
+	
+		if(abs(cur_temp - last_valid_temp) >= TEMP_CHANGE_STEP) {
+			dev_dbg(&client->dev,
+				"Temp change greater than %d detected. Previous temp :%d, Current temp :%d. Notifying user mode", 
+			 	 TEMP_CHANGE_STEP, last_valid_temp, cur_temp);
+
+			snprintf(envp_temp, sizeof(envp_temp), "NEW_TEMP=%d", cur_temp);
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+		}
 	}
 
 abort:

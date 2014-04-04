@@ -636,7 +636,7 @@ static int hidp_session(void *arg)
 			if (session->conn->hdev)
 				set_page_scan_type(session->conn->hdev,
 					INTERLACED_SCAN,
-					PAGE_SCAN_INTERVAL_300);
+					PAGE_SCAN_INTERVAL_700);
 			else
 				BT_INFO("%s: Failed to get HCI handle",
 					__func__);

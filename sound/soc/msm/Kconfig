@@ -140,7 +140,7 @@ config SND_SOC_QDSP6V2
 
 config SND_SOC_MSM8960
 	tristate "SoC Machine driver for MSM8960 and APQ8064 boards"
-	depends on ARCH_MSM8960 || ARCH_APQ8064
+	depends on MACH_MPQ8064_HRD
 	select SND_SOC_VOICE
 	select SND_SOC_QDSP6
 	select SND_SOC_MSM_STUB
@@ -154,6 +154,21 @@ config SND_SOC_MSM8960
 	default n
 	help
 	 To add support for SoC audio on MSM8960 and APQ8064 boards
+
+config SND_SOC_BUELLER
+	tristate "SoC Machine driver for Bueller boards"
+	depends on MACH_APQ8064_BUELLER
+	select SND_SOC_VOICE
+	select SND_SOC_QDSP6
+	select SND_SOC_MSM_STUB
+	select SND_SOC_WCD9310
+	select SND_SOC_WCD9304
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_MSM_QDSP6_HDMI_AUDIO
+	select SND_SOC_DIT4192
+	default y
+	help
+	 To add support for SoC audio on BUELLER boards
 
 config AUDIO_OCMEM
 	bool "Enable OCMEM for audio/voice usecase"

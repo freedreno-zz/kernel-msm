@@ -100,9 +100,9 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 
 /* SDC1 pad data */
 static struct msm_mmc_pad_drv sdc1_pad_drv_on_cfg[] = {
-	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_16MA},
-	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_10MA},
-	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_10MA}
+	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_8MA},
+	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_6MA},
+	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_6MA}
 };
 
 static struct msm_mmc_pad_drv sdc1_pad_drv_off_cfg[] = {
@@ -353,7 +353,7 @@ void __init apq8064_init_mmc(void)
 
 	if (apq8064_sdc3_pdata) {
 		if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv() ||
-			machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
+			machine_is_mpq8064_dma() || machine_is_apq8064_bueller()) {
 			apq8064_sdc3_pdata->uhs_caps &= ~(MMC_CAP_UHS_SDR12 |
 				MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_DDR50 |
 				MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104);
@@ -363,8 +363,8 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->is_wpswitch_active_low = false;
 		}
 		if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
-			machine_is_mpq8064_dtv() || machine_is_mpq8064_dma() ||
-				machine_is_apq8064_dma()) {
+			machine_is_mpq8064_dtv() || machine_is_mpq8064_dma()
+			|| machine_is_apq8064_bueller()) {
 			int rc;
 			struct pm_gpio sd_card_det_init_cfg = {
 				.direction      = PM_GPIO_DIR_IN,
@@ -407,7 +407,7 @@ void __init apq8064_init_mmc(void)
 			apq8064_sdc3_pdata->pin_data->pad_data->\
 				drv->on[2].val = GPIO_CFG_10MA;
 		}
-		if (machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
+		if (machine_is_mpq8064_dma() || machine_is_apq8064_bueller()) {
 			int i;
 
                         for (i = 0;

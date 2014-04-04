@@ -19,10 +19,6 @@
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "EXT_COMMON: "
 
-#ifndef DRVR_ONLY_CECT_NO_DAEMON
-#define DRVR_ONLY_CECT_NO_DAEMON
-#endif
-
 /* The start of the data block collection within the CEA Extension Version 3 */
 #define DBC_START_OFFSET 4
 #define GET_NIBBLE(var, n) ((var & (0xF << n * 4)) >> n * 4)
@@ -334,7 +330,7 @@ static ssize_t hdmi_common_rda_edid_modes(struct device *dev,
 			.num_of_elements; ++i) {
 			if (ret > 0)
 				ret += scnprintf(buf + ret,
-					PAGE_SIZE-ret, ",%d",
+                                	PAGE_SIZE-ret, ",%d",
 					*video_mode++ + 1);
 			else
 				ret += scnprintf(buf + ret, PAGE_SIZE-ret, "%d",
@@ -630,6 +626,9 @@ static ssize_t hdmi_msm_wta_cec(struct device *dev,
 		}
 
 		hdmi_msm_state->cec_enabled = true;
+		/*do not hardcode CEC logical address to 4*/
+		/* hdmi_msm_state->cec_logical_addr = 4; */
+
 
 		/* flush CEC queue */
 		hdmi_msm_state->cec_queue_wr = hdmi_msm_state->cec_queue_start;
@@ -700,7 +699,7 @@ static ssize_t hdmi_msm_rda_cec_frame(struct device *dev,
 	if (hdmi_msm_state->cec_queue_rd == hdmi_msm_state->cec_queue_wr
 	    && !hdmi_msm_state->cec_queue_full) {
 		mutex_unlock(&hdmi_msm_state_mutex);
-		DEV_ERR("CEC message queue is empty\n");
+		DEV_DBG("CEC message queue is empty\n");
 		return -EBUSY;
 	}
 	memcpy(buf, hdmi_msm_state->cec_queue_rd++,
@@ -835,19 +834,19 @@ static ssize_t external_common_wta_video_mode(struct device *dev,
 	mutex_lock(&external_common_state_hpd_mutex);
 	if (!external_common_state->hpd_state) {
 		mutex_unlock(&external_common_state_hpd_mutex);
-		DEV_INFO("%s: FAILED: display off or cable disconnected\n",
+		pr_info("%s: FAILED: display off or cable disconnected\n",
 			__func__);
 		return ret;
 	}
 	mutex_unlock(&external_common_state_hpd_mutex);
 
 	video_mode = atoi(buf)-1;
-	DEV_INFO("%s: video_mode is %d\n", __func__, video_mode);
+	pr_info("%s: video_mode is %d\n", __func__, video_mode);
 	kobject_uevent(external_common_state->uevent_kobj, KOBJ_OFFLINE);
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
 	disp_mode = hdmi_common_get_supported_mode(video_mode);
 	if (!disp_mode) {
-		DEV_INFO("%s: FAILED: mode not supported (%d)\n",
+		pr_info("%s: FAILED: mode not supported (%d)\n",
 			__func__, video_mode);
 		return ret;
 	}
@@ -963,7 +962,7 @@ static ssize_t hdmi_wta_avi_itc(struct device *dev,
 		if (external_common_state->config_itc_bit) {
 			err = external_common_state->config_itc_bit(itc);
 			if (!err)
-				DEV_INFO("%s: '%d is configured'!\n",
+				pr_info("%s: '%d is configured'!\n",
 							__func__, itc);
 			else
 				ret = err;
@@ -987,7 +986,7 @@ static ssize_t hdmi_wta_avi_cn0_1(struct device *dev,
 		if (external_common_state->config_cn_bits) {
 			err = external_common_state->config_cn_bits(cns);
 			if (!err)
-				DEV_INFO("%s: '%d is configured'!\n",
+				pr_info("%s: '%d is configured'!\n",
 							__func__, cns);
 			else
 				ret = err;
@@ -1582,6 +1581,44 @@ static void hdmi_edid_extract_vendor_id(const uint8 *in_buf,
 	vendor_id[3] = 0;
 }
 
+static void hdmi_edid_workaround_detection(const uint8 *in_buf,
+	u32 *workaround_id)
+{
+	int i, start, end, index;
+	u8 signature[] = {0x50, 0x61, 0x6E, 0x61, 0x73, 0x6F, 0x6E, 0x69, 0x63, 0x2D, 0x54, 0x56};
+	u32 found = false;
+	/* search description */
+	start = 54;
+	end = 124 - sizeof(signature);
+	index = start;
+	while (index < end) {
+		for (i = 0; i < sizeof(signature); i++) {
+			if (in_buf[index + i] != signature[i])
+				break;
+		}
+		if (i == sizeof(signature)) {
+			found = true;
+			break;
+		}
+		index += i + 1;
+	};
+	if (found && (in_buf[17] <= 19))
+			*workaround_id = 1;
+	else
+		*workaround_id = 0;
+
+	pr_info("hdmi_edid_workaround_detection %d\n", *workaround_id);
+	pr_info("edid[8]=%2x %2x %2x %2x %2x %2x %2x %2x", in_buf[8],
+		in_buf[9],in_buf[10],in_buf[11],in_buf[12],in_buf[13],in_buf[14],in_buf[15]);
+	pr_info("edid[16]=%2x %2x", in_buf[16],in_buf[17]);
+	for (i = 54; i < 124; i+=10) {
+		pr_info("%2x %2x %2x %2x %2x %2x %2x %2x %2x %2x",
+			in_buf[i], in_buf[i+1], in_buf[i+2], in_buf[i+3], in_buf[i+4], in_buf[i+5],
+			in_buf[i+6], in_buf[i+7], in_buf[i+8], in_buf[i+9]);
+	}
+
+}
+
 static uint32 hdmi_edid_extract_ieee_reg_id(const uint8 *in_buf)
 {
 	uint8 len;
@@ -1616,7 +1653,7 @@ static void hdmi_edid_extract_3d_present(const uint8 *in_buf)
 	offset = HDMI_VSDB_3D_DATA_OFFSET(vsd);
 	DEV_DBG("EDID: 3D present @ %d = %02x\n", offset, vsd[offset]);
 	if (vsd[offset] >> 7) { /* 3D format indication present */
-		DEV_INFO("EDID: 3D present, 3D-len=%d\n", vsd[offset+1] & 0x1F);
+		pr_info("EDID: 3D present, 3D-len=%d\n", vsd[offset+1] & 0x1F);
 		external_common_state->present_3d = 1;
 	}
 }
@@ -1728,7 +1765,8 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 							(BIT(1) | BIT(0));
 				external_common_state->quantization_support =
 						((etag[2] & BIT(6)) >> 6);
-				DEV_DBG("ScanInfo(pt|it|ce|qs):(%d|%d|%d|%d)",
+				DEV_DBG("EDID: Scan Information (pt|it|ce|qs): "
+					"(%d|%d|%d|%d)",
 					external_common_state->pt_scan_info,
 					external_common_state->it_scan_info,
 					external_common_state->ce_scan_info,
@@ -1846,7 +1884,7 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 		++ndx;
 	}
 	if (ndx == max_num_of_elements)
-		DEV_INFO("%s: *no mode* found\n", __func__);
+		pr_info("%s: *no mode* found\n", __func__);
 }
 
 static void limit_supported_video_format(uint32 *video_format)
@@ -2432,6 +2470,8 @@ int hdmi_common_read_edid(void)
 		goto error;
 	}
 	hdmi_edid_extract_vendor_id(edid_buf, vendor_id);
+	hdmi_edid_workaround_detection(edid_buf,
+		&external_common_state->work_around_id);
 
 	/* EDID_CEA_EXTENSION_FLAG[0x7E] - CEC extension byte */
 	num_og_cea_blocks = edid_buf[0x7E];
@@ -2510,7 +2550,7 @@ int hdmi_common_read_edid(void)
 
 	/* EDID_VERSION[0x12] - EDID Version */
 	/* EDID_REVISION[0x13] - EDID Revision */
-	DEV_INFO("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%04x, "
+	pr_info("EDID (V=%d.%d, #CEABlocks=%d[V%d], ID=%s, IEEE=%04x, "
 		"EDID-Ext=0x%02x)\n", edid_buf[0x12], edid_buf[0x13],
 		num_og_cea_blocks, cea_extension_ver, vendor_id, ieee_reg_id,
 		edid_buf[0x80]);
@@ -2545,18 +2585,18 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 
 	if (hdmi_prim_resolution) {
 		format = hdmi_prim_resolution - 1;
-		DEV_INFO("%s: selecting resolution from fastboot param %d\n",
+		pr_info("%s: selecting resolution from fastboot param %d\n",
 			__func__, hdmi_prim_resolution);
 	} else if (userformat) {
 		format = userformat - 1;
-		DEV_INFO("%s: selecting resolution from reserved format %d\n",
+		pr_info("%s: selecting resolution from reserved format %d\n",
 			__func__, userformat);
 	} else if (mfd->var_vic) {
 		format = mfd->var_vic - 1;
-		DEV_INFO("%s: selecting resolution from best format %d\n",
+		pr_info("%s: selecting resolution from best format %d\n",
 			__func__, mfd->var_vic);
 	} else {
-		DEV_INFO("%s: selecting resolution from %dx%d, framerate %d\n",
+		pr_info("%s: selecting resolution from %dx%d, framerate %d\n",
 			__func__, mfd->var_xres, mfd->var_yres,
 			mfd->var_frame_rate);
 		switch (mfd->var_xres) {

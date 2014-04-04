@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1063,7 +1063,7 @@ void __init apq8064_set_display_params(char *prim_panel, char *ext_panel,
 	 * as a primary panel through boot parameters.
 	 */
 	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_cdp() ||
-		machine_is_mpq8064_dma() || machine_is_apq8064_dma()) {
+		machine_is_mpq8064_dma() || machine_is_apq8064_bueller()) {
 		pr_debug("HDMI is the primary display by default for MPQ\n");
 		if (!strnlen(prim_panel, PANEL_NAME_MAX_LEN))
 			strlcpy(msm_fb_pdata.prim_panel_name, HDMI_PANEL_NAME,

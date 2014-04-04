@@ -1650,8 +1650,13 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 
 	hci_dev_lock(hdev);
 
+	BT_DBG("HCI Conn. lookup for BDADDR(%s) of type: %d",
+		batostr(&ev->bdaddr), ev->link_type);
 	conn = hci_conn_hash_lookup_ba(hdev, ev->link_type, &ev->bdaddr);
 	if (!conn) {
+		BT_DBG("No HCI Conn. exits for BDADDR(%s) of type: %d",
+			batostr(&ev->bdaddr), ev->link_type);
+
 		if (ev->link_type != SCO_LINK)
 			goto unlock;
 
@@ -1660,7 +1665,9 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 			goto unlock;
 
 		conn->type = SCO_LINK;
-	}
+	} else
+		BT_DBG("HCI Conn. exists for BDADDR(%s) of type: %d",
+			batostr(&ev->bdaddr), conn->type);
 
 	if (!ev->status) {
 		conn->handle = __le16_to_cpu(ev->handle);
@@ -1669,10 +1676,12 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 			conn->state = BT_CONFIG;
 			hci_conn_hold(conn);
 			conn->disc_timeout = HCI_DISCONN_TIMEOUT;
+			BT_ERR("Connetion Type is ACL_LINK");
 			mgmt_connected(hdev->id, &ev->bdaddr, 0);
 		} else if (conn->type == LE_LINK) {
 			conn->state = BT_CONNECTED;
 			conn->disc_timeout = HCI_DISCONN_TIMEOUT;
+			BT_ERR("Connection Type is LE_LINK");
 			mgmt_connected(hdev->id, &ev->bdaddr, 1);
 		} else
 			conn->state = BT_CONNECTED;
@@ -1739,7 +1748,7 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 	struct hci_ev_conn_request *ev = (void *) skb->data;
 	int mask = hdev->link_mode;
 
-	BT_DBG("%s bdaddr %s type 0x%x", hdev->name,
+	BT_DBG("%s bdaddr: %s link-type: 0x%x", hdev->name,
 					batostr(&ev->bdaddr), ev->link_type);
 
 	mask |= hci_proto_connect_ind(hdev, &ev->bdaddr, ev->link_type);
@@ -1756,16 +1765,22 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 		if (ie)
 			memcpy(ie->data.dev_class, ev->dev_class, 3);
 
+		BT_DBG("Check ACL connection exists for BDADDR(%s) of type: %d",
+			batostr(&ev->bdaddr), ev->link_type);
 		conn = hci_conn_hash_lookup_ba(hdev, ev->link_type, &ev->bdaddr);
 		if (!conn) {
 			/* pkt_type not yet used for incoming connections */
+			BT_DBG("NO ACL conn. exists for BDADDR: %s of type: %d",
+				batostr(&ev->bdaddr), ev->link_type);
 			conn = hci_conn_add(hdev, ev->link_type, 0, &ev->bdaddr);
 			if (!conn) {
 				BT_ERR("No memory for new connection");
 				hci_dev_unlock(hdev);
 				return;
 			}
-		}
+		} else
+			BT_DBG("ACL already exists for BDADDR: %s of type: %d",
+				batostr(&ev->bdaddr), ev->link_type);
 
 		memcpy(conn->dev_class, ev->dev_class, 3);
 		/* For incoming connection update remote class to userspace */
@@ -2107,6 +2122,7 @@ static inline void hci_remote_version_evt(struct hci_dev *hdev, struct sk_buff *
 	struct hci_conn *conn;
 
 	BT_DBG("%s status %d", hdev->name, ev->status);
+
 	hci_dev_lock(hdev);
 	cp.handle = ev->handle;
 	hci_send_cmd(hdev, HCI_OP_READ_REMOTE_FEATURES,
@@ -2479,6 +2495,12 @@ static inline void hci_role_change_evt(struct hci_dev *hdev, struct sk_buff *skb
 		clear_bit(HCI_CONN_RSWITCH_PEND, &conn->pend);
 
 		hci_role_switch_cfm(conn, ev->status, ev->role);
+
+		/* Check if Sniff Mode request is pending */
+		if (test_and_clear_bit(HCI_CONN_MODE_CHANGE_DEFERRED, &conn->pend)) {
+			BT_INFO("Sending deferred Sniff Mode request to Controller");
+			hci_conn_enter_sniff_mode(conn);
+		}
 	}
 
 	hci_dev_unlock(hdev);
@@ -2523,37 +2545,34 @@ static inline void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *s
 			conn->sent -= count;
 
 			if (conn->type == ACL_LINK) {
-				BT_DBG("%s: Connection type: ACL-LINK",
-					__func__);
+				BT_DBG("%s: Connection type: ACL-LINK", __func__);
 				hdev->acl_cnt += count;
 				if (hdev->acl_cnt > hdev->acl_pkts)
 					hdev->acl_cnt = hdev->acl_pkts;
-				BT_INFO("%s: LE-Count\t: %d ACL-Count\t: %d",
-					__func__, hdev->le_cnt, hdev->acl_cnt);
+				BT_DBG("%s: HDEV-NAME\t: %s LE-Count\t: %d ACL-Count\t: %d", __func__,
+					hdev->name, hdev->le_cnt, hdev->acl_cnt);
 			} else if (conn->type == LE_LINK) {
-				BT_DBG("%s: Connection type:LE-LINK", __func__);
+				BT_DBG("%s: Connection type: LE-LINK", __func__);
 				if (hdev->le_pkts) {
-					BT_DBG("%s: Incrementing LE Buff. cnt",
-						__func__);
+					BT_DBG("%s: LE-LINK type: Incrementing LE Buffer count", __func__);
 					hdev->le_cnt += count;
 					if (hdev->le_cnt > hdev->le_pkts)
 						hdev->le_cnt = hdev->le_pkts;
 				} else {
-					BT_DBG("%s: Incrementing ACL Buff. cnt",
-						__func__);
+					BT_DBG("%s: LE-LINK type: Incrementing ACL Buffer count", __func__);
 					hdev->acl_cnt += count;
 					if (hdev->acl_cnt > hdev->acl_pkts)
 						hdev->acl_cnt = hdev->acl_pkts;
 				}
-				BT_INFO("%s: LE-Count\t: %d ACL-Count\t: %d",
-					__func__, hdev->le_cnt, hdev->acl_cnt);
+				BT_DBG("%s: HDEV-NAME\t: %s LE-Count\t: %d ACL-Count\t: %d", __func__,
+					hdev->name, hdev->le_cnt, hdev->acl_cnt);
 			} else {
 				hdev->sco_cnt += count;
 				if (hdev->sco_cnt > hdev->sco_pkts)
 					hdev->sco_cnt = hdev->sco_pkts;
 			}
 		} else
-			BT_INFO("%s: No Connection handle!!!", __func__);
+			BT_DBG("%s: No Connection handle!!!", __func__);
 	}
 
 	tasklet_schedule(&hdev->tx_task);
@@ -2702,30 +2721,30 @@ static inline void hci_link_key_request_evt(struct hci_dev *hdev, struct sk_buff
 		goto not_found;
 	}
 
-	BT_DBG("%s found key type %u for %s", hdev->name, key->key_type,
+	BT_DBG("%s found key type: %u for: %s", hdev->name, key->key_type,
 							batostr(&ev->bdaddr));
 
 	if (!test_bit(HCI_DEBUG_KEYS, &hdev->flags) && key->key_type == 0x03) {
-		BT_DBG("%s ignoring debug key", hdev->name);
+		BT_ERR("%s ignoring debug key", hdev->name);
 		goto not_found;
 	}
 
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &ev->bdaddr);
 
 	if (conn) {
-		BT_DBG("Conn pending sec level is %d, ssp is %d, key len is %d",
+		BT_ERR("Conn pending sec level is %d, ssp is %d, key len is %d",
 			conn->pending_sec_level, conn->ssp_mode, key->pin_len);
 	}
 	if (conn && (conn->ssp_mode == 0) &&
 		(conn->pending_sec_level == BT_SECURITY_VERY_HIGH) &&
 		(key->pin_len != 16)) {
-		BT_DBG("Security is high ignoring this key");
+		BT_ERR("Security is high ignoring this key");
 		goto not_found;
 	}
 
 	if (key->key_type == 0x04 && conn && conn->auth_type != 0xff &&
 						(conn->auth_type & 0x01)) {
-		BT_DBG("%s ignoring unauthenticated key", hdev->name);
+		BT_ERR("%s ignoring unauthenticated key", hdev->name);
 		goto not_found;
 	}
 
@@ -3623,6 +3642,7 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 		break;
 
 	case HCI_EV_LINK_KEY_REQ:
+		BT_ERR("Recv. HCI_EV_LINK_KEY_REQ");
 		hci_link_key_request_evt(hdev, skb);
 		break;
 

@@ -1430,19 +1430,23 @@ static int rfcomm_recv_pn(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 	struct rfcomm_dlc *d;
 	u8 dlci = pn->dlci;
 
-	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
+	BT_ERR("session: %p state: %ld dlci: %d", s, s->state, dlci);
 
 	if (!dlci)
 		return 0;
 
+	BT_ERR("Check if Data Link Connection already exists: rfcomm_dlc_get()");
 	d = rfcomm_dlc_get(s, dlci);
 	if (d) {
+		BT_ERR("DLC exists...");
 		if (cr) {
 			/* PN request */
+			BT_ERR("PN Request");
 			rfcomm_apply_pn(d, cr, pn);
 			rfcomm_send_pn(s, 0, d);
 		} else {
 			/* PN response */
+			BT_ERR("PN Response");
 			switch (d->state) {
 			case BT_CONFIG:
 				rfcomm_apply_pn(d, cr, pn);
@@ -1455,9 +1459,14 @@ static int rfcomm_recv_pn(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 	} else {
 		u8 channel = __srv_channel(dlci);
 
-		if (!cr)
-			return 0;
+		BT_ERR("DLC does not exists!!!");
 
+		if (!cr) {
+			BT_ERR("Returning as 'CR' is '0'");
+			return 0;
+		}
+
+		BT_ERR("PN request for non existing DLC. Assume incoming connection");
 		/* PN request for non existing DLC.
 		 * Assume incoming connection. */
 		if (rfcomm_connect_ind(s, channel, &d)) {
@@ -1468,8 +1477,11 @@ static int rfcomm_recv_pn(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 			rfcomm_apply_pn(d, cr, pn);
 
 			d->state = BT_OPEN;
+			BT_ERR("Replying to remote device's PN frame");
 			rfcomm_send_pn(s, 0, d);
 		} else {
+			BT_ERR("***SENDING DM FRAME*** as NO SOCKET available listening on server channel(%d) for RFCOMM conn. reqs",
+			       channel);
 			rfcomm_send_dm(s, dlci);
 		}
 	}
@@ -1646,12 +1658,13 @@ static int rfcomm_recv_mcc(struct rfcomm_session *s, struct sk_buff *skb)
 	type = __get_mcc_type(mcc->type);
 	len  = __get_mcc_len(mcc->len);
 
-	BT_DBG("%p type 0x%x cr %d", s, type, cr);
+	BT_ERR("type: 0x%x cr: %d len: %d", type, cr, len);
 
 	skb_pull(skb, 2);
 
 	switch (type) {
 	case RFCOMM_PN:
+		BT_ERR("RECVD RFCOMM_PARAMETER-NEGOTIATION");
 		rfcomm_recv_pn(s, cr, skb);
 		break;
 
@@ -1738,6 +1751,8 @@ static int rfcomm_recv_frame(struct rfcomm_session *s, struct sk_buff *skb)
 	dlci = __get_dlci(hdr->addr);
 	type = __get_type(hdr->ctrl);
 
+	BT_ERR("dlci: %d type: %d", dlci, type);
+
 	/* Trim FCS */
 	skb->len--; skb->tail--;
 	fcs = *(u8 *)skb_tail_pointer(skb);
@@ -1774,9 +1789,11 @@ static int rfcomm_recv_frame(struct rfcomm_session *s, struct sk_buff *skb)
 		break;
 
 	case RFCOMM_UIH:
+		BT_ERR("RECVD RFCOMM_UIH FRAME");
 		if (dlci)
 			return rfcomm_recv_data(s, dlci, __test_pf(hdr->ctrl), skb);
 
+		BT_ERR("Calling rfcomm_recv_mcc()");
 		rfcomm_recv_mcc(s, skb);
 		break;
 

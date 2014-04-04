@@ -927,17 +927,17 @@ static void hid_input_field(struct hid_device *hid, struct hid_field *field,
 		if (field->usage->hid == HID_DC_BATTERYSTRENGTH &&
 			hid->ll_driver->battery_level_ind &&
 			value[n] != hid->received_battery_level) {
-			hid_info(hid, "old battery level is %d, new value is %d", 
-				hid->received_battery_level, value[n]);
+			hid_info(hid, "old battery level is %d; new value[%d]=%d \n", 
+                                 hid->received_battery_level, n, value[n]);
 			hid->received_battery_level = value[n];
-			/* Convert New Battery Level into Percentage */
+
+			/* Convert New Battery Level into Percentage (normalize) */
 			hid->battery_level = ((hid->received_battery_level -
 						field->logical_minimum) * 100) /
 						(field->logical_maximum -
 						field->logical_minimum);
-			hid_info(hid, "new normalized battery level is %d",
-				hid->battery_level);
 			hid->ll_driver->battery_level_ind(hid, hid->battery_level);
+			hid_info(hid, "new normalized battery level is %d \n", hid->battery_level);
 		}
 	}
 
@@ -1308,9 +1308,9 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 		hid_warn(hdev,
 			 "can't create sysfs report descriptor attribute err: %d\n", ret);
 
-	hid_info(hdev, "%s: %s HID v%x.%02x %s [%s] on %s\n",
+	hid_info(hdev, "%s: %s HID v%x.%02x %s [%s]\n",
 		 buf, bus, hdev->version >> 8, hdev->version & 0xff,
-		 type, hdev->name, hdev->phys);
+		 type, hdev->name);
 
 	return 0;
 }

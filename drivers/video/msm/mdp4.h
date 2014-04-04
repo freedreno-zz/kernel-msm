@@ -502,7 +502,7 @@ void mdp4_lcdc_update(struct msm_fb_data_type *mfd);
 void mdp4_intr_clear_set(ulong clear, ulong set);
 void mdp4_dma_p_cfg(void);
 unsigned is_mdp4_hw_reset(void);
-void mdp4_hw_init(int cont_splash_done);
+void mdp4_hw_init(void);
 void mdp4_isr_read(int);
 void mdp4_clear_lcdc(void);
 void mdp4_mixer_blend_init(int mixer_num);
@@ -530,8 +530,7 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);
 void mdp4_dmae_done_dtv(void);
 void mdp4_dtv_wait4vsync(int cndx);
-int mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync,
-			u32 *cur_vsync);
+u32 mdp4_dtv_wait_expect_vsync(u32 timeout, u32 expect_vsync);
 void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
 u32 mdp4_dtv_get_vsync_cnt(void);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
@@ -689,8 +688,6 @@ void mdp4_overlay_lcdc_vsync_push(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *pipe);
 void mdp4_mddi_overlay_dmas_restore(void);
 void mdp4_overlay_solidfill_init(struct mdp4_overlay_pipe *pipe);
-void mdp4_overlay_stage_splash(int mixer);
-void mdp4_overlay_check_splash(struct msm_fb_data_type *mfd, int ndx);
 
 void mdp_dtv_avmute(struct platform_device *pdev, unsigned int avmute_req);
 
@@ -1012,7 +1009,7 @@ void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
 int mdp4_overlay_reset(struct msm_fb_data_type *mfd);
 void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd, u32 *release_busy);
 void mdp4_vg_csc_restore(void);
-void hdmi_msm_encrypt_en(u32 enable);
+void hdmi_msm_encryt_en(u32 enable);
 
 #ifndef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 static inline void mdp4_wfd_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)

@@ -86,6 +86,7 @@
 #include <mach/msm_cache_dump.h>
 #include <mach/scm.h>
 #include <mach/iommu_domains.h>
+#include <mach/idme_init.h> // ACOS_MOD_ONELINE
 
 #include <mach/kgsl.h>
 #include <linux/fmem.h>
@@ -3296,7 +3297,6 @@ static void __init register_i2c_devices(void)
 #endif
 #endif
 }
-
 static void __init msm8960_tsens_init(void)
 {
 	if (cpu_is_msm8960())
@@ -3344,6 +3344,17 @@ static void __init msm8960ab_update_retention_spm(void)
 		}
 	}
 }
+
+
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+static void __init idme_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
+{
+	init_idme();
+}
+#endif
+// ACOS_MOD_END
+
 
 static void __init msm8960_cdp_init(void)
 {
@@ -3489,6 +3500,11 @@ MACHINE_END
 MACHINE_START(MSM8960_MTP, "QCT MSM8960 MTP")
 	.map_io = msm8960_map_io,
 	.reserve = msm8960_reserve,
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+	.fixup = idme_fixup,
+#endif
+// ACOS_MOD_END
 	.init_irq = msm8960_init_irq,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_timer,
