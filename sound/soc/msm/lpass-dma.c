@@ -403,7 +403,7 @@ static int __devinit dai_probe(struct platform_device *pdev)
 		pr_debug("%s Error  rc=%d\n", __func__, rc);
 		goto error;
 	}
-	for (i = 0; i <= MAX_CHANNELS; i++) {
+	for (i = 0; i < MAX_CHANNELS; i++) {
 		dai[i] = kzalloc(sizeof(struct dai_drv), GFP_KERNEL);
 		if (!dai[0]) {
 			pr_debug("Allocation failed for dma_channel = 0\n");

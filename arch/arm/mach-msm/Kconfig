@@ -904,6 +904,12 @@ config MACH_APQ8064_DMA
         help
 	  Support for the Qualcomm APQ8064 DMA device.
 
+config MACH_APQ8064_BUELLER
+	depends on ARCH_APQ8064
+	bool "APQ8064 BUELLER"
+	help
+	  Support for the Lab126 APQ8064 Bueller Device
+
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
 	depends on !MSM_STACKED_MEMORY

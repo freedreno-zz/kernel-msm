@@ -31,6 +31,7 @@
 #include <linux/syscore_ops.h>
 
 #include <trace/events/power.h>
+#include <linux/trapz.h>   /* ACOS_MOD_ONELINE */
 
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
@@ -298,6 +299,13 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 			(unsigned long)freqs->cpu);
 		trace_power_frequency(POWER_PSTATE, freqs->new, freqs->cpu);
 		trace_cpu_frequency(freqs->new, freqs->cpu);
+
+		/* ACOS_MOD_BEGIN */
+		TRAPZ_DESCRIBE(TRAPZ_KERN_CPU, CPUFreq, "CPU Frequency Change");
+		TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_CPU, CPUFreq,
+				 "cpu freq=%d", freqs->new, 0, 0, 0);
+		/* ACOS_MOD_END */
+
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
 				CPUFREQ_POSTCHANGE, freqs);
 		if (likely(policy) && likely(policy->cpu == freqs->cpu)) {

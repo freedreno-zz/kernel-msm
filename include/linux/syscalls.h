@@ -63,6 +63,7 @@ struct getcpu_cache;
 struct old_linux_dirent;
 struct perf_event_attr;
 struct file_handle;
+struct trapz_info;
 
 #include <linux/types.h>
 #include <linux/aio_abi.h>
@@ -857,5 +858,5 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
 				      const struct iovec __user *rvec,
 				      unsigned long riovcnt,
 				      unsigned long flags);
-
+asmlinkage long sys_trapz(unsigned int ctrl, unsigned int extra1, unsigned int extra2, unsigned int extra3, unsigned int extra4, struct trapz_info __user *ti);
 #endif

@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -46,8 +45,7 @@ struct msm_dai_q6_hdmi_dai_data {
 	union afe_port_config port_config;
 };
 
-static DEFINE_MUTEX(hdmi_port_lock);
-static int hdmi_port_start;
+static atomic_t hdmi_port_start;
 static struct afe_ctl this_afe;
 
 static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
@@ -493,16 +491,9 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 	}
 
-	if (port_id == HDMI_RX) {
-		mutex_lock(&hdmi_port_lock);
-		if (hdmi_port_start == 1) {
-			ret = -EEXIST;
-			goto fail_cmd;
-		}
-	}
 	ret = afe_q6_interface_prepare();
 	if (IS_ERR_VALUE(ret))
-		goto fail_cmd;
+		return ret;
 
 	if (port_id == HDMI_RX) {
 		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -512,6 +503,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		config.hdr.dest_port = 0;
 		config.hdr.token = 0;
 		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG_V2;
+		atomic_set(&hdmi_port_start, 1);
 	} else {
 
 		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -637,14 +629,11 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 
 	pr_debug("task_name = %s pid = %d\n",
 	this_afe.task->comm, this_afe.task->pid);
+	return 0;
 
-	ret = 0;
-	if (port_id == HDMI_RX)
-		hdmi_port_start = 1;
 fail_cmd:
-
 	if (port_id == HDMI_RX)
-		mutex_unlock(&hdmi_port_lock);
+		atomic_set(&hdmi_port_start, 0);
 	return ret;
 }
 
@@ -656,7 +645,8 @@ int afe_short_silence(u32 duration)
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = FALSE;
 	int sample_rate = HDMI_SAMPLE_RATE_48KHZ;
-	int ret = -1;
+	if (atomic_read(&hdmi_port_start) == 1)
+		return 0;
 
 	dai_data.rate = 48000;
 	dai_data.channels = 2;
@@ -667,13 +657,8 @@ int afe_short_silence(u32 duration)
 
 	hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,
 			channel_allocation, level_shift, down_mix);
-	ret = afe_port_start(HDMI_RX, &dai_data.port_config,
+	afe_port_start(HDMI_RX, &dai_data.port_config,
 			dai_data.rate);
-
-	if (ret) {
-		pr_err("%s: HDMI port already open\n", __func__);
-		return 0;
-	}
 
 	msleep(duration);
 
@@ -1775,7 +1760,6 @@ int afe_port_stop_nowait(int port_id)
 		pr_err("%s: AFE close failed\n", __func__);
 		ret = -EINVAL;
 	}
-
 fail_cmd:
 	return ret;
 
@@ -1821,13 +1805,6 @@ int afe_close(int port_id)
 
 	port_id = afe_convert_virtual_to_portid(port_id);
 
-	if (port_id == HDMI_RX) {
-		mutex_lock(&hdmi_port_lock);
-		if (hdmi_port_start == 0) {
-			ret = -ENOENT;
-			goto fail_cmd;
-		}
-	}
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	stop.hdr.pkt_size = sizeof(stop);
@@ -1843,8 +1820,7 @@ int afe_close(int port_id)
 
 	if (ret == -ENETRESET) {
 		pr_info("%s: Need to reset, calling APR deregister", __func__);
-		ret = apr_deregister(this_afe.apr);
-		goto fail_cmd;
+		return apr_deregister(this_afe.apr);
 	}
 
 	if (ret < 0) {
@@ -1862,11 +1838,8 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 	if (port_id == HDMI_RX)
-		hdmi_port_start = 0;
+		atomic_set(&hdmi_port_start, 0);
 fail_cmd:
-
-	if (port_id == HDMI_RX)
-		mutex_unlock(&hdmi_port_lock);
 	return ret;
 }
 

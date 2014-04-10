@@ -1,0 +1,20 @@
+config TRAPZ
+	bool "Tracing and Profiling for Zpeed"
+	default n
+
+config TRAPZ_TP
+	bool "Globally enable trapz trace points in kernel"
+	default n
+	depends on TRAPZ
+	help
+		This enables trapz tracepoints. If this is disabled
+		and CONFIG_TRAPZ is enabled, userspace trapz tracing
+		is still functional.
+
+config TRAPZ_TRIGGER
+	bool "Include ability to trigger events based on latency"
+	default n
+	depends on TRAPZ
+	help
+		This feature issues uevents if a trigger is fired.  The uevents can then
+		be trapped in user space to react

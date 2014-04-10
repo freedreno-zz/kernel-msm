@@ -284,6 +284,10 @@ struct usb_xpad {
 	unsigned long flags;
 };
 
+#if defined(CONFIG_JOYSTICK_XPAD_LEDS)
+static void xpad_send_led_command(struct usb_xpad *xpad, int command);
+#endif
+
 /*
  *	xpad_process_packet
  *
@@ -482,17 +486,17 @@ static void xpad_retry_timeout(unsigned long _xpad)
 	int retval = 0;
 
 	if(!xpad)
-	return;
+		return;
 
 	if(!test_bit(XPAD_RUNNING, &xpad->flags))
-	return;
+		return;
 
 	retval = usb_submit_urb(xpad->irq_in, GFP_ATOMIC);
 	if (retval){
 		err ("%s - usb_submit_urb failed with result %d",
-			 __func__, retval);
-	if (retval != -ENODEV)
-		xpad_io_error(xpad);
+		     __func__, retval);
+		if (retval != -ENODEV)
+			xpad_io_error(xpad);
 	}
 }
 
@@ -778,6 +782,12 @@ static int xpad_led_probe(struct usb_xpad *xpad)
 	led_cdev->name = led->name;
 	led_cdev->brightness_set = xpad_led_set;
 
+	/* Allow player numbers to be set using input LED events */
+	input_set_capability(xpad->dev, EV_LED, LED_NUML);
+	input_set_capability(xpad->dev, EV_LED, LED_CAPSL);
+	input_set_capability(xpad->dev, EV_LED, LED_SCROLLL);
+	input_set_capability(xpad->dev, EV_LED, LED_COMPOSE);
+
 	error = led_classdev_register(&xpad->udev->dev, led_cdev);
 	if (error) {
 		kfree(led);
@@ -833,7 +843,27 @@ static void xpad_close(struct input_dev *dev)
 	xpad_stop_output(xpad);
 }
 
-static void xpad_set_up_abs(struct input_dev *input_dev, signed short abs)
+
+static int xpad_event(struct input_dev *dev, unsigned int type,
+	unsigned int code, int value)
+{
+	struct usb_xpad *xpad = input_get_drvdata(dev);
+
+	if (type != EV_LED)
+		return -EIO;
+
+	if (value == 0) {
+		xpad_send_led_command(xpad, 0);
+		return 0;
+	}
+
+	xpad_send_led_command(xpad, (code % 4) + 2);
+	return 0;
+
+}
+
+
+void xpad_set_up_abs(struct input_dev *input_dev, signed short abs)
 {
 	set_bit(abs, input_dev->absbit);
 
@@ -925,6 +955,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 
 	input_dev->open = xpad_open;
 	input_dev->close = xpad_close;
+	input_dev->event = xpad_event;
 
 	input_dev->evbit[0] = BIT_MASK(EV_KEY);
 
@@ -1061,6 +1092,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 static void xpad_disconnect(struct usb_interface *intf)
 {
 	struct usb_xpad *xpad = usb_get_intfdata (intf);
+
 	clear_bit(XPAD_RUNNING, &xpad->flags);
 	del_timer_sync(&xpad->io_retry);
 	xpad_led_disconnect(xpad);

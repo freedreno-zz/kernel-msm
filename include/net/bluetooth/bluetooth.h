@@ -120,7 +120,7 @@ struct bt_power {
 
 #define BT_LE_SUP_TO_MIN		0x000A
 #define BT_LE_SUP_TO_MAX		0x0C80
-#define BT_LE_SUP_TO_DEFAULT		0X0258
+#define BT_LE_SUP_TO_DEFAULT		0X03E8
 
 #define BT_INFO(fmt, arg...) printk(KERN_INFO "Bluetooth: " fmt "\n" , ## arg)
 #define BT_ERR(fmt, arg...)  printk(KERN_ERR "%s: " fmt "\n" , __func__ , ## arg)

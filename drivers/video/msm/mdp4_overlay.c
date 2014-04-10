@@ -163,7 +163,7 @@ static int mdp4_map_sec_resource(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 	if (hdmi_prim_display)
-		hdmi_msm_encrypt_en(true);
+		hdmi_msm_encryt_en(true);
 	ret = msm_ion_secure_heap(ION_HEAP(ION_CP_MM_HEAP_ID));
 	if (ret)
 		pr_err("ION heap secure failed heap id %d ret %d\n",
@@ -199,7 +199,7 @@ int mdp4_unmap_sec_resource(struct msm_fb_data_type *mfd)
 	mfd->sec_mapped = 0;
 	mdp_disable_iommu_clocks();
 	if (hdmi_prim_display)
-		hdmi_msm_encrypt_en(false);
+		hdmi_msm_encryt_en(false);
 	return ret;
 }
 
@@ -2694,8 +2694,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	else
 		pipe->mixer_stage = req->z_order + MDP4_MIXER_STAGE0;
 
-	if (((req->id == MSMFB_NEW_REQUEST)) &&
-		(ptype == OVERLAY_TYPE_VIDEO) &&
+	if ((ptype == OVERLAY_TYPE_VIDEO) &&
 		(((req->src.width & 0x1fff) != pipe->src_width) ||
 		((req->src.height & 0x1fff) != pipe->src_height)))
 			pipe->is_csc_dirty = 1;
@@ -2748,10 +2747,11 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 
 static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
 				 u32 src_h, u32 dst_h, u32 src_w, u32 dst_w)
+ 
 {
 	u32 pclk, hsync;
 	u32 xscale, yscale;
-	u32 shift = 16;
+ 	u32 shift = 16;
 	u64 rst;
 
 	pr_debug("%s: pipe sets: panel res(x,y)=(%d,%d)\n",
@@ -2759,17 +2759,15 @@ static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
 
 	pr_debug("%s: src_h=%d, dst_h=%d, src_w=%d, dst_w=%d\n",
 		 __func__, src_h, dst_h, src_w, dst_w);
-
+ 
 	pclk = (mfd->panel_info.type == MIPI_VIDEO_PANEL ||
 		mfd->panel_info.type == MIPI_CMD_PANEL) ?
 		mfd->panel_info.mipi.dsi_pclk_rate :
 		mfd->panel_info.clk_rate;
-
 	if (!pclk) {
 		pr_err("%s panel pixel clk is zero!\n", __func__);
 		return mdp_max_clk;
 	}
-
 	pr_debug("%s: mdp panel pixel clk is %d.\n", __func__, pclk);
 
 	hsync = mfd->panel_info.lcdc.h_back_porch +
@@ -2794,19 +2792,17 @@ static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
 
 	if (!src_h) {
 		pr_err("%s: src_h is zero!\n", __func__);
-		return mdp_max_clk;
+		return mdp_max_clk; 
 	}
 
 	if (!dst_h) {
 		pr_err("%s: dst_h is zero!\n", __func__);
 		return mdp_max_clk;
 	}
-
 	if (!src_w) {
 		pr_err("%s: src_w is zero!\n", __func__);
 		return mdp_max_clk;
 	}
-
 	if (!dst_w) {
 		pr_err("%s: dst_w is zero!\n", __func__);
 		return mdp_max_clk;
@@ -2814,7 +2810,6 @@ static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
 
 	xscale = mfd->panel_info.xres;
 	xscale += src_w;
-
 	if (xscale < dst_w) {
 		pr_err("%s: xres+src_w cannot be less than dst_w!\n",
 		       __func__);
@@ -3793,16 +3788,16 @@ static u32 mdp4_overlay_get_vsync_cnt(struct msm_fb_data_type *mfd)
 		return 0;
 }
 
-static int mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
-	u32 timeout, u32 expect_vsync, u32 *cur_vsync)
+static u32 mdp4_wait_expect_vsync(struct msm_fb_data_type *mfd,
+	u32 timeout, u32 expect_vsync)
 {
-	int ret = 0;
+	u32 cur_vsync_cnt;
 	if (hdmi_prim_display || mfd->index == 0)
-		ret = mdp4_dtv_wait_expect_vsync(timeout,
-			expect_vsync, cur_vsync);
+		cur_vsync_cnt = mdp4_dtv_wait_expect_vsync(timeout,
+			expect_vsync);
 	else
-		*cur_vsync = 0;
-	return ret;
+		cur_vsync_cnt = 0;
+	return cur_vsync_cnt;
 }
 
 void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
@@ -3816,7 +3811,6 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 	u32 frame_rate, cur_time_100us, cur_repeat = 2;
 	u32 backup_frc = true, free_run = false;
 	int ts_diff, fc_diff, vsync_diff = 0, play_delay;
-	int ret;
 
 	if ((!mfd->frc_pipe_ndx) || (mfd->frc_pipe_ndx >= OVERLAY_PIPE_MAX))
 		goto frc_update_exit;
@@ -3969,7 +3963,6 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 		vsync_diff = FRC_MAX_WAIT_VSYNC_CYCLE;
 
 	if (vsync_diff > 0) {
-		u32 cur_vsync_cnt = 0;
 		*last_frc = *cur_frc;
 		backup_frc = false;
 		msm_fb_release_busy(mfd);
@@ -3977,10 +3970,8 @@ void mdp4_overlay_frc_update(struct msm_fb_data_type *mfd,
 			*release_busy = false;
 		time_out = mfd->disp_frame_period *
 			(vsync_diff + 1) / 1000;
-		ret = mdp4_wait_expect_vsync(mfd,
-			time_out, expect_vsync_cnt, &cur_vsync_cnt);
-		if (ret)
-			pipe->frc_cadence = FRC_CADENCE_FREE_RUN;
+		cur_vsync_cnt = mdp4_wait_expect_vsync(mfd,
+			time_out, expect_vsync_cnt);
 	}
 
 	pr_mem("frc:v_cnt=%d f_cnt=%d e_vs=%d sl=%d de=%d en=%d ts=%d",
@@ -4020,10 +4011,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 
 	if (pipe->pipe_type == OVERLAY_TYPE_BF) {
 		mdp4_overlay_borderfill_stage_up(pipe);
-		if (mfd->cont_splash_done) {
-			/* Don't Stage if Splash is not done */
-			mdp4_mixer_stage_commit(pipe->mixer_num);
-		}
+		mdp4_mixer_stage_commit(pipe->mixer_num);
 		return 0;
 	}
 
@@ -4477,37 +4465,4 @@ void mdp4_overlay_update_cached_reg(struct msm_fb_data_type *mfd)
 	for (i = 0; i < mfd->cached_reg_cnt; i++)
 		outpdw((char *)mfd->cached_reg[i].reg,  mfd->cached_reg[i].val);
 	mfd->cached_reg_cnt = 0;
-}
-
-void mdp4_overlay_stage_splash(int mixer)
-{
-	uint32 data = 0;
-	data = inpdw(MDP_BASE + 0x10100);
-	/* Is Borderfill Staged */
-	if (data & 0x900000) {
-		/*Stage RGB 2 as well.*/
-		data = (data | 0xA000);
-		outpdw(MDP_BASE + 0x10100, data);
-		ctrl->flush[mixer] = ctrl->flush[mixer] | BIT(5);
-		ctrl->flush[mixer] = ctrl->flush[mixer] | BIT(1);
-	}
-}
-
-void mdp4_overlay_check_splash(struct msm_fb_data_type *mfd, int ndx)
-{
-	struct mdp4_overlay_pipe *pipe;
-
-	if (!mfd->cont_splash_done) {
-		pipe = mdp4_overlay_ndx2pipe(ndx);
-		if (pipe == NULL) {
-			pr_err("%s NULL Pipe !! ", __func__);
-			return;
-		}
-		if (pipe->pipe_type != OVERLAY_TYPE_BF) {
-			mfd->cont_splash_done = 1;
-			/* Clks are enabled in probe.Disabling
-			clocks now to maintain ref count*/
-			mdp_clk_ctrl(0);
-		}
-	}
 }

@@ -122,7 +122,6 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-
 static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
@@ -146,6 +145,8 @@ static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
 	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 }
 
+void hdmi_msm_toggle_hdmi(void);
+int is_hdmi_audio_packet_enable(void);
 
 static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -156,7 +157,6 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = FALSE;
 	int sample_rate = HDMI_SAMPLE_RATE_48KHZ;
-
 	/* set channel allocation only for lpcm type */
 	if (hdmi_ca.set_ca && !dai_data->port_config.hdmi_multi_ch.data_type)
 		dai_data->port_config.hdmi_multi_ch_v2.channel_allocation =
@@ -235,6 +235,7 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	}
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		int hdmi_audio_en = is_hdmi_audio_packet_enable();
 		rc = afe_port_start(dai->id, &dai_data->port_config,
 				    dai_data->rate);
 		if (IS_ERR_VALUE(rc))
@@ -243,6 +244,9 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 		else
 			set_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
+		if ((hdmi_audio_en == 0) &&
+			is_hdmi_audio_packet_enable())
+			hdmi_msm_toggle_hdmi();
 	}
 
 	return rc;

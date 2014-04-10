@@ -121,6 +121,7 @@ __packed struct qseecom_client_send_data_ireq {
 __packed struct qseecom_client_listener_data_irsp {
 	uint32_t qsee_cmd_id;
 	uint32_t listener_id;
+	uint32_t status; // Andrew
 };
 
 /*
@@ -549,12 +550,15 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 					struct qseecom_command_scm_resp *resp)
 {
 	int ret = 0;
+	int rc = 0; // Andrew
 	uint32_t lstnr;
 	unsigned long flags;
 	struct qseecom_client_listener_data_irsp send_data_rsp;
 	struct qseecom_registered_listener_list *ptr_svc = NULL;
+	sigset_t new_sigset; // hari
+	sigset_t old_sigset; // hari
 
-
+    pr_debug("MochaE:__qseecom_process_incomplete_cmd: resp->result=0x%x \n", resp->result);  // Andrew to check it
 	while (resp->result == QSEOS_RESULT_INCOMPLETE) {
 		lstnr = resp->data;
 		/*
@@ -578,17 +582,31 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 		pr_debug("waking up rcv_req_wq and "
 				"waiting for send_resp_wq\n");
-		if (wait_event_freezable(qseecom.send_resp_wq,
-				__qseecom_listener_has_sent_rsp(data))) {
-			pr_warning("Interrupted: exiting send_cmd loop\n");
-			return -ERESTARTSYS;
-		}
+// hari
+		/* initialize the new signal mask with all signals*/
+		//pr_err("MochaE:__qseecom_process_incomplete_cmd \n");  // Andrew to check it
 
+		sigfillset(&new_sigset);
+		/* block all signals */
+		sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
+		do {
+			if (!wait_event_freezable(qseecom.send_resp_wq,
+				__qseecom_listener_has_sent_rsp(data)))
+				break;
+		} while (1);
+
+		/* restore signal mask */
+		sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 		if (data->abort) {
-			pr_err("Aborting listener service %d\n",
-				data->listener.id);
-			return -ENODEV;
+			pr_err("Abort clnt %d waiting on lstnr svc %d, ret %d",
+				data->client.app_id, lstnr, ret);
+			rc = -ENODEV;
+			send_data_rsp.status  = QSEOS_RESULT_FAILURE;
+		} else {
+			send_data_rsp.status  = QSEOS_RESULT_SUCCESS;
 		}
+// hari
 		qseecom.send_resp_flag = 0;
 		send_data_rsp.qsee_cmd_id = QSEOS_LISTENER_DATA_RSP_COMMAND;
 		send_data_rsp.listener_id  = lstnr ;
@@ -607,6 +625,9 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			return -EINVAL;
 		}
 	}
+
+	if(rc) // Andrew
+		return rc;
 	return ret;
 }
 

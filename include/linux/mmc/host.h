@@ -229,7 +229,13 @@ struct mmc_host {
 
 	unsigned int		caps2;		/* More host capabilities */
 
-#define MMC_CAP2_BOOTPART_NOACC	(1 << 0)	/* Boot partition no access */
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+#define MMC_CAP2_BOOTPART_NOACC	(0)             /* Boot partition access */
+#else
+#define MMC_CAP2_BOOTPART_NOACC	(1 << 0)        /* Boot partition no access */
+#endif
+// ACOS_MOD_END
 #define MMC_CAP2_CACHE_CTRL	(1 << 1)	/* Allow cache control */
 #define MMC_CAP2_POWEROFF_NOTIFY (1 << 2)	/* Notify poweroff supported */
 #define MMC_CAP2_NO_MULTI_READ	(1 << 3)	/* Multiblock reads don't work */

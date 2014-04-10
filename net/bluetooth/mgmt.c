@@ -1531,6 +1531,69 @@ failed:
 	return err;
 }
 
+static int set_page_scan_mode(struct sock *sk, u16 index,
+	unsigned char *data, u16 len)
+{
+	struct mgmt_op_write_page_scan_mode *cp = (void *) data;
+	struct hci_dev *hdev;
+	int err = 0;
+
+	BT_ERR("Configuring the PS Mode to: %d", cp->mode);
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_CFG_PAGE_SCAN_MODE,
+							EINVAL);
+
+	hdev = hci_dev_get(index);
+
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_CFG_PAGE_SCAN_MODE,
+							ENODEV);
+
+	/* Configure Page Scan type */
+	err = hci_send_cmd(hdev, MGMT_OP_CFG_PAGE_SCAN_MODE, 1, &cp->mode);
+	if (err < 0)
+		BT_INFO("%s: Failed to set Page-Scan Type!", __func__);
+	else
+		BT_INFO("%s: Page-Scan Type set to: %d", __func__, cp->mode);
+
+	return err;
+}
+
+static int set_page_scan_interval(struct sock *sk, u16 index,
+	unsigned char *data, u16 len)
+{
+	struct mgmt_op_write_page_scan_interval ps_params, *cp;
+	struct hci_dev *hdev;
+	int err = 0;
+
+	cp = (void *)data;
+	BT_ERR("Configuring the PS Interval to %d slots and window to %d slots", cp->interval, cp->window);
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_CFG_PAGE_SCAN_INTERVAL,
+							EINVAL);
+
+	hdev = hci_dev_get(index);
+
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_CFG_PAGE_SCAN_INTERVAL,
+							ENODEV);
+
+	/* Configure default page-scan window value (11.25ms) */
+	ps_params.window   = 0x0012;
+	ps_params.interval = cp->interval;
+	err = hci_send_cmd(hdev, MGMT_OP_CFG_PAGE_SCAN_INTERVAL,
+		sizeof(ps_params), &ps_params);
+	if (err < 0) {
+		BT_ERR("%s: Failed to set Page-Scan Interval!", __func__);
+	} else
+		BT_ERR("%s: Page-Scan Interval configured to: %d", __func__,
+			cp->interval);
+
+	return err;
+}
+
 static int le_create_conn_white_list(struct sock *sk, u16 index)
 {
 	struct hci_dev *hdev;
@@ -2746,6 +2809,14 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 		break;
 	case MGMT_OP_LE_CANCEL_CREATE_CONN:
 		err = le_cancel_create_conn(sk, index, buf + sizeof(*hdr), len);
+		break;
+	case MGMT_OP_CFG_PAGE_SCAN_MODE:
+		BT_ERR("MGMT_OP_CFG_PAGE_SCAN_MODE: Configuring the Page Scan Mode");
+		err = set_page_scan_mode(sk, index, buf + sizeof(*hdr), len);
+		break;
+	case MGMT_OP_CFG_PAGE_SCAN_INTERVAL:
+		BT_ERR("MGMT_OP_CFG_PAGE_SCAN_INTERVAL: Configuring the Page Scan Interval");
+		err = set_page_scan_interval(sk, index, buf + sizeof(*hdr), len);
 		break;
 	default:
 		BT_DBG("Unknown op %u", opcode);

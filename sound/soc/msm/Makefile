@@ -65,6 +65,9 @@ obj-$(CONFIG_SND_SOC_QDSP6) += snd-soc-qdsp6.o
 snd-soc-msm8960-objs := msm8960.o apq8064.o msm8930.o mpq8064.o apq8064-i2s.o
 obj-$(CONFIG_SND_SOC_MSM8960) += snd-soc-msm8960.o
 
+snd-soc-bueller-objs := bueller_snd.o
+obj-$(CONFIG_SND_SOC_BUELLER) += snd-soc-bueller.o
+
 # Generic MSM drivers
 snd-soc-hostless-pcm-objs := msm-pcm-hostless.o
 obj-$(CONFIG_SND_SOC_MSM_HOSTLESS_PCM) += snd-soc-hostless-pcm.o

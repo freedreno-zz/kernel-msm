@@ -290,7 +290,12 @@ static void do_config_file(const char *filename)
 		perror(filename);
 		exit(2);
 	}
-	fstat(fd, &st);
+
+	if (fstat(fd, &st) != 0) {
+		close(fd);
+		return;
+	}
+
 	if (st.st_size == 0) {
 		close(fd);
 		return;

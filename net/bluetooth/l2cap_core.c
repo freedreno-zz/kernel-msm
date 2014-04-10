@@ -7503,7 +7503,8 @@ static int l2cap_connect_ind(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 type)
 	if (type != ACL_LINK)
 		return 0;
 
-	BT_DBG("hdev %s, bdaddr %s", hdev->name, batostr(bdaddr));
+	BT_ERR("hdev %s, bdaddr: %s Link-type: %d", hdev->name,
+		batostr(bdaddr), type);
 
 	/* Find listening sockets and check their link_mode */
 	read_lock(&l2cap_sk_list.lock);

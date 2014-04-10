@@ -593,7 +593,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		return regs->ARM_r0;
 
 	case NR(set_tls):
-		thread->tp_value[0] = regs->ARM_r0;
+		thread->tp_value = regs->ARM_r0;
 		if (tls_emu)
 			return 0;
 		if (has_tls_reg) {
@@ -711,7 +711,7 @@ static int get_tp_trap(struct pt_regs *regs, unsigned int instr)
 	int reg = (instr >> 12) & 15;
 	if (reg == 15)
 		return 1;
-	regs->uregs[reg] = current_thread_info()->tp_value[0];
+	regs->uregs[reg] = current_thread_info()->tp_value;
 	regs->ARM_pc += 4;
 	return 0;
 }
@@ -829,18 +829,8 @@ void __init early_trap_init(void *vectors_base)
 	extern char __vectors_start[], __vectors_end[];
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
-	unsigned i;
 
 	vectors_page = vectors_base;
-
-	/*
-	 * Poison the vectors page with an undefined instruction.  This
-	 * instruction is chosen to be undefined for both ARM and Thumb
-	 * ISAs.  The Thumb version is an undefined instruction with a
-	 * branch back to the undefined instruction.
-	 */
-	for (i = 0; i < PAGE_SIZE / sizeof(u32); i++)
-		((u32 *)vectors_base)[i] = 0xe7fddef1;
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)

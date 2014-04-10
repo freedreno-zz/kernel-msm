@@ -1116,6 +1116,11 @@ void mem_cgroup_lru_del_list(struct page *page, enum lru_list lru)
 	mz->lru_size[lru] -= 1 << compound_order(page);
 }
 
+void mem_cgroup_lru_del(struct page *page)
+{
+	mem_cgroup_lru_del_list(page, page_lru(page));
+}
+
 /**
  * mem_cgroup_lru_move_lists - account for moving a page between lrus
  * @zone: zone of the page
@@ -5605,6 +5610,7 @@ static void mem_cgroup_move_task(struct cgroup *cont,
 	if (mm) {
 		if (mc.to)
 			mem_cgroup_move_charge(mm);
+		put_swap_token(mm);
 		mmput(mm);
 	}
 	if (mc.to)

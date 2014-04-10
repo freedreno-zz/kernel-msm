@@ -104,19 +104,11 @@ bool __fscache_maybe_release_page(struct fscache_cookie *cookie,
 	return true;
 
 page_busy:
-	/* We will wait here if we're allowed to, but that could deadlock the
-	 * allocator as the work threads writing to the cache may all end up
-	 * sleeping on memory allocation, so we may need to impose a timeout
-	 * too. */
-	if (!(gfp & __GFP_WAIT) || !(gfp & __GFP_FS)) {
-		fscache_stat(&fscache_n_store_vmscan_busy);
-		return false;
-	}
-
-	fscache_stat(&fscache_n_store_vmscan_wait);
-	__fscache_wait_on_page_write(cookie, page);
-	gfp &= ~__GFP_WAIT;
-	goto try_again;
+	/* we might want to wait here, but that could deadlock the allocator as
+	 * the work threads writing to the cache may all end up sleeping
+	 * on memory allocation */
+	fscache_stat(&fscache_n_store_vmscan_busy);
+	return false;
 }
 EXPORT_SYMBOL(__fscache_maybe_release_page);
 

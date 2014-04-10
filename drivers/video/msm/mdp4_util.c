@@ -33,6 +33,7 @@
 #include "mdp.h"
 #include "msm_fb.h"
 #include "mdp4.h"
+#include <linux/trapz.h>   /* ACOS_MOD_ONELINE */
 
 struct mdp4_statistic mdp4_stat;
 
@@ -100,7 +101,7 @@ struct mdp_csc_cfg csc_cfg_rgb2srgb_limited = {
 };
 
 struct mdp_csc_cfg csc_cfg_rgb2srgb_full = {
-	(0),
+	(MDP_CSC_FLAG_ENABLE),
 	{
 		0x0200, 0x0000, 0x0000,
 		0x0000, 0x0200, 0x0000,
@@ -470,7 +471,7 @@ void mdp4_fetch_cfg(uint32 core_clk)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-void mdp4_hw_init(int cont_splash_done)
+void mdp4_hw_init(void)
 {
 	ulong bits;
 	uint32 clk_rate;
@@ -522,21 +523,19 @@ void mdp4_hw_init(int cont_splash_done)
 	bits =  mdp_intr_mask;
 	outpdw(MDP_BASE + 0x0050, bits);/* enable specififed interrupts */
 
-	if (cont_splash_done) {
-		/* For the max read pending cmd config below,
-		if the MDP clock is less than the AXI clock,
-		then we must use 3 pending requests.Otherwise,
-		we should use 8 pending requests.In the future
-		we should do this detection automatically.*/
+	/* For the max read pending cmd config below, if the MDP clock     */
+	/* is less than the AXI clock, then we must use 3 pending          */
+	/* pending requests.  Otherwise, we should use 8 pending requests. */
+	/* In the future we should do this detection automatically.	   */
 
-		/* max read pending cmd config */
-		outpdw(MDP_BASE + 0x004c, 0x02222); /* 3 pending requests */
-		outpdw(MDP_BASE + 0x0400, 0x7FF);
-		if (hdmi_prim_display)
-			outpdw(MDP_BASE + 0x0404, 0x70050);
-		else
-			outpdw(MDP_BASE + 0x0404, 0x30050);
-	}
+	/* max read pending cmd config */
+	outpdw(MDP_BASE + 0x004c, 0x02222);	/* 3 pending requests */
+	outpdw(MDP_BASE + 0x0400, 0x7FF);
+	if (hdmi_prim_display)
+		outpdw(MDP_BASE + 0x0404, 0x70050);
+	else
+		outpdw(MDP_BASE + 0x0404, 0x30050);
+
 #ifndef CONFIG_FB_MSM_OVERLAY
 	/* both REFRESH_MODE and DIRECT_OUT are ignored at BLT mode */
 	mdp4_overlay_cfg(MDP4_MIXER0, OVERLAY_MODE_BLT, 0, 0);
@@ -739,6 +738,12 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 
 	if (isr & INTR_PRIMARY_VSYNC) {
 		mdp4_stat.intr_vsync_p++;
+
+		/* ACOS_MOD_BEGIN */
+		TRAPZ_DESCRIBE(TRAPZ_KERN_DISP, Vsyncirq, "Primary VSYNC interrupt");
+		TRAPZ_LOG(TRAPZ_LOG_DEBUG, TRAPZ_CAT_KERNEL, TRAPZ_KERN_DISP, Vsyncirq, 0, 0, 0, 0);
+		/* ACOS_MOD_END */
+
 		if (panel & MDP4_PANEL_LCDC)
 			mdp4_primary_vsync_lcdc();
 		else if (panel & MDP4_PANEL_DSI_VIDEO)

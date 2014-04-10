@@ -455,6 +455,16 @@ VREG_CONSUMERS(BT_WIFI) = {
 		.gpio		= _gpio, \
 	}
 
+#define FIXED_VREG_INIT(_id, _supply_regulator) \
+	{ \
+		.constraints = { \
+			.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+		}, \
+		.num_consumer_supplies	= ARRAY_SIZE(vreg_consumers_##_id), \
+		.consumer_supplies	= vreg_consumers_##_id, \
+		.supply_regulator	= _supply_regulator, \
+	}
+
 #define SAW_VREG_INIT(_id, _name, _min_uV, _max_uV) \
 	{ \
 		.constraints = { \
@@ -592,6 +602,17 @@ mpq8064_gpio_regulator_pdata[] __devinitdata = {
 			PM8921_GPIO_PM_TO_SYS(42), "8921_usb_otg"),
 };
 
+/* Fixed regulator constraints */
+static struct regulator_init_data mpq8064_3p3_regulator_init =
+	/*              ID        supply */
+	FIXED_VREG_INIT(EXT_3P3V, NULL);
+
+struct fixed_voltage_config mpq8064_3p3_regulator_pdata = {
+	.supply_name = "ext_3p3v",
+	.gpio = -EINVAL,
+	.init_data = &mpq8064_3p3_regulator_init,
+};
+
 /* SAW regulator constraints */
 struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5 =
 	/*	      ID  vreg_name	       min_uV   max_uV */
@@ -654,6 +675,55 @@ msm8064_pm8917_regulator_pdata[] __devinitdata = {
 };
 
 static struct rpm_regulator_init_data
+bueller_apq8064_rpm_regulator_init_data[] __devinitdata = {
+
+	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
+	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S2, 0, 1, 0, 1300000, 1300000, NULL,      0, 1p60, NONE, NONE),
+	RPM_SMPS(S3, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
+	RPM_SMPS(S4, 1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60, AUTO, AUTO),
+	RPM_SMPS(S7, 0, 0, 0, 1300000, 1300000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S8, 0, 1, 0, 2200000, 2200000, NULL,      0, 1p60, NONE, NONE),
+
+
+	/*	ID a_on pd ss min_uV   max_uV   supply    sys_uA init_ip */
+	RPM_LDO(L1,  1, 1, 0, 1100000, 1100000, "8921_s4",     0,  1000),
+	RPM_LDO(L2,  0, 1, 0, 1200000, 1200000, "8921_s4",     0,     0),
+	RPM_LDO(L3,  0, 1, 0, 3075000, 3075000, NULL,          0,     0),
+	RPM_LDO(L4,  1, 1, 0, 1800000, 1800000, NULL,          0, 10000),
+	RPM_LDO(L5,  0, 1, 0, 2950000, 2950000, NULL,          0,     0),
+	RPM_LDO(L6,  0, 1, 0, 2950000, 2950000, NULL,          0,     0),
+	RPM_LDO(L7,  0, 1, 0, 1850000, 2950000, NULL,          0,     0),
+	RPM_LDO(L8,  1, 1, 0, 1800000, 1800000, NULL,          0,     0),
+	RPM_LDO(L9,  0, 1, 0, 3000000, 3000000, NULL,          0,     0),
+	RPM_LDO(L10, 0, 1, 0, 2900000, 2900000, NULL,          0,     0),
+	RPM_LDO(L11, 0, 1, 0, 3000000, 3000000, NULL,          0,     0),
+	RPM_LDO(L12, 0, 1, 0, 1200000, 1200000, "8921_s4",     0,     0),
+	RPM_LDO(L13, 0, 0, 0, 2220000, 2220000, NULL,          0,     0),
+	RPM_LDO(L14, 0, 1, 0, 1800000, 1800000, NULL,          0,     0),
+	RPM_LDO(L15, 1, 1, 0, 2500000, 2500000, NULL,          0,     0),
+	RPM_LDO(L16, 0, 1, 0, 2800000, 2800000, NULL,          0,     0),
+	RPM_LDO(L17, 0, 1, 0, 2000000, 2000000, NULL,          0,     0),
+	RPM_LDO(L18, 0, 1, 0, 1300000, 1800000, "8921_s4",     0,     0),
+	RPM_LDO(L21, 0, 1, 0, 1050000, 1050000, NULL,          0,     0),
+	RPM_LDO(L22, 0, 1, 0, 2600000, 2600000, NULL,          0,     0),
+	RPM_LDO(L23, 0, 1, 0, 1800000, 1800000, NULL,          0,     0),
+	RPM_LDO(L24, 0, 1, 1,  750000, 1150000, "8921_s1", 10000, 10000),
+	RPM_LDO(L25, 1, 1, 0, 1250000, 1250000, "8921_s1", 10000, 10000),
+	RPM_LDO(L27, 0, 0, 0, 1100000, 1100000, "8921_s7",     0,     0),
+	RPM_LDO(L28, 0, 1, 0, 1200000, 1200000, "8921_s7",     0,     0),
+	RPM_LDO(L29, 0, 1, 0, 2000000, 2000000, NULL,          0,     0),
+
+	/*     ID  a_on pd ss                   supply */
+	RPM_VS(LVS1, 0, 1, 0,                   "8921_s4"),
+	RPM_VS(LVS3, 0, 1, 0,                   "8921_s4"),
+	RPM_VS(LVS4, 0, 1, 0,                   "8921_s4"),
+	RPM_VS(LVS5, 0, 1, 0,                   "8921_s4"),
+	RPM_VS(LVS6, 0, 1, 0,                   "8921_s4"),
+	RPM_VS(LVS7, 0, 1, 1,                   "8921_s4"),
+};
+
+static struct rpm_regulator_init_data
 apq8064_rpm_regulator_init_data[] __devinitdata = {
 	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
 	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
@@ -671,7 +741,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L5,  0, 1, 0, 2950000, 2950000, NULL,          0,     0),
 	RPM_LDO(L6,  0, 1, 0, 2950000, 2950000, NULL,          0,     0),
 	RPM_LDO(L7,  0, 1, 0, 1850000, 2950000, NULL,          0,     0),
-	RPM_LDO(L8,  0, 1, 0, 2800000, 2800000, NULL,          0,     0),
+	RPM_LDO(L8,  1, 1, 0, 1800000, 1800000, NULL,          0,     0),
 	RPM_LDO(L9,  0, 1, 0, 3000000, 3000000, NULL,          0,     0),
 	RPM_LDO(L10, 0, 1, 0, 2900000, 2900000, NULL,          0,     0),
 	RPM_LDO(L11, 0, 1, 0, 3000000, 3000000, NULL,          0,     0),
@@ -688,7 +758,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L24, 0, 1, 1,  750000, 1150000, "8921_s1", 10000, 10000),
 	RPM_LDO(L25, 1, 1, 0, 1250000, 1250000, "8921_s1", 10000, 10000),
 	RPM_LDO(L27, 0, 0, 0, 1100000, 1100000, "8921_s7",     0,     0),
-	RPM_LDO(L28, 0, 1, 0, 1050000, 1050000, "8921_s7",     0,     0),
+	RPM_LDO(L28, 0, 1, 0, 1200000, 1200000, "8921_s7",     0,     0),
 	RPM_LDO(L29, 0, 1, 0, 2000000, 2000000, NULL,          0,     0),
 
 	/*     ID  a_on pd ss                   supply */
@@ -737,6 +807,17 @@ static struct rpm_regulator_consumer_mapping
 	RPM_REG_MAP(S3,   0, 2, "krait1_dig",   "acpuclk-8064"),
 	RPM_REG_MAP(S3,   0, 4, "krait2_dig",   "acpuclk-8064"),
 	RPM_REG_MAP(S3,   0, 5, "krait3_dig",   "acpuclk-8064"),
+};
+
+struct rpm_regulator_platform_data bueller_apq8064_rpm_regulator_pdata __devinitdata = {
+	.init_data		  = bueller_apq8064_rpm_regulator_init_data,
+	.num_regulators		  = ARRAY_SIZE(bueller_apq8064_rpm_regulator_init_data),
+	.version		  = RPM_VREG_VERSION_8960,
+	.vreg_id_vdd_mem	  = RPM_VREG_ID_PM8921_L24,
+	.vreg_id_vdd_dig	  = RPM_VREG_ID_PM8921_S3,
+	.requires_tcxo_workaround = true,
+	.consumer_map		  = msm_rpm_regulator_consumer_mapping,
+	.consumer_map_len = ARRAY_SIZE(msm_rpm_regulator_consumer_mapping),
 };
 
 struct rpm_regulator_platform_data apq8064_rpm_regulator_pdata __devinitdata = {

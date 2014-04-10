@@ -15,6 +15,8 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include <linux/trapz.h>   /* ACOS_MOD_ONELINE */
+
 
 /* intf timing settings */
 struct intf_timing_params {
@@ -186,6 +188,13 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	struct mdss_mdp_video_ctx *ctx;
 
 	ctx = (struct mdss_mdp_video_ctx *) arg;
+
+	/* ACOS_MOD_BEGIN */
+	TRAPZ_DESCRIBE(TRAPZ_KERN_DISP, Vsyncirq, "Primary VSYNC interrupt");
+	TRAPZ_LOG(TRAPZ_LOG_DEBUG, TRAPZ_CAT_KERNEL, TRAPZ_KERN_DISP,
+			Vsyncirq, 0, 0, 0, 0);
+	/* ACOS_MOD_END */
+
 	if (!ctx) {
 		pr_err("invalid ctx\n");
 		return;

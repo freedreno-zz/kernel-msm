@@ -60,6 +60,7 @@
 
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
+#include <linux/trapz.h> /* ACOS_MOD_ONELINE */
 
 #define DRIVER_NAME "msm-sdcc"
 
@@ -564,6 +565,14 @@ static inline void msmsdcc_delay(struct msmsdcc_host *host)
 static inline void
 msmsdcc_start_command_exec(struct msmsdcc_host *host, u32 arg, u32 c)
 {
+	/* ACOS_MOD_BEGIN */
+	TRAPZ_DESCRIBE(TRAPZ_KERN_MMC, mmc_start_command,
+		       "MMC start device command");
+	TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_MMC,
+			 mmc_start_command,
+			 "CMD%d; argument=0x%08x", c, arg, 0, 0);
+	/* ACOS_MOD_END */
+
 	writel_relaxed(arg, host->base + MMCIARGUMENT);
 	writel_relaxed(c, host->base + MMCICOMMAND);
 	/*
@@ -1075,6 +1084,14 @@ static int msmsdcc_prep_xfer(struct msmsdcc_host *host,
 		dir == DMA_FROM_DEVICE ? "READ" : "WRITE",
 		data->sg_len);
 
+	/* ACOS_MOD_BEGIN */
+	TRAPZ_DESCRIBE(TRAPZ_KERN_MMC,  mmc_dma_map_sg,
+		       "MMC DMA Scatter/Gather set up");
+	TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_MMC,
+			 mmc_dma_map_sg,
+			 "MMC DMA Scatter/Gather: %d sglists : direction=%d 2=read 1=write\n",
+			 data->sg_len, dir, 0, 0);
+	/* ACOS_MOD_END */
 	goto out;
 
 dma_map_err:
@@ -1635,6 +1652,14 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 		if (!msmsdcc_sg_next(host, &buffer, &remain))
 			break;
 
+		/* ACOS_MOD_BEGIN */
+		TRAPZ_DESCRIBE(TRAPZ_KERN_MMC, mmc_pio_irq,
+			       "MMC Programmed I/O interrupt");
+		TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_MMC,
+				 mmc_pio_irq,
+				 "Status %x", status, 0, 0, 0);
+		/* ACOS_MOD_END */
+
 		len = 0;
 		if (status & MCI_RXACTIVE)
 			len = msmsdcc_pio_read(host, buffer, remain);
@@ -1876,6 +1901,14 @@ msmsdcc_irq(int irq, void *dev_id)
 #if IRQ_DEBUG
 		msmsdcc_print_status(host, "irq0-p", status);
 #endif
+
+		/* ACOS_MOD_BEGIN */
+		TRAPZ_DESCRIBE(TRAPZ_KERN_MMC, mmc_sdcc_irq,
+			       "MMC DMA interrupt");
+		TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_MMC,
+				 mmc_sdcc_irq,
+				 "Status %x", status, 0, 0, 0);
+		/* ACOS_MOD_END */
 
 		if (status & MCI_SDIOINTROPE) {
 			if (mmc->card && !mmc_card_sdio(mmc->card)) {

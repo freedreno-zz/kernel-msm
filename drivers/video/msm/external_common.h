@@ -158,13 +158,13 @@ struct hdmi_disp_mode_timing_type {
 	 720, 5, 5, 20, FALSE, 74250, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_1920x1080i60_16_9					\
 	{HDMI_VFRMT_1920x1080i60_16_9,   1920, 88,  44,  148, FALSE,	\
-	 540, 2, 5, 5, FALSE, 74250, 60000, TRUE, FALSE}
+	 540, 2, 5, 5, FALSE, 74250, 60000, FALSE, TRUE}
 #define HDMI_SETTINGS_1440x480i60_4_3					\
 	{HDMI_VFRMT_1440x480i60_4_3,     1440, 38,  124, 114, TRUE,	\
-	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, FALSE}
+	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, TRUE}
 #define HDMI_SETTINGS_1440x480i60_16_9					\
 	{HDMI_VFRMT_1440x480i60_16_9,    1440, 38,  124, 114, TRUE,	\
-	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, FALSE}
+	 240, 4, 3, 15, TRUE, 27000, 60000, TRUE, TRUE}
 #define HDMI_SETTINGS_1920x1080p60_16_9					\
 	{HDMI_VFRMT_1920x1080p60_16_9,   1920, 88,  44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 148500, 60000, FALSE, TRUE}
@@ -179,10 +179,10 @@ struct hdmi_disp_mode_timing_type {
 	 720,  5, 5, 20, FALSE, 74250, 50000, FALSE, TRUE}
 #define HDMI_SETTINGS_1440x576i50_4_3					\
 	{HDMI_VFRMT_1440x576i50_4_3,     1440, 24,  126, 138,  TRUE,	\
-	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, FALSE}
+	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, TRUE}
 #define HDMI_SETTINGS_1440x576i50_16_9					\
 	{HDMI_VFRMT_1440x576i50_16_9,    1440, 24,  126, 138,  TRUE,	\
-	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, FALSE}
+	 288,  2, 3, 19, TRUE, 27000, 50000, TRUE, TRUE}
 #define HDMI_SETTINGS_1920x1080p50_16_9					\
 	{HDMI_VFRMT_1920x1080p50_16_9,   1920,  528,  44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 148500, 50000, FALSE, TRUE}
@@ -247,6 +247,7 @@ struct external_common_state_type {
 	struct device *dev;
 	struct switch_dev sdev;
 	struct switch_dev audio_sdev;
+	u32 work_around_id;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
 	void (*switch_3d)(boolean on);
@@ -308,7 +309,7 @@ const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_supported_mode(
 	uint32 mode);
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
 
-ssize_t video_3d_format_2string(uint32 format, char *buf, u32 size);
+ssize_t video_3d_format_2string(uint32 format, char *buf);
 #endif
 
 int external_common_state_create(struct platform_device *pdev);

@@ -18,6 +18,22 @@
 
 #define COMMAND_LINE_SIZE 1024
 
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+/* Suggestion: this is only for reading/writing idme partition */
+#define SERIAL16_SIZE   16
+#define REVISION16_SIZE 16
+#define MAC_ADDRE_SIZE  16
+#define MAC_SEC_SIZE    32
+#define BOOTMODE_SIZE   16
+#define PRODUCTID_SIZE  32
+#define POSTMODE_SIZE   16
+#define BOOTCOUNT_SIZE  8
+#define IDME_ATAG_SIZE  2048
+extern unsigned char system_idme[IDME_ATAG_SIZE+1];
+#endif
+// ACOS_MOD_END
+
 /* The list ends with an ATAG_NONE node. */
 #define ATAG_NONE	0x00000000
 
@@ -126,6 +142,16 @@ struct tag_cmdline {
 	char	cmdline[1];	/* this is the minimum size */
 };
 
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+/* idme all item */
+#define ATAG_IDME   0x54410010
+struct tag_idme {
+		u8 idme[2048];
+};
+#endif
+// ACOS_MOD_END
+
 /* acorn RiscPC specific information */
 #define ATAG_ACORN	0x41000101
 
@@ -155,7 +181,11 @@ struct tag {
 		struct tag_revision	revision;
 		struct tag_videolfb	videolfb;
 		struct tag_cmdline	cmdline;
-
+// ACOS_MOD_BEGIN
+#ifdef CONFIG_IDME
+		struct tag_idme     idme;
+#endif
+// ACOS_MOD_END
 		/*
 		 * Acorn specific
 		 */

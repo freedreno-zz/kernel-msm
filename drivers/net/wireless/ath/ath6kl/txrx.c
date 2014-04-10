@@ -17,6 +17,7 @@
 
 #include "core.h"
 #include "debug.h"
+#include <linux/trapz.h> /* ACOS_MOD_ONELINE */
 
 /*
  * tid - tid_mux0..tid_mux3
@@ -505,6 +506,13 @@ int ath6kl_data_tx(struct sk_buff *skb, struct net_device *dev)
 fail_tx:
 	dev_kfree_skb(skb);
 
+	/* ACOS_MOD_BEGIN */
+	TRAPZ_DESCRIBE(TRAPZ_KERN_NET_WIFI, tx_drop_packet,
+		"Wifi packet could not be enqueued for Tx -- was dropped");
+	TRAPZ_LOG(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_NET_WIFI, tx_drop_packet,
+		0, 0, 0, 0);
+	/* ACOS_MOD_END */
+
 	vif->net_stats.tx_dropped++;
 	vif->net_stats.tx_aborted_errors++;
 
@@ -751,11 +759,28 @@ void ath6kl_tx_complete(void *context, struct list_head *packet_queue)
 				   "%s: skb=0x%p data=0x%p len=0x%x eid=%d %s\n",
 				   __func__, skb, packet->buf, packet->act_len,
 				   eid, "error!");
+
+			/* ACOS_MOD_BEGIN */
+			TRAPZ_DESCRIBE(TRAPZ_KERN_NET_WIFI, tx_error_packet,
+					"Wifi packet enqueued -- "
+					"but error on transmission.");
+			TRAPZ_LOG(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_NET_WIFI,
+					tx_error_packet, 0, 0, 0, 0);
+			/* ACOS_MOD_END */
 		} else {
 			ath6kl_dbg(ATH6KL_DBG_WLAN_TX,
 				   "%s: skb=0x%p data=0x%p len=0x%x eid=%d %s\n",
 				   __func__, skb, packet->buf, packet->act_len,
 				   eid, "OK");
+
+			/* ACOS_MOD_BEGIN */
+			TRAPZ_DESCRIBE(TRAPZ_KERN_NET_WIFI, tx_packet,
+					"Sent a packet on Wifi");
+			TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_NET_WIFI,
+					tx_packet,
+					"Packet type: %d size: %d",
+			   		skb->pkt_type, packet->act_len, 0, 0);
+			/* ACOS_MOD_END */
 
 			flushing[if_idx] = false;
 			vif->net_stats.tx_packets++;
@@ -1337,7 +1362,18 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
 	vif->net_stats.rx_packets++;
 	vif->net_stats.rx_bytes += packet->act_len;
 
+	/* ACOS_MOD_BEGIN */
+	TRAPZ_DESCRIBE(TRAPZ_KERN_NET_WIFI, rx_packet,
+			"Received a packet on Wifi");
+	TRAPZ_LOG_PRINTF(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_NET_WIFI, rx_packet,
+			"Packet type: %d size: %d", skb->pkt_type, skb->len, 0, 0);
+	/* ACOS_MOD_END */
+
 	spin_unlock_bh(&vif->if_lock);
+
+
+	ath6kl_dbg_dump(ATH6KL_DBG_RAW_BYTES, __func__, "rx ",
+			skb->data, skb->len);
 
 	skb->dev = vif->ndev;
 
@@ -1364,6 +1400,12 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
 	    ((packet->act_len < min_hdr_len) ||
 	     (packet->act_len > WMI_MAX_AMSDU_RX_DATA_FRAME_LENGTH))) {
 		ath6kl_info("frame len is too short or too long\n");
+		/* ACOS_MOD_BEGIN */
+		TRAPZ_DESCRIBE(TRAPZ_KERN_NET_WIFI, rx_error_packet,
+				"Received a corrupted Wifi packet");
+		TRAPZ_LOG(TRAPZ_LOG_DEBUG, 0, TRAPZ_KERN_NET_WIFI,
+				rx_error_packet, 0, 0, 0, 0);
+		/* ACOS_MOD_END */
 		vif->net_stats.rx_errors++;
 		vif->net_stats.rx_length_errors++;
 		dev_kfree_skb(skb);

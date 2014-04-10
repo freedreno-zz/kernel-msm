@@ -14,6 +14,7 @@
 #define __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 
 #include <linux/regulator/msm-gpio-regulator.h>
+#include <linux/regulator/fixed.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
 #include <mach/msm_memtypes.h>
@@ -67,6 +68,10 @@ extern struct gpio_regulator_platform_data
 extern struct gpio_regulator_platform_data
 	mpq8064_gpio_regulator_pdata[] __devinitdata;
 
+extern struct fixed_voltage_config mpq8064_3p3_regulator_pdata;
+
+extern struct rpm_regulator_platform_data
+	bueller_apq8064_rpm_regulator_pdata __devinitdata;
 extern struct rpm_regulator_platform_data
 	apq8064_rpm_regulator_pdata __devinitdata;
 
@@ -108,7 +113,7 @@ void __init configure_apq8064_pm8917_power_grid(void);
 void __init configure_mpq8064_pm8921_power_grid(void);
 void __init configure_apq8064_dma_power_grid(void);
 
-#if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
+#if defined(CONFIG_BT)
 void __init apq8064_bt_power_init(void);
 #define QCA6234_BT_RST_N     23
 #endif
@@ -118,7 +123,7 @@ void __init apq8064_bt_power_init(void);
 	 machine_is_mpq8064_dtv() || \
 	 machine_is_mpq8064_cdp() || \
 	 machine_is_mpq8064_dma() || \
-	 machine_is_apq8064_dma() \
+	 machine_is_apq8064_bueller() \
 	)
 
 

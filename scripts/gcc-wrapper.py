@@ -43,6 +43,10 @@ allowed_warnings = set([
     "alignment.c:327",
     "mmu.c:602",
     "return_address.c:62",
+	# ACOS_MOD_BEGIN
+	"idme_init.c:202",
+	"idme_init.c:207",
+	# ACOS_MOD_END
  ])
 
 # Capture the name of the object file, can find it.

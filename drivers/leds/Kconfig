@@ -24,6 +24,14 @@ config LEDS_CLASS
 
 comment "LED drivers"
 
+config LEDS_BUELLER
+	tristate "LED Support for Bueller"
+	depends on LEDS_CLASS
+	default y
+	help
+	  This option enables support for the externally visible LEDs on
+	  Bueller.
+
 config LEDS_88PM860X
 	tristate "LED Support for Marvell 88PM860x PMIC"
 	depends on LEDS_CLASS

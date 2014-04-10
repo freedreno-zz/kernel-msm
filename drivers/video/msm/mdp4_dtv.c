@@ -202,26 +202,26 @@ static int dtv_on(struct platform_device *pdev)
 		ret = dtv_pdata->lcdc_gpio_config(1);
 
 	mfd = platform_get_drvdata(pdev);
-	if (mfd->cont_splash_done) {
-		ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
-		if (ret) {
-			pr_info("%s: clk_set_rate(%d) failed\n", __func__,
-				mfd->fbi->var.pixclock);
-			if (mfd->fbi->var.pixclock == 27030000)
-				mfd->fbi->var.pixclock = 27000000;
-			ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
-		}
-		pr_info("%s: tv_src_clk=%dkHz, pm_qos_rate=%ldkHz, [%d]\n",
-		__func__, mfd->fbi->var.pixclock/1000, pm_qos_rate, ret);
-		mfd->panel_info.clk_rate = mfd->fbi->var.pixclock;
-		clk_prepare_enable(hdmi_clk);
-		clk_reset(hdmi_clk, CLK_RESET_ASSERT);
-		udelay(20);
-		clk_reset(hdmi_clk, CLK_RESET_DEASSERT);
 
-		if (mdp_tv_clk)
-			clk_prepare_enable(mdp_tv_clk);
+	ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
+	if (ret) {
+		pr_info("%s: clk_set_rate(%d) failed\n", __func__,
+			mfd->fbi->var.pixclock);
+		if (mfd->fbi->var.pixclock == 27030000)
+			mfd->fbi->var.pixclock = 27000000;
+		ret = clk_set_rate(tv_src_clk, mfd->fbi->var.pixclock);
 	}
+	pr_info("%s: tv_src_clk=%dkHz, pm_qos_rate=%ldkHz, [%d]\n", __func__,
+		mfd->fbi->var.pixclock/1000, pm_qos_rate, ret);
+	mfd->panel_info.clk_rate = mfd->fbi->var.pixclock;
+	clk_prepare_enable(hdmi_clk);
+	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
+	udelay(20);
+	clk_reset(hdmi_clk, CLK_RESET_DEASSERT);
+
+	if (mdp_tv_clk)
+		clk_prepare_enable(mdp_tv_clk);
+
 	ret = panel_next_on(pdev);
 	return ret;
 }

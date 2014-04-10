@@ -23,7 +23,6 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 
-#  define UINT32_MAX    (4294967295U)
 static int release_buf;
 
 /* size is based on 4k page size */
@@ -585,9 +584,6 @@ int msm_gemini_input_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 		(int) buf_cmd.vaddr, buf_cmd.y_len);
 
 	if (pgmn_dev->op_mode == MSM_GEMINI_MODE_REALTIME_ENCODE) {
-		if(buf_cmd.y_off == 0)
-			return 0;
-
 		rc = msm_iommu_map_contig_buffer(
 			(unsigned long)buf_cmd.y_off, CAMERA_DOMAIN, GEN_POOL,
 			((buf_cmd.y_len + buf_cmd.cbcr_len + 4095) & (~4095)),
@@ -808,7 +804,7 @@ int msm_gemini_ioctl_hw_cmds(struct msm_gemini_device *pgmn_dev,
 	void * __user arg)
 {
 	int is_copy_to_user;
-	uint32_t len;
+	int len;
 	uint32_t m;
 	struct msm_gemini_hw_cmds *hw_cmds_p;
 	struct msm_gemini_hw_cmd *hw_cmd_p;
@@ -816,12 +812,6 @@ int msm_gemini_ioctl_hw_cmds(struct msm_gemini_device *pgmn_dev,
 	if (copy_from_user(&m, arg, sizeof(m))) {
 		GMN_PR_ERR("%s:%d] failed\n", __func__, __LINE__);
 		return -EFAULT;
-	}
-	if ((m == 0) || (m > ((UINT32_MAX-sizeof(struct msm_gemini_hw_cmds))/
-		sizeof(struct msm_gemini_hw_cmd)))) {
-		GMN_PR_ERR("%s:%d] outof range of hwcmds\n",
-			 __func__, __LINE__);
-		return -EINVAL;
 	}
 
 	len = sizeof(struct msm_gemini_hw_cmds) +

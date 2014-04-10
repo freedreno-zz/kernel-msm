@@ -1089,6 +1089,13 @@ static int msm_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
+	if (!mfd->cont_splash_done && (blank_mode == FB_BLANK_UNBLANK))
+			return 0;
+
+	pr_debug("%s : %d  %d \n", __func__, blank_mode, mfd->cont_splash_done);
+	if ((blank_mode == FB_BLANK_POWERDOWN) && (!mfd->cont_splash_done))
+		return 0;
+
 	if (blank_mode == FB_BLANK_POWERDOWN) {
 		struct fb_event event;
 		event.info = info;
@@ -1139,18 +1146,23 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	if (!start)
 		return -EINVAL;
 
-	if ((vma->vm_end <= vma->vm_start) ||
-	    (off >= len) ||
-	    ((vma->vm_end - vma->vm_start) > (len - off)))
-		return -EINVAL;
-
 	msm_fb_pan_idle(mfd);
+	if (off >= len) {
+		/* memory mapped io */
+		off -= len;
+		if (info->var.accel_flags) {
+			mutex_unlock(&info->lock);
+			return -EINVAL;
+		}
+		start = info->fix.mmio_start;
+		len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.mmio_len);
+	}
+
 	/* Set VM flags. */
 	start &= PAGE_MASK;
-	off += start;
-	if (off < start)
+	if ((vma->vm_end - vma->vm_start + off) > len)
 		return -EINVAL;
-
+	off += start;
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
 	vma->vm_flags |= VM_IO | VM_RESERVED;
@@ -3341,8 +3353,6 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		return ret;
 	}
 
-	mdp4_overlay_check_splash(mfd, req.id);
-
 	if (info->node == 0 && !(mfd->cont_splash_done)) { /* primary */
 		mdp_set_dma_pan_info(info, NULL, TRUE);
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {
@@ -3637,12 +3647,12 @@ static void msmfb_set_color_conv(struct mdp_csc *p)
 }
 #endif
 
-static int msmfb_notify_update(struct fb_info *info, void __user *argp)
+static int msmfb_notify_update(struct fb_info *info, unsigned long *argp)
 {
-	unsigned int ret = 0, notify = 0;
+	int ret, notify;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
-	ret = copy_from_user(&notify, argp, sizeof(unsigned int));
+	ret = copy_from_user(&notify, argp, sizeof(int));
 	if (ret) {
 		pr_err("%s:ioctl failed\n", __func__);
 		return ret;
@@ -3777,9 +3787,7 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		goto buf_sync_err_1;
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
-		mutex_unlock(&mfd->sync_mutex);
 		msm_fb_wait_for_fence(mfd);
-		mutex_lock(&mfd->sync_mutex);
 	}
 	if (mfd->panel.type == WRITEBACK_PANEL)
 		threshold = 1;
@@ -3868,12 +3876,16 @@ static int msmfb_get_metadata(struct msm_fb_data_type *mfd,
 			mfdtemp = (struct msm_fb_data_type *)fbi_list[c]->par;
 			if (mfdtemp->panel.type == DTV_PANEL) {
 				metadata_ptr->data.res_cfg.vFmt =
-					mfdtemp->var_vic;
-				metadata_ptr->data.res_cfg.set_default_res =
-					mfdtemp->set_default_res;
-				pr_info("%s vic: %d res: %d\n",
-					__func__, mfdtemp->var_vic,
-					mfdtemp->set_default_res);
+					mfdtemp->vfmt_kernel;
+				if ((mfdtemp->var_xres < 1920) &&
+				(mfdtemp->var_yres < 1080))
+					metadata_ptr->data.res_cfg.goDefaultRes = 1;
+
+				pr_info("%s vic: %d res: (%d x %d)default: %d \n",
+				__func__, mfdtemp->var_vic,
+				mfdtemp->var_xres,
+				mfdtemp->var_yres,
+				metadata_ptr->data.res_cfg.goDefaultRes);
 				return ret;
 			}
 		}
@@ -3910,13 +3922,6 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	unsigned int avmute = 0;
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 	msm_fb_commit_idle(mfd, cmd, 1);
-
-        if (!info || !(info->par))
-                return -EINVAL;
-
-        mfd = (struct msm_fb_data_type *)info->par;
-
-	msm_fb_pan_idle(mfd);
 
 	switch (cmd) {
 #ifdef CONFIG_FB_MSM_OVERLAY
@@ -4281,7 +4286,7 @@ void msm_fb_print_fence_log(void)
 			fence_log[i].action_id, fence_log[i].fb_index,
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
 			fence_log[i].timestamp, fence_log[i].update_cnt);
-		if ((i & 0xf) == 0xf)
+		if ((i % 0x8) == 0x0)
 			msleep(20);
 	}
 
@@ -4292,7 +4297,7 @@ void msm_fb_print_fence_log(void)
 			fence_log[i].commit_cnt, fence_log[i].timeline_value,
 			fence_log[i].timestamp, fence_log[i].update_cnt);
 		i--;
-		if ((i & 0xf) == 0xf)
+		if ((i % 0x8) == 0x0)
 			msleep(20);
 	};
 
