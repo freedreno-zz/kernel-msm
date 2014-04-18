@@ -374,7 +374,6 @@ static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,hdmi-tx" },
 	{}
 };
-MODULE_DEVICE_TABLE(of, dt_match);
 
 static struct platform_driver hdmi_driver = {
 	.probe = hdmi_dev_probe,
