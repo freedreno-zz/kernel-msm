@@ -861,12 +861,6 @@ static const struct dev_pm_ops msm_pm_ops = {
 /* NOTE: the CONFIG_OF case duplicates the same code as exynos or imx
  * (or probably any other).. so probably some room for some helpers
  */
-static int compare_parent_of(struct device *dev, void *data)
-{
-	struct of_phandle_args *args = data;
-	return dev->parent && dev->parent->of_node == args->np;
-}
-
 static int compare_of(struct device *dev, void *data)
 {
 	return dev->of_node == data;
@@ -877,21 +871,6 @@ static int msm_drm_add_components(struct device *master, struct master *m)
 	struct device_node *np = master->of_node;
 	unsigned i;
 	int ret;
-
-	for (i = 0; ; i++) {
-		struct of_phandle_args args;
-
-		ret = of_parse_phandle_with_fixed_args(np, "crtcs", 1,
-				i, &args);
-		if (ret)
-			break;
-
-		ret = component_master_add_child(m, compare_parent_of, &args);
-		of_node_put(args.np);
-
-		if (ret)
-			return ret;
-	}
 
 	for (i = 0; ; i++) {
 		struct device_node *node;
