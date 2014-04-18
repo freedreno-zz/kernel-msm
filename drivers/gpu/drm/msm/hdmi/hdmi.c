@@ -249,11 +249,17 @@ fail:
 
 #include <linux/of_gpio.h>
 
+// this is still needed on downstream kernel for now just for
+// hdmi_msm_audio_info_setup() / hdmi_msm_audio_sample_rate_reset..
+// TODO sane interface between audio and display..
+struct platform_device *hdmi_pdev_hack;
+
 static void set_hdmi_pdev(struct drm_device *dev,
 		struct platform_device *pdev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	priv->hdmi_pdev = pdev;
+	hdmi_pdev_hack = pdev;
 }
 
 static int hdmi_bind(struct device *dev, struct device *master, void *data)
@@ -369,6 +375,50 @@ static int hdmi_dev_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &hdmi_ops);
 	return 0;
 }
+
+static struct hdmi *find_hdmi(void)
+{
+	return hdmi_pdev_hack ? platform_get_drvdata(hdmi_pdev_hack) : NULL;
+}
+
+struct msm_hdmi_audio_codec_ops;
+int msm_hdmi_register_audio_codec(struct platform_device *pdev,
+	struct msm_hdmi_audio_codec_ops *ops)
+{
+#if 0
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl || !ops) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	ops->audio_info_setup = hdmi_tx_audio_info_setup;
+	ops->get_audio_edid_blk = hdmi_tx_get_audio_edid_blk;
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(msm_hdmi_register_audio_codec);
+
+int hdmi_msm_audio_info_setup(bool enabled, u32 num_of_channels,
+	u32 channel_allocation, u32 level_shift, bool down_mix)
+{
+	struct hdmi *hdmi = find_hdmi();
+	if (!hdmi)
+		return -EINVAL;
+	return hdmi_audio_info_setup(hdmi, enabled, num_of_channels,
+			channel_allocation, level_shift, down_mix);
+}
+EXPORT_SYMBOL(hdmi_msm_audio_info_setup);
+
+void hdmi_msm_audio_sample_rate_reset(int rate)
+{
+	struct hdmi *hdmi = find_hdmi();
+	if (!hdmi)
+		return;
+	hdmi_audio_set_sample_rate(hdmi, rate);
+}
+EXPORT_SYMBOL(hdmi_msm_audio_sample_rate_reset);
 
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,hdmi-tx" },
