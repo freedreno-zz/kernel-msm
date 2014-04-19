@@ -79,7 +79,9 @@ static int32_t avcs_core_callback(struct apr_client_data *data, void *priv)
 	}
 	case RESET_EVENTS:{
 		pr_debug("Reset event received in Core service");
+#if defined(CONFIG_MSM_QDSP6_APR) || defined(CONFIG_MSM_QDSP6_APRV2)
 		apr_reset(core_handle);
+#endif
 		core_handle = NULL;
 		break;
 	}
@@ -94,9 +96,11 @@ static int32_t avcs_core_callback(struct apr_client_data *data, void *priv)
 
 int avcs_core_open(void)
 {
+#if defined(CONFIG_MSM_QDSP6_APR) || defined(CONFIG_MSM_QDSP6_APRV2)
 	if (core_handle == NULL)
 		core_handle = apr_register("ADSP", "CORE",
 					avcs_core_callback, 0xFFFFFFFF, NULL);
+#endif
 
 	pr_debug("Open_q %p\n", core_handle);
 	if (core_handle == NULL) {
@@ -132,12 +136,14 @@ int avcs_core_disable_power_collapse(int disable)
 		* power requirements as well.
 		*/
 		pc.power_collapse = disable;
+#if defined(CONFIG_MSM_QDSP6_APR) || defined(CONFIG_MSM_QDSP6_APRV2)
 		rc = apr_send_pkt(core_handle, (uint32_t *)&pc);
 		if (rc < 0) {
 			pr_debug("disable power collapse = %d failed\n",
 				disable);
 			return rc;
 		}
+#endif
 		pr_debug("disable power collapse = %d\n", disable);
 	}
 	return 0;
