@@ -210,6 +210,30 @@ bool atl1c_read_eeprom(struct atl1c_hw *hw, u32 offset, u32 *p_value)
 
 	return ret;
 }
+
+static u8 psuedo_rand_mac[ETH_ALEN];
+
+static int psuedo_rand_mac_setup(char *serialno)
+{
+	int i;
+	char *src = serialno;
+
+	/* create a fake MAC address from our serial number.
+	 * first byte is 0x02 to signify locally administered.
+	 */
+	psuedo_rand_mac[0] = 0x02;
+	for (i = 0; *src; i++) {
+		/* XOR the USB serial across the remaining bytes */
+		psuedo_rand_mac[i % (ETH_ALEN - 1) + 1] ^= *src++;
+	}
+
+	printk(KERN_ERR "generated mac address: %pM\n", psuedo_rand_mac);
+
+	return 1;
+}
+__setup("androidboot.serialno", psuedo_rand_mac_setup);
+
+
 /*
  * Reads the adapter's MAC address from the EEPROM
  *
@@ -220,6 +244,14 @@ int atl1c_read_mac_addr(struct atl1c_hw *hw)
 	int err = 0;
 
 	err = atl1c_get_permanent_address(hw);
+	if (err && psuedo_rand_mac[0]) {
+		/* if we have a psuedo-random-mac generated from
+		 * device serialno, use that as first fallback:
+		 */
+		memcpy(hw->perm_mac_addr, psuedo_rand_mac,
+				sizeof(hw->perm_mac_addr));
+		err = 0;
+	}
 	if (err)
 		random_ether_addr(hw->perm_mac_addr);
 
