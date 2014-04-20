@@ -23,6 +23,11 @@
  * Please copy this file to cfg80211 module path and turn on
  * CONFIG_ATH6KL_REGDB_AS_CFG80211_REGDB then rebuilt cfg80211.ko.
  */
+
+#ifdef CONFIG_ATH6KL_REGDB_AS_CFG80211_REGDB
+#undef CONFIG_ATH6KL_REGDB_AS_CFG80211_REGDB
+#endif
+
 #ifdef CONFIG_ATH6KL_REGDB_AS_CFG80211_REGDB
 #include "regdb.h"
 #endif

@@ -29,12 +29,6 @@
 #include "target.h"
 #include "debug.h"
 #include "cfg80211.h"
-#include <linux/qca6234_pwrif.h>
-/*
-extern void qca6234_wifi_gpio(bool on);
-extern void qca6234_bt_gpio(bool on);
-extern int BT_RF_status;
-*/
 
 /*
  * Define GPIO number for WoW in your platform other than zero
@@ -520,7 +514,6 @@ static int ath6kl_sdio_power_on(struct ath6kl *ar)
 		return 0;
 
 	ath6kl_dbg(ATH6KL_DBG_BOOT, "sdio power on\n");
-	qca6234_wifi_gpio(1);
 
 	sdio_claim_host(func);
 
@@ -554,6 +547,7 @@ static int ath6kl_sdio_power_off(struct ath6kl *ar)
 		return 0;
 
 	ath6kl_dbg(ATH6KL_DBG_BOOT, "sdio power off\n");
+
 	/* Disable the card */
 	sdio_claim_host(ar_sdio->func);
 
@@ -569,9 +563,7 @@ static int ath6kl_sdio_power_off(struct ath6kl *ar)
 		return ret;
 
 	ar_sdio->is_disabled = true;
-	/* if BT is in use, then no wifi reset */
-	if (BT_RF_status)
-		qca6234_wifi_gpio(0);
+
 	return ret;
 }
 
@@ -849,7 +841,9 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 
 	flags = sdio_get_host_pm_caps(func);
 
-	ath6kl_dbg(ATH6KL_DBG_SUSPEND, "sdio suspend pm_caps 0x%x\n", flags);
+	ath6kl_dbg(ATH6KL_DBG_SUSPEND | ATH6KL_DBG_EXT_INFO1,
+			"sdio suspend pm_caps 0x%x\n",
+			flags);
 
 	if (!(flags & MMC_PM_KEEP_POWER) ||
 	    (ar->conf_flags & ATH6KL_CONF_SUSPEND_CUTPOWER)) {
@@ -891,6 +885,8 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 
 static int ath6kl_sdio_resume(struct ath6kl *ar)
 {
+	ath6kl_dbg(ATH6KL_DBG_EXT_INFO1, "sdio resume: state %d\n", ar->state);
+
 	switch (ar->state) {
 	case ATH6KL_STATE_OFF:
 	case ATH6KL_STATE_CUTPOWER:
@@ -1267,7 +1263,17 @@ int sdio_debugfs_get_pm_usage_cnt(struct ath6kl *ar)
 {
 	return 0;
 }
+
+void sdio_auto_pm_set_delay(struct ath6kl *ar, int delay)
+{
+
+}
 #endif
+
+static void ath6kl_sdio_set_max_queue_number(struct ath6kl *ar, bool mccEnable)
+{
+	/* TBD */
+}
 
 static const struct ath6kl_hif_ops ath6kl_sdio_ops = {
 	.read_write_sync = ath6kl_sdio_read_write_sync,
@@ -1301,7 +1307,9 @@ static const struct ath6kl_hif_ops ath6kl_sdio_ops = {
 	.auto_pm_turnon = sdio_auto_pm_turnon,
 	.auto_pm_turnoff = sdio_auto_pm_turnoff,
 	.auto_pm_get_usage_cnt = sdio_debugfs_get_pm_usage_cnt,
+	.auto_pm_set_delay = sdio_auto_pm_set_delay,
 #endif
+	.pipe_set_max_queue_number = ath6kl_sdio_set_max_queue_number,
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -1462,15 +1470,13 @@ static struct sdio_driver ath6kl_sdio_driver = {
 	.drv.pm = ATH6KL_SDIO_PM_OPS,
 };
 
-extern int vos_chip_power_qca6234(int on);
 static int __init ath6kl_sdio_init(void)
 {
 	int ret;
 
 #ifdef CONFIG_ANDROID
-	/*ath6kl_sdio_init_msm();*/
+	ath6kl_sdio_init_msm();
 #endif
-	vos_chip_power_qca6234(1);
 	ret = sdio_register_driver(&ath6kl_sdio_driver);
 	if (ret)
 		ath6kl_err("sdio driver registration failed: %d\n", ret);
@@ -1481,9 +1487,8 @@ static int __init ath6kl_sdio_init(void)
 static void __exit ath6kl_sdio_exit(void)
 {
 	sdio_unregister_driver(&ath6kl_sdio_driver);
-#ifdef CONFIG_ANDROID_8960_SDIO
+#ifdef CONFIG_ANDROID
 	ath6kl_sdio_exit_msm();
-	vos_chip_power_qca6234(0);
 #endif
 }
 

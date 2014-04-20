@@ -43,10 +43,8 @@ bool ath6kl_btcoex_cfg80211_ready(struct ath6kl_vif *vif)
 	if (!__ath6kl_btcoex_cfg80211_ready(vif->ar))
 		return false;
 
-	if (!test_bit(WLAN_ENABLED, &vif->flags)) {
-		ath6kl_err("wlan disabled\n");
+	if (!test_bit(WLAN_ENABLED, &vif->flags))
 		return false;
-	}
 
 	return true;
 }
@@ -63,7 +61,8 @@ int ath6kl_notify_btcoex(struct wiphy *wiphy, u8 *buf,
 	if (!vif)
 		return -EIO;
 
-	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "BT coex wmi command:%p\n", buf);
+	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG | ATH6KL_DBG_EXT_DISCONNECT,
+		"BT coex wmi command:%p\n", buf);
 
 	if (!ath6kl_btcoex_cfg80211_ready(vif))
 		return -EIO;

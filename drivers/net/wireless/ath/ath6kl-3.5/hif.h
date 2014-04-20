@@ -278,6 +278,7 @@ struct ath6kl_hif_ops {
 	int (*pipe_send_bundle)(struct ath6kl *ar, u8 pid,
 		struct sk_buff **msg_bundle, int num_msgs);
 	u16 (*pipe_get_max_queue_number)(struct ath6kl *ar, u8 pipe);
+	void (*pipe_set_max_queue_number)(struct ath6kl *ar, bool mccEnable);
 	int (*pipe_set_max_sche)(struct ath6kl *ar, u32 max_sche_tx,
 		u32 max_sche_rx);
 	int (*diag_warm_reset)(struct ath6kl *ar);
@@ -289,10 +290,15 @@ struct ath6kl_hif_ops {
 
 #ifdef USB_AUTO_SUSPEND
 	int (*auto_pm_get_usage_cnt)(struct ath6kl *ar);
-	void (*auto_pm_disable)(struct ath6kl *ar);
+	int (*auto_pm_disable)(struct ath6kl *ar);
 	void (*auto_pm_enable)(struct ath6kl *ar);
 	void (*auto_pm_turnon)(struct ath6kl *ar);
 	void (*auto_pm_turnoff)(struct ath6kl *ar);
+	void (*auto_pm_set_delay)(struct ath6kl *ar, int delay);
+#endif
+	int (*pipe_set_rxq_threshold)(struct ath6kl *ar, u32 rxq_threshold);
+#ifdef ATH6KL_HSIC_RECOVER
+	int (*sw_recover)(struct ath6kl *ar);
 #endif
 };
 

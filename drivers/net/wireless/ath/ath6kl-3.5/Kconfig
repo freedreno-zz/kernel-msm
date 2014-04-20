@@ -6,8 +6,6 @@ config ATH6KL_SDIO
 	depends on ATH6KL
 	depends on MMC
 	depends on CFG80211
-	select PM_SLEEP
-	select 
 	---help---
 	  This module adds support for wireless adapters based on
 	  Atheros AR6003 and AR6004 chipsets running over SDIO. If you

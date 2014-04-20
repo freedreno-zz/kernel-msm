@@ -20,6 +20,7 @@
 #include "cfg80211.h"
 #include "target.h"
 #include "debug.h"
+#include <linux/vmalloc.h>
 #ifdef ATHTST_SUPPORT
 #include "ieee80211_ioctl.h"
 #include "ce_athtst.h"
@@ -56,6 +57,9 @@ struct ath6kl_sta *ath6kl_find_sta(struct ath6kl_vif *vif, u8 *node_addr)
 
 	if (vif->nw_type != AP_NETWORK)
 		return &vif->sta_list[0];
+
+	if (is_zero_ether_addr(node_addr))
+		return NULL;
 
 	max_conn = (vif->nw_type == AP_NETWORK) ? AP_MAX_NUM_STA : 0;
 
@@ -104,8 +108,7 @@ static void ath6kl_add_new_sta(struct ath6kl_vif *vif, u8 *mac, u8 aid,
 
 	spin_lock_bh(&sta->lock);
 	memcpy(sta->mac, mac, ETH_ALEN);
-	if (ielen <= ATH6KL_MAX_IE)
-		memcpy(sta->wpa_ie, wpaie, ielen);
+	memcpy(sta->wpa_ie, wpaie, ielen);
 	sta->aid = aid;
 	sta->keymgmt = keymgmt;
 	sta->ucipher = ucipher;
@@ -113,9 +116,12 @@ static void ath6kl_add_new_sta(struct ath6kl_vif *vif, u8 *mac, u8 aid,
 	sta->apsd_info = apsd_info;
 	sta->phymode = phymode;
 	sta->vif = vif;
-	init_timer(&sta->psq_age_timer);
-	sta->psq_age_timer.function = ath6kl_ps_queue_age_handler;
-	sta->psq_age_timer.data = (unsigned long)sta;
+	if (!sta->psq_age_active) {
+		init_timer(&sta->psq_age_timer);
+		sta->psq_age_timer.function = ath6kl_ps_queue_age_handler;
+		sta->psq_age_timer.data = (unsigned long)sta;
+		sta->psq_age_active = 1;
+	}
 	aggr_reset_state(sta->aggr_conn_cntxt);
 	sta->last_txrx_time_tgt = 0;
 	sta->last_txrx_time = 0;
@@ -137,10 +143,12 @@ static void ath6kl_sta_cleanup(struct ath6kl_vif *vif, u8 i)
 	struct ath6kl_p2p_flowctrl *p2p_flowctrl = ar->p2p_flowctrl_ctx;
 	struct ath6kl_fw_conn_list *fw_conn;
 	struct list_head container;
-	int reclaim = 0;
+	int reclaim = 0, j;
 
-	del_timer_sync(&sta->psq_age_timer);
-
+	if (sta->psq_age_active) {
+		del_timer_sync(&sta->psq_age_timer);
+		sta->psq_age_active = 0;
+	}
 	if (p2p_flowctrl &&
 		p2p_flowctrl->sche_type == P2P_FLOWCTRL_SCHE_TYPE_CONNECTION) {
 
@@ -148,7 +156,7 @@ static void ath6kl_sta_cleanup(struct ath6kl_vif *vif, u8 i)
 
 		spin_lock_bh(&p2p_flowctrl->p2p_flowctrl_lock);
 		fw_conn = &p2p_flowctrl->fw_conn_list[0];
-		for (i = 0; i < NUM_CONN; i++, fw_conn++) {
+		for (j = 0; j < NUM_CONN; j++, fw_conn++) {
 			if (fw_conn->connId == ATH6KL_P2P_FLOWCTRL_NULL_CONNID)
 				continue;
 
@@ -513,8 +521,9 @@ void ath6kl_ps_queue_age_handler(unsigned long ptr)
 			vif->fw_vif_idx, conn->aid, 0);
 	spin_unlock_bh(&conn->lock);
 
-	mod_timer(&conn->psq_age_timer, jiffies +
-		msecs_to_jiffies(ATH6KL_PS_QUEUE_CHECK_AGE));
+	if (conn->psq_age_active)
+		mod_timer(&conn->psq_age_timer, jiffies +
+			msecs_to_jiffies(ATH6KL_PS_QUEUE_CHECK_AGE));
 
 	return;
 }
@@ -526,8 +535,9 @@ void ath6kl_ps_queue_age_start(struct ath6kl_sta *conn)
 			conn,
 			conn->aid);
 
-	mod_timer(&conn->psq_age_timer, jiffies +
-		msecs_to_jiffies(ATH6KL_PS_QUEUE_CHECK_AGE));
+	if (conn->psq_age_active)
+		mod_timer(&conn->psq_age_timer, jiffies +
+			msecs_to_jiffies(ATH6KL_PS_QUEUE_CHECK_AGE));
 
 	return;
 }
@@ -539,7 +549,399 @@ void ath6kl_ps_queue_age_stop(struct ath6kl_sta *conn)
 			conn,
 			conn->aid);
 
-	del_timer_sync(&conn->psq_age_timer);
+	if (conn->psq_age_active)
+		del_timer_sync(&conn->psq_age_timer);
+
+	return;
+}
+
+struct bss_post_proc *ath6kl_bss_post_proc_init(struct ath6kl_vif *vif)
+{
+	struct bss_post_proc *post_proc;
+
+	post_proc = kzalloc(sizeof(struct bss_post_proc), GFP_KERNEL);
+	if (!post_proc) {
+		ath6kl_err("failed to alloc memory for post_proc\n");
+		return NULL;
+	}
+
+	post_proc->vif = vif;
+	post_proc->flags = ATH6KL_BSS_POST_PROC_CACHED_BSS;
+	post_proc->aging_time = ATH6KL_BSS_POST_PROC_AGING_TIME;
+	spin_lock_init(&post_proc->bss_info_lock);
+	INIT_LIST_HEAD(&post_proc->bss_info_list);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc init (vif %d)\n",
+		   vif->fw_vif_idx);
+
+	return post_proc;
+}
+
+static void bss_proc_post_flush(struct bss_post_proc *post_proc, bool force)
+{
+	struct bss_info_entry *bss_info, *tmp;
+	bool aging;
+	int aging_cnt, bss_cnt;
+
+	spin_lock_bh(&post_proc->bss_info_lock);
+
+	aging_cnt = bss_cnt = 0;
+	list_for_each_entry_safe(bss_info,
+				tmp,
+				&post_proc->bss_info_list,
+				list) {
+		bss_cnt++;
+		if (time_after(jiffies,
+				bss_info->shoot_time + post_proc->aging_time))
+			aging = true;
+		else
+			aging = false;
+
+		if ((force) || (aging)) {
+			aging_cnt++;
+			list_del(&bss_info->list);
+			kfree(bss_info->mgmt);
+			kfree(bss_info);
+		}
+	}
+
+	spin_unlock_bh(&post_proc->bss_info_lock);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc flush %s, %d/%d\n",
+		   (force ? "force" : "aging"),
+		   aging_cnt,
+		   bss_cnt);
+
+	return;
+}
+
+void ath6kl_bss_post_proc_deinit(struct ath6kl_vif *vif)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+
+	if (post_proc) {
+		bss_proc_post_flush(post_proc, true);
+
+		kfree(post_proc);
+	}
+
+	vif->bss_post_proc_ctx = NULL;
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc deinit (vif %d)\n",
+		   vif->fw_vif_idx);
+
+	return;
+}
+
+void ath6kl_bss_post_proc_bss_scan_start(struct ath6kl_vif *vif)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+
+	if (!post_proc)
+		return;
+
+	/* Always flush old bss_info before start a new scan. */
+	if (post_proc->flags & ATH6KL_BSS_POST_PROC_CACHED_BSS)
+		bss_proc_post_flush(post_proc, false);
+	else
+		bss_proc_post_flush(post_proc, true);
+
+	set_bit(BSS_POST_PROC_SCAN_ONGOING, &post_proc->stat);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+			"bss_proc scan_start\n");
+
+	return;
+}
+
+int ath6kl_bss_post_proc_bss_complete_event(struct ath6kl_vif *vif)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+	struct bss_info_entry *bss_info, *tmp;
+	struct cfg80211_bss *bss;
+	int cnt = 0;
+
+	if (!post_proc)
+		return 0;
+
+	if (!test_and_clear_bit(BSS_POST_PROC_SCAN_ONGOING, &post_proc->stat))
+		return 0;
+
+	spin_lock_bh(&post_proc->bss_info_lock);
+
+	list_for_each_entry_safe(bss_info,
+				tmp,
+				&post_proc->bss_info_list,
+				list) {
+		cnt++;
+
+		BUG_ON(!bss_info->mgmt);
+
+		bss = cfg80211_inform_bss_frame(vif->ar->wiphy,
+						bss_info->channel,
+						bss_info->mgmt,
+						bss_info->len,
+						bss_info->signal,
+						GFP_ATOMIC);
+		if (bss)
+			ath6kl_bss_put(vif->ar, bss);
+	}
+
+	spin_unlock_bh(&post_proc->bss_info_lock);
+
+	if (post_proc->flags & ATH6KL_BSS_POST_PROC_CACHED_BSS)
+		bss_proc_post_flush(post_proc, false);
+	else
+		bss_proc_post_flush(post_proc, true);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+			"bss_proc scan_comp, cnt %d\n", cnt);
+
+	return 0;
+}
+
+static struct bss_info_entry *bss_post_proc_bss_info(struct ath6kl_vif *vif,
+					struct ieee80211_mgmt *mgmt,
+					int len,
+					s32 snr,
+					struct ieee80211_channel *channel)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+	struct bss_info_entry *bss_info, *tmp;
+	bool updated = false;
+	int hits = 0;
+
+	spin_lock_bh(&post_proc->bss_info_lock);
+
+	/*
+	 * Expect reverse travel should hit in high possibility.
+	 * And check some hints first to speed up. Also assume
+	 * Duration & Sequence are always be zero and ignore the
+	 * timestamp field.
+	 */
+	list_for_each_entry_safe_reverse(bss_info,
+				tmp,
+				&post_proc->bss_info_list,
+				list) {
+		BUG_ON(!bss_info->mgmt);
+
+		hits++;
+		if ((bss_info->channel == channel) &&
+		    (bss_info->len == len) &&
+		    (memcmp(bss_info->mgmt, mgmt, 24) == 0)) {
+			if (memcmp((u8 *)(bss_info->mgmt) + 24 + 8,
+				   (u8 *)mgmt + 24 + 8,
+				   len - 24 - 8) == 0) {
+				list_del(&bss_info->list);
+
+				/* Update */
+				memcpy((u8 *)(bss_info->mgmt), (u8 *)mgmt, len);
+				bss_info->shoot_time = jiffies;
+				bss_info->signal = snr; /* TODO: average SNR */
+				updated = true;
+
+				break;
+			}
+		}
+	}
+
+	/*
+	 * Remove and insert back to the list to let the list is
+	 * always keep shoot-time ordered.
+	 */
+	if (updated)
+		list_add_tail(&bss_info->list, &post_proc->bss_info_list);
+	else
+		bss_info = NULL;
+
+	spin_unlock_bh(&post_proc->bss_info_lock);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc bssinfo %s, hits %d\n",
+		   (updated ? "updated" : "add"),
+		   hits);
+
+	return bss_info;
+}
+
+void ath6kl_bss_post_proc_bss_info(struct ath6kl_vif *vif,
+				struct ieee80211_mgmt *mgmt,
+				int len,
+				s32 snr,
+				struct ieee80211_channel *channel)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+	struct bss_info_entry *bss_info;
+
+	if (!post_proc)
+		return;
+
+	if (!test_bit(BSS_POST_PROC_SCAN_ONGOING, &post_proc->stat))
+		return;
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc bssinfo (vif %d) BSSID "
+		   "%02x:%02x:%02x:%02x:%02x:%02x FC %04x len %d\n",
+		   vif->fw_vif_idx,
+		   mgmt->bssid[0], mgmt->bssid[1], mgmt->bssid[2],
+		   mgmt->bssid[3], mgmt->bssid[4], mgmt->bssid[5],
+		   mgmt->frame_control,
+		   len);
+
+	if (bss_post_proc_bss_info(vif, mgmt, len, snr, channel))
+		return;
+
+	bss_info = kzalloc(sizeof(struct bss_info_entry), GFP_ATOMIC);
+	if (!bss_info) {
+		ath6kl_err("failed to alloc memory for bss_info\n");
+		return;
+	}
+
+	bss_info->mgmt = kmalloc(len, GFP_ATOMIC);
+	if (!bss_info->mgmt) {
+		kfree(bss_info);
+		ath6kl_err("failed to alloc memory for bss_info->mgmt\n");
+		return;
+	}
+
+	/* Add BSS info. */
+	bss_info->channel = channel;
+	bss_info->signal = snr;
+	memcpy((u8 *)(bss_info->mgmt), (u8 *)mgmt, len);
+	bss_info->len = len;
+	bss_info->shoot_time = jiffies;
+
+	spin_lock_bh(&post_proc->bss_info_lock);
+	list_add_tail(&bss_info->list, &post_proc->bss_info_list);
+	spin_unlock_bh(&post_proc->bss_info_lock);
+
+
+	return;
+}
+
+static int bss_post_proc_candidate_chan(struct bss_info_entry *bss,
+					u16 *chan_list,
+					int chan_num)
+{
+	u16 chan = bss->channel->center_freq;
+	int i, j, slot = -1;
+	bool add = true;
+
+	for (i = 0; i < chan_num; i++) {
+		if (chan == chan_list[i]) {
+			add = false;
+			break;
+		} else if (chan < chan_list[i])
+			break;
+	}
+
+	if (add) {
+		/* Order from lower to higher channel. */
+		if (i == chan_num)
+			slot = chan_num;
+		else {
+			slot = i;
+			for (j = 0; j < (chan_num - i); j++)
+				chan_list[chan_num - j] =
+				chan_list[chan_num - j - 1];
+		}
+
+		chan_list[slot] = chan;
+		chan_num++;
+	}
+
+	BUG_ON(slot >= chan_num);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc candidate_chan %s chan %d slot %d chan_num %d\n",
+		   (add ? "add" : "ignore"),
+		   chan,
+		   slot,
+		   chan_num);
+
+	return chan_num;
+}
+
+int ath6kl_bss_post_proc_candidate_bss(struct ath6kl_vif *vif,
+					char *ssid,
+					int ssid_len,
+					u16 *chan_list)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+	struct bss_info_entry *bss_info, *tmp;
+	u8 *ssid_ie;
+	int chan_num = 0;
+
+	if ((!post_proc) || (ssid_len == 0))
+		return 0;
+
+	spin_lock_bh(&post_proc->bss_info_lock);
+
+	list_for_each_entry_safe(bss_info,
+				tmp,
+				&post_proc->bss_info_list,
+				list) {
+		if (time_after(jiffies,
+				bss_info->shoot_time + post_proc->aging_time))
+			continue;
+
+		if (bss_info->len < 24 + 8 + 2 + 2 + 2 + 1)
+			continue;
+
+		BUG_ON(!bss_info->mgmt);
+
+		/* Always assume 1st IE is SSID IE. */
+		ssid_ie = &(bss_info->mgmt->u.beacon.variable[0]);
+		if ((ssid_ie[0] == WLAN_EID_SSID) &&
+		    (ssid_ie[1] == ssid_len) &&
+		    (memcmp(ssid_ie + 2, ssid, ssid_len) == 0))
+			chan_num = bss_post_proc_candidate_chan(bss_info,
+								chan_list,
+								chan_num);
+	}
+
+	spin_unlock_bh(&post_proc->bss_info_lock);
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+		   "bss_proc candidate_bss ssid %s chan_num %d\n",
+		   ssid,
+		   chan_num);
+
+	return chan_num;
+}
+
+void ath6kl_bss_post_proc_bss_config(struct ath6kl_vif *vif,
+				bool cache_bss,
+				int aging_time)
+{
+	struct bss_post_proc *post_proc = vif->bss_post_proc_ctx;
+
+	if (!post_proc)
+		return;
+
+	if (cache_bss) {
+		post_proc->flags |= ATH6KL_BSS_POST_PROC_CACHED_BSS;
+
+		aging_time = msecs_to_jiffies(aging_time);
+		if (aging_time < ATH6KL_BSS_POST_PROC_AGING_TIME_MIN)
+			post_proc->aging_time =
+					ATH6KL_BSS_POST_PROC_AGING_TIME_MIN;
+		else
+			post_proc->aging_time = aging_time;
+
+	} else {
+		post_proc->flags &= ~ATH6KL_BSS_POST_PROC_CACHED_BSS;
+		post_proc->aging_time = ATH6KL_BSS_POST_PROC_AGING_TIME;
+	}
+
+
+	ath6kl_dbg(ATH6KL_DBG_EXT_BSS_PROC,
+			"bss_proc config, cache BSS %s aging time %d ms.",
+			(cache_bss ? "ON" : "OFF"),
+			jiffies_to_msecs(post_proc->aging_time));
 
 	return;
 }
@@ -550,34 +952,105 @@ enum htc_endpoint_id ath6kl_ac2_endpoint_id(void *devt, u8 ac)
 	return ar->ac2ep_map[ac];
 }
 
+static inline u8 *_cookie_malloc(int size, bool *alloc_from_vmalloc)
+{
+	bool from_vmalloc = false;
+	u8 *ptr = NULL;
+
+	/* use kmalloc() first then vmalloc() if fail. */
+	ptr = kzalloc(size, GFP_ATOMIC);
+	if (!ptr) {
+		from_vmalloc = true;
+		ptr = vmalloc(size);
+		if (ptr)
+			memset(ptr, 0 , size);
+	}
+
+	*alloc_from_vmalloc = from_vmalloc;
+
+	return ptr;
+}
+
+static inline void _cookie_free(u8 *buf, bool alloc_from_vmalloc)
+{
+	if (buf == NULL)
+		return;
+
+	if (alloc_from_vmalloc)
+		vfree(buf);
+	else
+		kfree(buf);
+
+	return;
+}
+
 static int ath6kl_cookie_pool_init(struct ath6kl *ar,
 	struct ath6kl_cookie_pool *cookie_pool,
 	enum cookie_type cookie_type,
 	u32 cookie_num)
 {
-	u32 i, mem_size;
+	u32 i, j, mem_size;
+	bool alloc_from_vmalloc = false;
 
 	WARN_ON(!cookie_num);
 
-	cookie_pool->cookie_num = cookie_num;
 	cookie_pool->cookie_type = cookie_type;
 
 	cookie_pool->cookie_list = NULL;
 	cookie_pool->cookie_count = 0;
 
 	mem_size = sizeof(struct ath6kl_cookie) * cookie_num;
-	cookie_pool->cookie_mem = kzalloc(mem_size, GFP_ATOMIC);
+	cookie_pool->cookie_mem =
+		(struct ath6kl_cookie *)_cookie_malloc(mem_size,
+				&alloc_from_vmalloc);
+
 	if (!cookie_pool->cookie_mem) {
+		cookie_pool->cookie_num = 0;
 		ath6kl_err("unable to allocate cookie, type %d num %d\n",
 				cookie_type,
 				cookie_num);
 		return -ENOMEM;
+	} else {
+		cookie_pool->cookie_num = cookie_num;
+		cookie_pool->cookie_mem->alloc_from_vmalloc =
+			alloc_from_vmalloc;
 	}
 
 	for (i = 0; i < cookie_num; i++) {
 		/* Assign the parent then insert to free queue */
 		cookie_pool->cookie_mem[i].cookie_pool = cookie_pool;
-		ath6kl_free_cookie(ar, &cookie_pool->cookie_mem[i]);
+		cookie_pool->cookie_mem[i].htc_pkt =
+			(struct htc_packet *)_cookie_malloc(
+					sizeof(struct htc_packet),
+					&alloc_from_vmalloc);
+
+		if (cookie_pool->cookie_mem[i].htc_pkt) {
+			cookie_pool->cookie_mem[i].htc_pkt->alloc_from_vmalloc =
+				alloc_from_vmalloc;
+
+			ath6kl_free_cookie(ar, &cookie_pool->cookie_mem[i]);
+		} else {
+			struct htc_packet *htc_pkt;
+
+			ath6kl_err("unable to allocate htc_pkt\n");
+
+			for (j = 0 ; j < i ; j++) {
+				htc_pkt = cookie_pool->cookie_mem[j].htc_pkt;
+				if (htc_pkt)
+					_cookie_free((u8 *)htc_pkt,
+						htc_pkt->alloc_from_vmalloc);
+				cookie_pool->cookie_mem[j].htc_pkt = NULL;
+			}
+
+			_cookie_free((u8 *)(cookie_pool->cookie_mem),
+				cookie_pool->cookie_mem->alloc_from_vmalloc);
+
+			cookie_pool->cookie_mem = NULL;
+
+			cookie_pool->cookie_count = 0;
+			cookie_pool->cookie_num = 0;
+			return -ENOMEM;
+		}
 	}
 
 	/* Reset stats */
@@ -585,16 +1058,23 @@ static int ath6kl_cookie_pool_init(struct ath6kl *ar,
 	cookie_pool->cookie_alloc_fail_cnt = 0;
 	cookie_pool->cookie_free_cnt = 0;
 	cookie_pool->cookie_peak_cnt = 0;
+	cookie_pool->cookie_fail_in_row = 0;
 
-	ath6kl_info("Create HTC cookie, type %d num %d\n",
+	ath6kl_info("Create HTC cookie, type %d num %d\n"
+			"pool from vmalloc %d htc from vmalloc %d",
 			cookie_type,
-			cookie_num);
+			cookie_num,
+			cookie_pool->cookie_mem->alloc_from_vmalloc,
+			alloc_from_vmalloc);
+
 	return 0;
 }
 
 static void ath6kl_cookie_pool_cleanup(struct ath6kl *ar,
 	struct ath6kl_cookie_pool *cookie_pool)
 {
+	int i;
+
 	if (cookie_pool->cookie_num != cookie_pool->cookie_count)
 		ath6kl_err("Cookie unmber unsync, type %d num %d, %d\n",
 				cookie_pool->cookie_type,
@@ -608,13 +1088,28 @@ static void ath6kl_cookie_pool_cleanup(struct ath6kl *ar,
 	cookie_pool->cookie_list = NULL;
 	cookie_pool->cookie_count = 0;
 
-	kfree(cookie_pool->cookie_mem);
-	cookie_pool->cookie_mem = NULL;
+	if (cookie_pool->cookie_mem) {
+		for (i = 0; i < cookie_pool->cookie_num; i++) {
+			struct htc_packet *htc_pkt;
+
+			htc_pkt = cookie_pool->cookie_mem[i].htc_pkt;
+			if (htc_pkt)
+				_cookie_free((u8 *)htc_pkt,
+						htc_pkt->alloc_from_vmalloc);
+			cookie_pool->cookie_mem[i].htc_pkt = NULL;
+		}
+
+		_cookie_free((u8 *)(cookie_pool->cookie_mem),
+				cookie_pool->cookie_mem->alloc_from_vmalloc);
+
+		cookie_pool->cookie_mem = NULL;
+	}
 
 	cookie_pool->cookie_alloc_cnt = 0;
 	cookie_pool->cookie_alloc_fail_cnt = 0;
 	cookie_pool->cookie_free_cnt = 0;
 	cookie_pool->cookie_peak_cnt = 0;
+	cookie_pool->cookie_fail_in_row = 0;
 
 	return;
 }
@@ -640,10 +1135,13 @@ struct ath6kl_cookie *ath6kl_alloc_cookie(struct ath6kl *ar,
 
 		alloced = cookie_pool->cookie_num - cookie_pool->cookie_count;
 		cookie_pool->cookie_alloc_cnt++;
+		cookie_pool->cookie_fail_in_row = 0;
 		if (alloced > cookie_pool->cookie_peak_cnt)
 			cookie_pool->cookie_peak_cnt = alloced;
-	} else
+	} else {
 		cookie_pool->cookie_alloc_fail_cnt++;
+		cookie_pool->cookie_fail_in_row++;
+	}
 
 	return cookie;
 }
@@ -699,6 +1197,27 @@ void ath6kl_free_cookie(struct ath6kl *ar, struct ath6kl_cookie *cookie)
 	cookie_pool->cookie_free_cnt++;
 
 	return;
+}
+
+bool ath6kl_cookie_is_almost_full(struct ath6kl *ar,
+	enum cookie_type cookie_type)
+{
+	struct ath6kl_cookie_pool *cookie_pool;
+	bool almost_full;
+
+	if (cookie_type == COOKIE_TYPE_DATA)
+		cookie_pool = &ar->cookie_data;
+	else if (cookie_type == COOKIE_TYPE_CTRL)
+		cookie_pool = &ar->cookie_ctrl;
+	else
+		BUG_ON(1);
+
+	if (cookie_pool->cookie_count < MAX_RESV_COOKIE_NUM)
+		almost_full = true;
+	else
+		almost_full = false;
+
+	return almost_full;
 }
 
 int ath6kl_diag_warm_reset(struct ath6kl *ar)
@@ -874,6 +1393,9 @@ void ath6kl_reset_device(struct ath6kl *ar, u32 target_type,
 	int status = 0;
 	u32 address;
 	__le32 data;
+#ifdef USB_AUTO_SUSPEND
+	struct ath6kl_vif *vif;
+#endif
 
 	if (target_type != TARGET_TYPE_AR6003 &&
 		target_type != TARGET_TYPE_AR6004 &&
@@ -884,9 +1406,6 @@ void ath6kl_reset_device(struct ath6kl *ar, u32 target_type,
 			    cpu_to_le32(RESET_CONTROL_MBOX_RST);
 
 	switch (target_type) {
-	case TARGET_TYPE_AR6003:
-		address = AR6003_RESET_CONTROL_ADDRESS;
-		break;
 	case TARGET_TYPE_AR6004:
 		address = AR6004_RESET_CONTROL_ADDRESS;
 		break;
@@ -897,6 +1416,24 @@ void ath6kl_reset_device(struct ath6kl *ar, u32 target_type,
 		address = AR6003_RESET_CONTROL_ADDRESS;
 		break;
 	}
+
+#ifdef USB_AUTO_SUSPEND
+	vif = ath6kl_vif_first(ar);
+	if (vif != NULL) {
+		if (ar->state == ATH6KL_STATE_WOW ||
+			ar->state == ATH6KL_STATE_DEEPSLEEP) {
+			ath6kl_hif_auto_pm_turnoff(ar);
+			msleep(20);
+		} else {
+			if (ar->autopm_turn_on) {
+				ar->autopm_defer_delay_change_cnt =
+					USB_SUSPEND_DEFER_DELAY_FOR_RECOVER;
+				ath6kl_hif_auto_pm_set_delay(ar,
+					USB_SUSPEND_DELAY_MAX);
+			}
+		}
+	}
+#endif
 
 	/* If the bootstrap mode is HSIC, do warm reset */
 	if (BOOTSTRAP_IS_HSIC(ar->bootstrap_mode)) {
@@ -914,28 +1451,15 @@ void ath6kl_fw_crash_notify(struct ath6kl *ar)
 {
 	struct ath6kl_vif *vif = ath6kl_vif_first(ar);
 
-	BUG_ON(!vif);
+	if (vif == NULL)
+		return;
 
 	ath6kl_info("notify firmware crash to user %p\n", ar);
 
-#ifdef CONFIG_ANDROID	/* Only for specific Android-JB */
-	if (1) {
-		u8 *buf;
-		int len;
-
-		len = 26;
-		buf = kzalloc(len, GFP_ATOMIC);
-		if (buf == NULL)
-			return;
-
-		/* hint */
-		buf[24] = 34;
-		cfg80211_send_unprot_disassoc(vif->ndev,
-						buf,
-						len);
-
-		kfree(buf);
-	}
+	/* TODO */
+#ifdef ATH6KL_HSIC_RECOVER
+	if (BOOTSTRAP_IS_HSIC(ar->bootstrap_mode))
+		ath6kl_hif_sw_recover(ar);
 #endif
 
 	return;
@@ -1017,7 +1541,7 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel,
 
 	ik = &vif->ap_mode_bkey;
 
-	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "AP mode started on %u MHz\n", channel);
+	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG | ATH6KL_DBG_EXT_DISCONNECT, "AP mode started on %u MHz\n", channel);
 
 	vif->bss_ch = channel;
 	ath6kl_ap_beacon_info(vif, beacon, beacon_len);
@@ -1033,7 +1557,7 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel,
 		if (!ik->valid)
 			break;
 
-		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "Delayed addkey for "
+		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG | ATH6KL_DBG_EXT_DISCONNECT, "Delayed addkey for "
 			   "the initial group key for AP mode\n");
 		memset(key_rsc, 0, sizeof(key_rsc));
 		res = ath6kl_wmi_addkey_cmd(
@@ -1042,7 +1566,7 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel,
 			ik->key,
 			KEY_OP_INIT_VAL, NULL, SYNC_BOTH_WMIFLAG);
 		if (res) {
-			ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "Delayed "
+			ath6kl_dbg(ATH6KL_DBG_WLAN_CFG | ATH6KL_DBG_EXT_DISCONNECT, "Delayed "
 				   "addkey failed: %d\n", res);
 		}
 		break;
@@ -1188,6 +1712,11 @@ void ath6kl_ready_event(void *devt, u8 *datap, u32 sw_ver, u32 abi_ver)
 		 (ar->version.wlan_ver & 0x00ff0000) >> 16,
 		 (ar->version.wlan_ver & 0x0000ffff));
 
+#ifdef ATH6KL_HSIC_RECOVER
+	memcpy(cached_mac, ar->mac_addr, ETH_ALEN);
+	cached_mac_valid = true;
+#endif
+
 	/* indicate to the waiting thread that the ready event was received */
 	set_bit(WMI_READY, &ar->flag);
 	wake_up(&ar->event_wq);
@@ -1205,6 +1734,7 @@ void ath6kl_scan_complete_evt(struct ath6kl_vif *vif, int status)
 	ath6kl_acs_scan_complete_event(vif, aborted);
 #endif
 
+	ath6kl_bss_post_proc_bss_complete_event(vif);
 	ath6kl_p2p_rc_scan_complete_event(vif, aborted);
 
 	if (ath6kl_htcoex_scan_complete_event(vif, aborted) ==
@@ -1217,7 +1747,12 @@ void ath6kl_scan_complete_evt(struct ath6kl_vif *vif, int status)
 					 NONE_BSS_FILTER, 0);
 	}
 
-	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "scan complete: %d\n", status);
+	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG |
+		   ATH6KL_DBG_EXT_INFO1 |
+		   ATH6KL_DBG_EXT_SCAN |
+		   ATH6KL_DBG_EXT_DISCONNECT,
+		"vif %d, scan complete: %d\n",
+		vif->fw_vif_idx, status);
 }
 
 void ath6kl_connect_event(struct ath6kl_vif *vif, u16 channel, u8 *bssid,
@@ -1243,8 +1778,13 @@ void ath6kl_connect_event(struct ath6kl_vif *vif, u16 channel, u8 *bssid,
 			ath6kl_wmi_disctimeout_cmd(ar->wmi, vif->fw_vif_idx,
 				ATH6KL_SEAMLESS_ROAMING_DISCONNECT_TIMEOUT);
 		} else {
+#ifdef CE_SUPPORT
+			ath6kl_wmi_disctimeout_cmd(ar->wmi, vif->fw_vif_idx,
+				0);
+#else
 			ath6kl_wmi_disctimeout_cmd(ar->wmi, vif->fw_vif_idx,
 				ATH6KL_DISCONNECT_TIMEOUT);
+#endif
 		}
 		ath6kl_wmi_listeninterval_cmd(ar->wmi, vif->fw_vif_idx,
 					      ar->listen_intvl_t,
@@ -1282,6 +1822,12 @@ void ath6kl_connect_event(struct ath6kl_vif *vif, u16 channel, u8 *bssid,
 				assoc_req_len,
 				assoc_resp_len,
 				assoc_info);
+	aggr_tx_connect_event(vif,
+				beacon_ie_len,
+				assoc_req_len,
+				assoc_resp_len,
+				assoc_info);
+
 	ath6kl_switch_parameter_based_on_connection(vif, false);
 }
 
@@ -1400,6 +1946,8 @@ static void ath6kl_update_target_stats(struct ath6kl_vif *vif, u8 *ptr, u32 len)
 		le16_to_cpu(tgt_stats->cserv_stats.cs_connect_cnt);
 	stats->cs_discon_cnt +=
 		le16_to_cpu(tgt_stats->cserv_stats.cs_discon_cnt);
+	stats->cs_roam_cnt +=
+		le16_to_cpu(tgt_stats->cserv_stats.cs_roam_count);
 
 	stats->cs_ave_beacon_rssi =
 		a_sle16_to_cpu(tgt_stats->cserv_stats.cs_ave_beacon_rssi);
@@ -1420,6 +1968,7 @@ static void ath6kl_update_target_stats(struct ath6kl_vif *vif, u8 *ptr, u32 len)
 	stats->wow_evt_discarded +=
 		le16_to_cpu(tgt_stats->wow_stats.wow_evt_discarded);
 
+	do_gettimeofday(&stats->update_time);
 }
 
 static void ath6kl_add_le32(__le32 *var, __le32 val)
@@ -1686,7 +2235,7 @@ void ath6kl_disconnect_event(struct ath6kl_vif *vif, u8 reason, u8 *bssid,
 
 	del_timer(&vif->disconnect_timer);
 
-	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "disconnect reason is %d\n", reason);
+	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG | ATH6KL_DBG_EXT_DISCONNECT, "disconnect reason is %d\n", reason);
 
 	/*
 	 * If the event is due to disconnect cmd from the host, only they
@@ -1869,12 +2418,13 @@ static int ath6kl_ioctl_setband(struct ath6kl_vif *vif,
 				int len)
 {
 	int ret = 0, scanband_type = 0;
+	int i, f = 0;
 	u8 not_allow_ch;
 
 	/* SET::SETBAND {band} */
 	if (len > 1) {
 		ret = 0;
-		sscanf(user_cmd, "%d", &scanband_type);
+		sscanf(user_cmd, "%d %d", &scanband_type, &f);
 
 		if (scanband_type == ANDROID_SETBAND_ALL)
 			vif->scanband_type = SCANBAND_TYPE_ALL;
@@ -1882,7 +2432,26 @@ static int ath6kl_ioctl_setband(struct ath6kl_vif *vif,
 			vif->scanband_type = SCANBAND_TYPE_5G;
 		else if (scanband_type == ANDROID_SETBAND_2G)
 			vif->scanband_type = SCANBAND_TYPE_2G;
-		else if ((scanband_type >= 2412) && (scanband_type <= 5825)) {
+		else if (scanband_type == ANDROID_SETBAND_NO_DFS)
+			vif->scanband_type = SCANBAND_TYPE_IGNORE_DFS;
+		else if (scanband_type == ANDROID_SETBAND_NO_CH) {
+			vif->scanband_type = SCANBAND_TYPE_IGNORE_CH;
+			if (f == 1) {	/* reset */
+				memset(vif->scanband_ignore_chan,
+					0,
+					sizeof(u16) * 64);
+			} else {
+				for (i = 0; i < 64; i++) {
+					if (vif->scanband_ignore_chan[i] == f)
+						break;
+					else if (!vif->scanband_ignore_chan[i])
+						break;
+				}
+
+				if (i < 64)
+					vif->scanband_ignore_chan[i] = f;
+			}
+		} else if ((scanband_type >= 2412) && (scanband_type <= 5825)) {
 			vif->scanband_type = SCANBAND_TYPE_CHAN_ONLY;
 			vif->scanband_chan = scanband_type;
 		} else
@@ -1961,36 +2530,34 @@ static int ath6kl_ioctl_p2p_dev_addr(struct ath6kl_vif *vif,
 
 static int ath6kl_ioctl_p2p_best_chan(struct ath6kl_vif *vif,
 				char *user_cmd,
-				u8 *buf)
+				u8 *buf,
+				int len)
 {
 	char result[20];
-	u16 rc_2g, rc_5g, rc_all;
+	struct ath6kl_rc_report rc_report;
 	int ret = 0;
 
 	/* GET::P2P_BEST_CHANNEL */
 
-	rc_2g = rc_5g = rc_all = 0;
+	if ((strlen(buf) > 16) &&
+		strstr(buf, "0"))
+		goto done;
 
 	/*
 	 * Current wpa_supplicant only uses best channel for P2P purpose.
 	 * Hence, here just get P2P channels.
 	 */
-	ret = ath6kl_p2p_rc_get(vif->ar,
-				NULL,
-				NULL,
-				NULL,
-				NULL,
-				&rc_2g,
-				&rc_5g,
-				&rc_all);
+	memset(&rc_report, 0, sizeof(struct ath6kl_rc_report));
+	ret = ath6kl_p2p_rc_get(vif->ar, &rc_report);
 
+done:
 	if (ret == 0) {
 		memset(result, 0, 20);
 		snprintf(result, 20,
 			"%d %d %d",
-			rc_2g,
-			rc_5g,
-			rc_all);
+			rc_report.rc_p2p_2g,
+			rc_report.rc_p2p_5g,
+			rc_report.rc_p2p_all);
 		result[strlen(result)] = '\0';
 		if (copy_to_user(buf, result, strlen(result)))
 			ret = -EFAULT;
@@ -2007,6 +2574,12 @@ static int ath6kl_ioctl_ap_acl(struct ath6kl_vif *vif,
 				int len)
 {
 	int ret = 0;
+
+#ifdef NL80211_CMD_SET_AP_MAC_ACL
+	/* Configurate from NL80211. */
+	if (vif->ar->wiphy->max_acl_mac_addrs)
+		return -EINVAL;
+#endif
 
 	/* SET::ACL {MACCMD|ADDMAC|DELMAC} {{[0|1|2]}|{MAC ADDRESS}} */
 	if (len > 1) {
@@ -2051,6 +2624,32 @@ static int ath6kl_ioctl_ap_acl(struct ath6kl_vif *vif,
 	return ret;
 }
 
+bool ath6kl_ioctl_ready(struct ath6kl_vif *vif)
+{
+	struct ath6kl *ar = vif->ar;
+	if (!test_bit(WMI_READY, &ar->flag)) {
+		ath6kl_err("wmi is not ready\n");
+		return false;
+	}
+#if defined(USB_AUTO_SUSPEND)
+	if ((vif->ar->state == ATH6KL_STATE_WOW) ||
+		(vif->ar->state == ATH6KL_STATE_DEEPSLEEP) ||
+		(vif->ar->state == ATH6KL_STATE_PRE_SUSPEND)) {
+		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
+		"ignore wlan disabled in AUTO suspend mode!\n");
+	} else {
+		if (!test_bit(WLAN_ENABLED, &vif->flags))
+			return false;
+	}
+#else
+	if (!test_bit(WLAN_ENABLED, &vif->flags)) {
+		ath6kl_err("wlan disabled\n");
+		return false;
+	}
+#endif
+	return true;
+}
+
 static int ath6kl_ioctl_standard(struct net_device *dev,
 				struct ifreq *rq, int cmd)
 {
@@ -2069,6 +2668,11 @@ static int ath6kl_ioctl_standard(struct net_device *dev,
 				sizeof(struct ath6kl_android_wifi_priv_cmd)))
 			ret = -EIO;
 		else {
+			if (android_cmd.used_len > android_cmd.total_len) {
+				ret = -EINVAL;
+				break;
+			}
+
 			user_cmd = kzalloc(android_cmd.total_len, GFP_KERNEL);
 			if (!user_cmd) {
 				ret = -ENOMEM;
@@ -2099,7 +2703,8 @@ static int ath6kl_ioctl_standard(struct net_device *dev,
 				else if (strstr(user_cmd, "P2P_BEST_CHANNEL"))
 					ret = ath6kl_ioctl_p2p_best_chan(vif,
 							user_cmd,
-							android_cmd.buf);
+							android_cmd.buf,
+							android_cmd.used_len);
 				else if (strstr(user_cmd, "ACL "))
 					ret = ath6kl_ioctl_ap_acl(vif,
 						(user_cmd + 4),
@@ -2107,6 +2712,13 @@ static int ath6kl_ioctl_standard(struct net_device *dev,
 						(android_cmd.used_len - 4));
 				else if (strstr(user_cmd, "SET_AP_WPS_P2P_IE"))
 					ret = 0; /* To avoid AP/GO up stuck. */
+#ifdef CONFIG_ANDROID
+				else if (strstr(user_cmd, "SET_BT_ON ")) {
+					ath6kl_bt_on =
+						(user_cmd[10] == '1') ? 1 : 0;
+					ret = 0;
+				}
+#endif
 				else {
 					ath6kl_dbg(ATH6KL_DBG_TRC,
 						"not yet support \"%s\"\n",
@@ -2165,8 +2777,21 @@ static int ath6kl_ioctl_standard(struct net_device *dev,
 					btcoex_cmd.cmd_len))
 				ret = -EIO;
 			else {
+				if (!ath6kl_ioctl_ready(vif)) {
+					kfree(user_cmd);
+					return -EIO;
+				}
+
+				if (down_interruptible(&vif->ar->sem)) {
+					ath6kl_err("busy, couldn't get access\n");
+					kfree(user_cmd);
+					return -ERESTARTSYS;
+				}
+
 				ret = ath6kl_wmi_send_btcoex_cmd(vif->ar,
 					(u8 *)user_cmd, btcoex_cmd.cmd_len);
+
+				up(&vif->ar->sem);
 			}
 			kfree(user_cmd);
 		}
@@ -2280,6 +2905,22 @@ static int ath6kl_ioctl_linkspeed(struct net_device *dev,
 			req->u.data.length + 1)	? -EFAULT : 0;
 }
 
+static int ath6kl_ioctl_get_if_freq(struct net_device *dev,
+				struct ifreq *rq,
+				int cmd)
+{
+	struct ath6kl_vif *vif = netdev_priv(dev);
+	struct iwreq *req = (struct iwreq *)(rq);
+	u16 freq;
+
+	if (vif->bss_ch == 0) {
+		return -EINVAL;
+	} else {
+		freq = vif->bss_ch;
+		return copy_to_user(req->u.data.pointer, &freq, sizeof(freq));
+	}
+}
+
 int ath6kl_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct ath6kl *ar = ath6kl_priv(dev);
@@ -2323,6 +2964,11 @@ case IEEE80211_IOCTL_KICKMAC:
 #endif
 		ret = ath6kl_ioctl_standard(dev, rq, cmd);
 		break;
+#ifndef CE_SUPPORT
+	case ATH6KL_IOCTL_WEXT_PRIV6:
+		ret = ath6kl_ioctl_get_if_freq(dev, rq, cmd);
+		break;
+#endif
 	case ATH6KL_IOCTL_WEXT_PRIV26:	/* endpoint loopback purpose */
 		get_user(cmd, (int *)rq->ifr_data);
 		userdata = (char *)(((unsigned int *)rq->ifr_data)+1);
@@ -2397,3 +3043,130 @@ void init_netdev(struct net_device *dev)
 
 	return;
 }
+
+#if defined(CONFIG_CRASH_DUMP) || defined(ATH6KL_HSIC_RECOVER)
+int _readwrite_file(const char *filename, char *rbuf,
+	const char *wbuf, size_t length, int mode)
+{
+	int ret = 0;
+	struct file *filp = (struct file *)-ENOENT;
+	mm_segment_t oldfs;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+
+	do {
+		filp = filp_open(filename, mode, S_IRUSR);
+
+		if (IS_ERR(filp) || !filp->f_op) {
+			ret = -ENOENT;
+			break;
+		}
+
+		if (!filp->f_op->write || !filp->f_op->read) {
+			filp_close(filp, NULL);
+			ret = -ENOENT;
+			break;
+		}
+
+		if (length == 0) {
+			/* Read the length of the file only */
+			struct inode    *inode;
+
+			inode = GET_INODE_FROM_FILEP(filp);
+			if (!inode) {
+				printk(KERN_ERR
+					"_readwrite_file: Error 2\n");
+				ret = -ENOENT;
+				break;
+			}
+			ret = i_size_read(inode->i_mapping->host);
+			break;
+		}
+
+		if (wbuf) {
+			ret = filp->f_op->write(
+				filp, wbuf, length, &filp->f_pos);
+			if (ret < 0) {
+				printk(KERN_ERR
+					"_readwrite_file: Error 3\n");
+				break;
+			}
+		} else {
+			ret = filp->f_op->read(
+				filp, rbuf, length, &filp->f_pos);
+			if (ret < 0) {
+				printk(KERN_ERR
+					"_readwrite_file: Error 4\n");
+				break;
+			}
+		}
+	} while (0);
+
+	if (!IS_ERR(filp))
+		filp_close(filp, NULL);
+
+	set_fs(oldfs);
+
+	return ret;
+}
+#endif
+
+#ifdef CONFIG_CRASH_DUMP
+int check_dump_file_size(void)
+{
+	int status = 0, size = 0;
+	size = _readwrite_file(CRASH_DUMP_FILE, NULL, NULL, 0, O_RDONLY);
+
+	if (size > (MAX_DUMP_FW_SIZE - DUMP_BUF_SIZE)) {
+
+		ath6kl_info("clean big log 0x%x\n", size);
+		status = _readwrite_file(CRASH_DUMP_FILE, NULL, NULL,
+			0, (O_WRONLY | O_TRUNC));
+	}
+
+	return status;
+}
+
+int print_to_file(const char *fmt, ...)
+{
+	char *buf;
+	unsigned int len = 0, buf_len = MAX_STRDUMP_LEN;
+	int status = 0;
+	struct va_format vaf;
+	va_list args;
+
+	status = check_dump_file_size();
+	if (status)
+		ath6kl_info("log file check status code 0x%x\n", status);
+
+	buf = kmalloc(buf_len, GFP_ATOMIC);
+
+	if (buf == NULL)
+		return -ENOMEM;
+
+	memset(buf, 0, buf_len);
+
+	len = snprintf(buf + len, buf_len - len, "Drv ver %s\n",
+		DRV_VERSION);
+
+	va_start(args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &args;
+	len += scnprintf(buf + len, buf_len - len, "%pV", &vaf);
+	va_end(args);
+
+	status = _readwrite_file(CRASH_DUMP_FILE, NULL,
+			buf, len, (O_WRONLY | O_APPEND | O_CREAT));
+	if (status < 0)
+		ath6kl_info("write failed with status code 0x%x\n", status);
+
+	kfree(buf);
+	return status;
+}
+#else
+int print_to_file(const char *fmt, ...)
+{
+	return 0;
+}
+#endif
+

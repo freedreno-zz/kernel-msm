@@ -27,11 +27,8 @@ void DumpRttResp(void *data)
 {
 	int i = 0, j = 0;
 	struct nsp_mresphdr *presphdr = (struct nsp_mresphdr *)data;
-	struct nsp_cir_resp *pcirresp =
-	      (struct nsp_cir_resp *)((u8 *)data + sizeof(struct nsp_mresphdr));
-	int explen = (presphdr->no_of_responses * sizeof(struct nsp_cir_resp)) +
-			sizeof(struct nsp_mresphdr);
-	ath6kl_dbg(ATH6KL_DBG_RTT, "RTT Response  Size Expected : %d ", explen);
+	struct nsp_cir_resp *pcirresp;
+	int explen;
 	if (presphdr)
 		ath6kl_dbg(ATH6KL_DBG_RTT, "NSP Response ReqId : %x "
 				"RespType : %x NoResp : %x Result : %x\n",
@@ -39,6 +36,13 @@ void DumpRttResp(void *data)
 				presphdr->no_of_responses, presphdr->result);
 	else
 		return;
+
+	explen = (presphdr->no_of_responses * sizeof(struct nsp_cir_resp)) +
+			sizeof(struct nsp_mresphdr);
+	pcirresp =
+	      (struct nsp_cir_resp *)((u8 *)data + sizeof(struct nsp_mresphdr));
+
+	ath6kl_dbg(ATH6KL_DBG_RTT, "RTT Response  Size Expected : %d ", explen);
 
 	pcirresp->no_of_chains = 2;
 	for (i = 0; i < presphdr->no_of_responses; i++)	{

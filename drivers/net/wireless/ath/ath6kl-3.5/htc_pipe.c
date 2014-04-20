@@ -676,8 +676,8 @@ static void htc_tx_bundle_timer_handler(unsigned long ptr)
 {
 	struct htc_target *target = (struct htc_target *)ptr;
 	struct htc_endpoint *endpoint = &target->endpoint[ENDPOINT_2];
-	static u32 count = 0;
-	static u32 tx_issued = 0;
+	u32 count = 0;
+	u32 tx_issued = 0;
 
 	endpoint->call_by_timer = 1;
 	count++;
@@ -1172,10 +1172,6 @@ static int htc_send_pkts_sched_check(struct htc_target *target,
 	spin_unlock_bh(&target->tx_lock);
 
 	switch (id) {
-	case ENDPOINT_2: /* BE */
-		status = ac_queue_status[0] && ac_queue_status[2] &&
-			 ac_queue_status[3];
-		break;
 	case ENDPOINT_3: /* BK */
 		status = ac_queue_status[0] && ac_queue_status[1] &&
 			 ac_queue_status[2] && ac_queue_status[3];
@@ -1186,8 +1182,9 @@ static int htc_send_pkts_sched_check(struct htc_target *target,
 	case ENDPOINT_5: /* VO */
 		status = ac_queue_status[3];
 		break;
-	default:
-		status = 0;
+	default: /* BE */
+		status = ac_queue_status[0] && ac_queue_status[2] &&
+			 ac_queue_status[3];
 		break;
 	}
 	return status;
@@ -1391,9 +1388,6 @@ static int htc_process_trailer(struct htc_target *target,
 			break;
 		}
 
-		if (status != 0)
-			break;
-
 		/* advance buffer past this record for next time around */
 		buffer += record->len;
 		len -= record->len;
@@ -1406,6 +1400,9 @@ static void do_recv_completion(struct htc_endpoint *ep,
 			       struct list_head *queue_to_indicate)
 {
 	struct htc_packet *packet;
+	struct htc_target *target = (struct htc_target *)
+				    ep->target;
+
 	if (list_empty(queue_to_indicate)) {
 		/* nothing to indicate */
 		return;
@@ -1413,11 +1410,12 @@ static void do_recv_completion(struct htc_endpoint *ep,
 
 	/* using legacy EpRecv */
 	while (!list_empty(queue_to_indicate)) {
+		spin_lock_bh(&target->rx_lock);
 		packet = list_first_entry(queue_to_indicate,
 					struct htc_packet, list);
 		list_del(&packet->list);
-		ep->ep_cb.rx((struct htc_target *)
-				    ep->target, packet);
+		spin_unlock_bh(&target->rx_lock);
+		ep->ep_cb.rx(target, packet);
 	}
 
 	return;
@@ -1428,8 +1426,10 @@ static void recv_packet_completion(struct htc_target *target,
 				   struct htc_packet *packet)
 {
 	struct list_head container;
+	spin_lock_bh(&target->rx_lock);
 	INIT_LIST_HEAD(&container);
 	list_add_tail(&packet->list, &container);
+	spin_unlock_bh(&target->rx_lock);
 	/* do completion */
 	do_recv_completion(ep, &container);
 }
@@ -1484,6 +1484,72 @@ _failed:
 	return NULL;
 }
 
+#ifdef CONFIG_CRASH_DUMP
+static int dump_fw_crash_to_file(struct htc_target *target, u8 *netdata)
+{
+	char *buf;
+	unsigned int len = 0, buf_len = DUMP_BUF_SIZE;
+	int i;
+	int status = 0;
+
+	status = check_dump_file_size();
+	if (status)
+		ath6kl_info("crash log file check status code 0x%x\n", status);
+
+	buf = kmalloc(buf_len, GFP_ATOMIC);
+
+	if (buf == NULL)
+		return -ENOMEM;
+
+	memset(buf, 0, buf_len);
+
+	len = snprintf(buf + len, buf_len - len, "Drv ver %s\n",
+		DRV_VERSION);
+	len += snprintf(buf + len, buf_len - len, "FW ver %s\n",
+		target->dev->ar->wiphy->fw_version);
+
+	len += scnprintf(buf + len, buf_len - len,
+		"\n++++++++++crash log sart+++++++++++\n");
+
+	for (i = 0; i < REG_DUMP_COUNT_AR6004_USB * 4; i += 16) {
+		len += scnprintf(buf + len, buf_len - len,
+			"%d: 0x%08x 0x%08x 0x%08x 0x%08x\n", i/4,
+			be32_to_cpu(*(u32 *)(netdata+i)),
+			be32_to_cpu(*(u32 *)(netdata+i + 4)),
+			be32_to_cpu(*(u32 *)(netdata+i + 8)),
+			be32_to_cpu(*(u32 *)(netdata+i + 12)));
+	}
+
+	for (; i < EXTRA_DUMP_MAX; i += 16) {
+
+		if ((*(u32 *)(netdata+i) == DELIMITER) ||
+			((*(u32 *)(netdata+i) == 0)))
+			break;
+
+		len += scnprintf(buf + len, buf_len - len,
+			"%d: 0x%08x 0x%08x "
+			"0x%08x 0x%08x\n", i/4,
+			be32_to_cpu(*(u32 *)(netdata+i)),
+			be32_to_cpu(*(u32 *)(netdata+i + 4)),
+			be32_to_cpu(*(u32 *)(netdata+i + 8)),
+			be32_to_cpu(*(u32 *)(netdata+i + 12)));
+	}
+	len += scnprintf(buf + len, buf_len - len,
+			"----------crash log end-------------\n");
+
+	status = _readwrite_file(CRASH_DUMP_FILE, NULL,
+			buf, len, (O_WRONLY | O_APPEND | O_CREAT));
+	if (status < 0)
+		ath6kl_info("write failed with status code 0x%x\n", status);
+
+	kfree(buf);
+	return status;
+}
+
+
+#endif
+
+
 static int htc_rx_completion(struct htc_target *context,
 				struct sk_buff *netbuf, u8 pipeid)
 {
@@ -1497,7 +1563,6 @@ static int htc_rx_completion(struct htc_target *context,
 	struct htc_packet *packet;
 	u16 payload_len;
 	u32 trailerlen = 0;
-
 	int i;
 
 	static u32 assert_pattern = cpu_to_be32(0x0000c600);
@@ -1525,16 +1590,34 @@ static int htc_rx_completion(struct htc_target *context,
 	netdata = netbuf->data;
 	netlen = netbuf->len;
 
-#define CONFIG_CRASH_DUMP 1
-#if CONFIG_CRASH_DUMP
+#ifdef CONFIG_CRASH_DUMP
 	if (!memcmp(netdata, &assert_pattern, sizeof(assert_pattern))) {
 
-#define REG_DUMP_COUNT_AR6004   76
 		netdata += 4;
 
+		dump_fw_crash_to_file(target, netdata);
+
 		ath6kl_info("Firmware crash detected...\n");
-		for (i = 0; i < REG_DUMP_COUNT_AR6004 * 4; i += 16) {
+		ath6kl_info("Driver version %s\n", DRV_VERSION);
+		ath6kl_info("Firmware version %s\n",
+					target->dev->ar->wiphy->fw_version);
+
+		for (i = 0; i < REG_DUMP_COUNT_AR6004_USB * 4; i += 16) {
 			ath6kl_info("%d: 0x%08x 0x%08x 0x%08x 0x%08x\n", i/4,
+				be32_to_cpu(*(u32 *)(netdata+i)),
+				be32_to_cpu(*(u32 *)(netdata+i + 4)),
+				be32_to_cpu(*(u32 *)(netdata+i + 8)),
+				be32_to_cpu(*(u32 *)(netdata+i + 12)));
+		}
+
+		for (; i < EXTRA_DUMP_MAX; i += 16) {
+
+			if ((*(u32 *)(netdata+i) == DELIMITER) ||
+				((*(u32 *)(netdata+i) == 0)))
+				break;
+
+			ath6kl_info("%d: 0x%08x 0x%08x "
+				"0x%08x 0x%08x\n", i/4,
 				be32_to_cpu(*(u32 *)(netdata+i)),
 				be32_to_cpu(*(u32 *)(netdata+i + 4)),
 				be32_to_cpu(*(u32 *)(netdata+i + 8)),
@@ -1712,7 +1795,7 @@ static void htc_flush_rx_queue(struct htc_target *target,
 /* polling routine to wait for a control packet to be received */
 static int htc_wait_recv_ctrl_message(struct htc_target *target)
 {
-	int count = HTC_TARGET_RESPONSE_POLL_COUNT;
+	int ret, count = HTC_TARGET_RESPONSE_POLL_COUNT;
 
 	while (count > 0) {
 		spin_lock_bh(&target->rx_lock);
@@ -1728,7 +1811,8 @@ static int htc_wait_recv_ctrl_message(struct htc_target *target)
 		count--;
 
 		set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(msecs_to_jiffies(HTC_TARGET_RESPONSE_POLL_MS));
+		ret = schedule_timeout(msecs_to_jiffies(
+			HTC_TARGET_RESPONSE_POLL_MS));
 		set_current_state(TASK_RUNNING);
 	}
 	if (count <= 0) {
@@ -2511,6 +2595,57 @@ int ath6kl_htc_pipe_change_credit_bypass(struct htc_target *target,
 	return 0;
 }
 
+#ifdef USB_AUTO_SUSPEND
+bool ath6kl_htc_pipe_skip_usb_mark_busy(struct ath6kl *ar, struct sk_buff *skb)
+{
+	struct htc_frame_hdr *htc_hdr;
+	struct wmi_data_hdr *dhdr;
+	bool is_amsdu, ret = false;
+	u8 dot11_hdr = 0, pad_before_data_start;
+	u16 pull_hdr = 0;
+
+	htc_hdr = (struct htc_frame_hdr *)skb->data;
+
+	if (htc_hdr->eid != ar->ctrl_ep) {
+		pull_hdr += HTC_HDR_LENGTH;
+
+		dhdr = (struct wmi_data_hdr *)(skb->data + pull_hdr);
+		is_amsdu = wmi_data_hdr_is_amsdu(dhdr) ? true : false;
+		dot11_hdr = wmi_data_hdr_get_dot11(dhdr);
+		pad_before_data_start =	(le16_to_cpu(dhdr->info3)
+					>> WMI_DATA_HDR_PAD_BEFORE_DATA_SHIFT)
+					& WMI_DATA_HDR_PAD_BEFORE_DATA_MASK;
+		pull_hdr += sizeof(struct wmi_data_hdr);
+		pull_hdr += pad_before_data_start;
+
+		if (dot11_hdr) {
+			struct ieee80211_hdr_3addr wh;
+			memcpy((u8 *) &wh, (skb->data + pull_hdr),
+				sizeof(struct ieee80211_hdr_3addr));
+
+			switch ((le16_to_cpu(wh.frame_control)) &
+				(IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS)) {
+			case 0:
+			case IEEE80211_FCTL_FROMDS:
+				if (is_multicast_ether_addr(wh.addr1))
+					ret = true;
+				break;
+			case IEEE80211_FCTL_TODS:
+				if (is_multicast_ether_addr(wh.addr3))
+					ret = true;
+				break;
+			}
+		} else if (!is_amsdu) {
+			struct ethhdr *datap =
+				(struct ethhdr *)(skb->data + pull_hdr);
+			if (is_multicast_ether_addr(datap->h_dest))
+				ret = true;
+		}
+	}
+	return ret;
+}
+#endif
+
 static const struct ath6kl_htc_ops ath6kl_htc_pipe_ops = {
 	.create = ath6kl_htc_pipe_create,
 	.wait_target = ath6kl_htc_pipe_wait_target,
@@ -2529,6 +2664,9 @@ static const struct ath6kl_htc_ops ath6kl_htc_pipe_ops = {
 	.stop_netif_queue_full = ath6kl_htc_pipe_stop_netif_queue_full,
 	.indicate_wmm_schedule_change = ath6kl_htc_pipe_wmm_schedule_change,
 	.change_credit_bypass = ath6kl_htc_pipe_change_credit_bypass,
+#ifdef USB_AUTO_SUSPEND
+	.skip_usb_mark_busy = ath6kl_htc_pipe_skip_usb_mark_busy,
+#endif
 };
 
 void ath6kl_htc_pipe_attach(struct ath6kl *ar)

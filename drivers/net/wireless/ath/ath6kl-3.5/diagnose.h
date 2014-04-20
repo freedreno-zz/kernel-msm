@@ -313,7 +313,7 @@ struct wifi_drv_hdl_list {
 		(void *drv_hdl, struct wifi_diag_callbacks *evt_callback);
 	enum wifi_diag_status_t (*wifi_diag_cmd)
 		(void *drv_hdl, struct wifi_diag_cmd_t *cmd);
-} __packed;
+};
 
 
 struct wifi_diag {
@@ -332,7 +332,7 @@ struct wifi_diag {
 	struct timer_list	rxtime_timer;
 	u32	tx_timer_val;
 	u32	rx_timer_val;
-} __packed;
+};
 
 
 void *

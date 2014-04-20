@@ -47,6 +47,7 @@ enum ath6kl_tm_cmd {
 	ATH6KL_TM_CMD_WLAN_HB      = 1,
 	ATH6KL_TM_CMD_WIFI_DISC    = 2,
 	ATH6KL_TM_CMD_WIFI_KTK     = 3,
+	ATH6KL_TM_CMD_DFS_SKIP     = 4,
 };
 
 #define ATH6KL_TM_DATA_MAX_LEN		5000
@@ -246,14 +247,16 @@ struct wlan_hb_params {
 		struct {
 			u8 enable;
 			u8 item;
-			u8 ses;
-		} hb_p;
+			u8 session;
+		} hb_params;
 
 		struct {
 			u32 srv_ip;
 			u32 dev_ip;
+			u32 seq;
 			u16 src_port;
 			u16 dst_port;
+			u16 interval;
 			u16 timeout;
 			u8 session;
 			u8 gateway_mac[ETH_ALEN];
@@ -361,6 +364,10 @@ struct wifi_ktk_params {
 };
 #endif
 
+struct wifi_dfs_skip_params {
+	u16 enable;
+};
+
 int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 {
 	struct ath6kl *ar = wiphy_priv(wiphy);
@@ -412,7 +419,7 @@ int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 		hb_params = (struct wlan_hb_params *)buf;
 
 		if (hb_params->cmd == NL80211_WLAN_HB_ENABLE) {
-			if (hb_params->params.hb_p.enable != 0) {
+			if (hb_params->params.hb_params.enable != 0) {
 
 				if (ath6kl_enable_wow_hb(ar)) {
 					printk(KERN_ERR
@@ -421,27 +428,27 @@ int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 					return -EINVAL;
 				}
 
-				if (hb_params->params.hb_p.item ==
-					WLAN_HB_TCP) {
+				if (hb_params->params.hb_params.item
+							 == WLAN_HB_TCP) {
 					if (ath6kl_wmi_set_heart_beat_params(
 						ar->wmi,
 						vif->fw_vif_idx,
 						1,
 						WLAN_HB_TCP,
-						hb_params->params.hb_p.ses)) {
+					hb_params->params.hb_params.session)) {
 						printk(KERN_ERR
 						"%s: set heart beat enable fail\n",
 						__func__);
 						return -EINVAL;
 					}
-				} else if (hb_params->params.hb_p.item ==
-					WLAN_HB_UDP) {
+				} else if (hb_params->params.hb_params.item
+							 ==  WLAN_HB_UDP) {
 					if (ath6kl_wmi_set_heart_beat_params(
 						ar->wmi,
 						vif->fw_vif_idx,
 						1,
 						WLAN_HB_UDP,
-						hb_params->params.hb_p.ses)) {
+					hb_params->params.hb_params.session)) {
 						printk(KERN_ERR
 						"%s: set heart beat enable fail\n",
 						__func__);
@@ -456,27 +463,27 @@ int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 					__func__);
 				}
 #endif
-				if (hb_params->params.hb_p.item ==
-					WLAN_HB_TCP) {
+				if (hb_params->params.hb_params.item
+							 == WLAN_HB_TCP) {
 					if (ath6kl_wmi_set_heart_beat_params(
 						ar->wmi,
 						vif->fw_vif_idx,
 						0,
 						WLAN_HB_TCP,
-						hb_params->params.hb_p.ses)) {
+					hb_params->params.hb_params.session)) {
 						printk(KERN_ERR
 						"%s: set heart beat disable fail\n",
 						__func__);
 						return -EINVAL;
 					}
-				} else if (hb_params->params.hb_p.item ==
-				WLAN_HB_UDP) {
+				} else if (hb_params->params.hb_params.item
+							 ==  WLAN_HB_UDP) {
 					if (ath6kl_wmi_set_heart_beat_params(
 						ar->wmi,
 						vif->fw_vif_idx,
 						0,
 						WLAN_HB_UDP,
-						hb_params->params.hb_p.ses)) {
+					hb_params->params.hb_params.session)) {
 						printk(KERN_ERR
 						"%s: set heart beat disable fail\n",
 						__func__);
@@ -491,6 +498,8 @@ int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 				hb_params->params.tcp_params.dst_port,
 				hb_params->params.tcp_params.srv_ip,
 				hb_params->params.tcp_params.dev_ip,
+				hb_params->params.tcp_params.seq,
+				hb_params->params.tcp_params.interval,
 				hb_params->params.tcp_params.timeout,
 				hb_params->params.tcp_params.session,
 				hb_params->params.tcp_params.gateway_mac)) {
@@ -819,6 +828,54 @@ int ath6kl_tm_cmd(struct wiphy *wiphy, void *data, int len)
 	return 0;
 	break;
 #endif
+
+	case ATH6KL_TM_CMD_DFS_SKIP:
+	{
+		struct wifi_dfs_skip_params *dfs_skip_params;
+		struct ath6kl_vif *vif;
+
+		vif = ath6kl_vif_first(ar);
+
+		if (!vif)
+			return -EINVAL;
+
+		if (!tb[ATH6KL_TM_ATTR_DATA]) {
+			printk(KERN_ERR "%s: NO DATA\n", __func__);
+			return -EINVAL;
+		}
+
+		buf = nla_data(tb[ATH6KL_TM_ATTR_DATA]);
+		buf_len = nla_len(tb[ATH6KL_TM_ATTR_DATA]);
+
+		dfs_skip_params = (struct wifi_dfs_skip_params *)buf;
+
+		if (dfs_skip_params->enable)
+			vif->sc_params.scan_ctrl_flags
+				 |= ENABLE_DFS_SKIP_CTRL_FLAGS;
+		else
+			vif->sc_params.scan_ctrl_flags
+				 &= ~ENABLE_DFS_SKIP_CTRL_FLAGS;
+
+		if (ath6kl_wmi_scanparams_cmd(ar->wmi, vif->fw_vif_idx,
+				vif->sc_params.fg_start_period,
+				vif->sc_params.fg_end_period,
+				vif->sc_params.bg_period,
+				vif->sc_params.minact_chdwell_time,
+				vif->sc_params.maxact_chdwell_time,
+				vif->sc_params.pas_chdwell_time,
+				vif->sc_params.short_scan_ratio,
+				vif->sc_params.scan_ctrl_flags,
+				vif->sc_params.max_dfsch_act_time,
+				vif->sc_params.maxact_scan_per_ssid)) {
+						printk(KERN_ERR "%s: wifi dfs skip enable fail\n",
+					__func__);
+				return -EINVAL;
+			}
+	}
+
+	return 0;
+	break;
+
 	default:
 		return -EOPNOTSUPP;
 	}

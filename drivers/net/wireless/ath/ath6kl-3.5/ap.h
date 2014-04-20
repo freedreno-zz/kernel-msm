@@ -24,8 +24,8 @@
 #define ATH6KL_AP_KA_RECLAIM_TIME_MAX		((15 * 60) * 1000)
 
 /* Do some fine tune to overwrite the config in P2P cases. */
-#define ATH6KL_AP_KA_RECLAIM_CYCLE_SCC		(4)		/* 1 min. */
-#define ATH6KL_AP_KA_RECLAIM_CYCLE_MCC		(12)		/* 3 min. */
+#define ATH6KL_AP_KA_RECLAIM_CYCLE_SCC		(16)		/* 4 min. */
+#define ATH6KL_AP_KA_RECLAIM_CYCLE_MCC		(19)		/* 4.75 min. */
 
 /* At least WMI_TIMEOUT */
 #define ATH6KL_AP_KA_PRELOAD_LEADTIME		(2 * 1000)
@@ -160,6 +160,29 @@ struct ieee80211_ht_oper {
 	u8 basic_set[16];
 } __packed;
 
+/* AP Recommend Channel */
+enum ap_rc_mode {
+	AP_RC_MODE_DISABLE = 0,
+	AP_RC_MODE_FIXED = 1,
+	AP_RC_MODE_2GALL = 2,
+	AP_RC_MODE_2GPOP = 3,		/* Channel 1,6 or 11 */
+	AP_RC_MODE_5GALL = 4,
+	AP_RC_MODE_OVERALL = 5,
+	AP_RC_MODE_2GNOLTE = 6,
+	AP_RC_MODE_5GNODFS = 7,
+	AP_RC_MODE_OVERALLNOLTE = 8,
+	AP_RC_MODE_OVERALLNODFS = 9,
+	AP_RC_MODE_OVERALLNOLTEDFS = 10,
+
+	/* keep last */
+	AP_RC_MODE_MAX = AP_RC_MODE_OVERALLNOLTEDFS,
+};
+
+struct ap_rc_info {
+	enum ap_rc_mode mode;
+	u16 chan;
+	u16 chan_fixed;		/* AP_RC_MODE_FIXED */
+};
 
 struct ap_keepalive_info *ath6kl_ap_keepalive_init(struct ath6kl_vif *vif,
 						   enum ap_keepalive_mode mode);
@@ -200,6 +223,10 @@ void ath6kl_ap_admc_assoc_req_fetch(struct ath6kl_vif *vif,
 void ath6kl_ap_admc_assoc_req_release(struct ath6kl_vif *vif,
 	u8 *assocReq);
 int ath6kl_ap_admc_dump(struct ath6kl *ar, u8 *buf, int buf_len);
+void ath6kl_ap_rc_init(struct ath6kl_vif *vif);
+u16 ath6kl_ap_rc_get(struct ath6kl_vif *vif, u16 chan_config);
+void ath6kl_ap_rc_update(struct ath6kl_vif *vif);
+int ath6kl_ap_rc_config(struct ath6kl_vif *vif, int mode_or_freq);
 int ath6kl_ap_ht_update_ies(struct ath6kl_vif *vif);
 void ath6kl_ap_beacon_info(struct ath6kl_vif *vif, u8 *beacon, u8 beacon_len);
 void ath6kl_ap_ch_switch(struct ath6kl_vif *vif);

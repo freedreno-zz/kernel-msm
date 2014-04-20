@@ -45,7 +45,6 @@ ath6kl_sdio-y += p2p.o
 ath6kl_sdio-y += ap.o
 ath6kl_sdio-y += reg.o
 ath6kl_sdio-y += regdb.o
-ath6kl_sdio-y += qcomwlan_pwrif.o
 
 obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
 ath6kl_usb-y += debug.o
@@ -82,3 +81,10 @@ ccflags-y += -DCONFIG_BTCOEX_OLCA_3_5
 ccflags-$(CONFIG_ATH6KL_UB134) += -DCONFIG_ATH6KL_UDP_TPUT_WAR
 
 EXTRA_CFLAGS += -I${KBUILDPATH}/drivers/net/wireless/ath/ath6kl
+EXTRA_CFLAGS += \
+	-DATH6KL_SUPPORT_NL80211_KERNEL3_4=1 \
+	-DATH6KL_BUS_VOTE=1 \
+	-DCONFIG_ATH6KL_UB134=1 \
+	-DUSB_AUTO_SUSPEND=1
+ath6kl_usb-y += msm.o
+
