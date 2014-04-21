@@ -2068,7 +2068,7 @@ static struct snd_soc_dapm_widget *dapm_find_widget(
 		return NULL;
 
 	list_for_each_entry(w, &dapm->card->widgets, list) {
-		if (!w->name)
+		if (!(w && w->name))
 			continue;
 
 		if (!strcmp(w->name, pin)) {

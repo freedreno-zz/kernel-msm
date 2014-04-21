@@ -1628,9 +1628,6 @@ static const struct snd_kcontrol_new sec_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia11", MSM_BACKEND_DAI_SEC_I2S_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA11, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
-	SOC_SINGLE_EXT("Pseudo", MSM_BACKEND_DAI_SEC_I2S_RX,
-	MSM_FRONTEND_DAI_PSEUDO, 1, 0, msm_routing_get_audio_mixer,
-	msm_routing_put_audio_mixer),
 };
 
 static const struct snd_kcontrol_new slimbus_rx_mixer_controls[] = {
@@ -1738,9 +1735,6 @@ static const struct snd_kcontrol_new hdmi_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("MultiMedia11", MSM_BACKEND_DAI_HDMI_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA11, 1, 0, msm_routing_get_audio_mixer,
-	msm_routing_put_audio_mixer),
-	SOC_SINGLE_EXT("Pseudo", MSM_BACKEND_DAI_HDMI_RX,
-	MSM_FRONTEND_DAI_PSEUDO, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 };
 static const struct snd_kcontrol_new pseudo_mixer_controls[] = {
@@ -2762,7 +2756,6 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("MM_DL9", "MultiMedia9 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("MM_DL10", "MultiMedia10 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("MM_DL11", "MultiMedia11 Playback", 0, 0, 0, 0),
-	SND_SOC_DAPM_AIF_IN("MM_DL12", "Pseudo Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("VOIP_DL", "VoIP Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("MM_UL1", "MultiMedia1 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("MM_UL2", "MultiMedia2 Capture", 0, 0, 0, 0),
@@ -3014,7 +3007,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_RX Audio Mixer", "MultiMedia9", "MM_DL9"},
 	{"SEC_RX Audio Mixer", "MultiMedia10", "MM_DL10"},
 	{"SEC_RX Audio Mixer", "MultiMedia11", "MM_DL11"},
-	{"SEC_RX Audio Mixer", "Pseudo", "MM_DL12"},
 	{"SEC_I2S_RX", NULL, "SEC_RX Audio Mixer"},
 
 	{"SLIMBUS_0_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
@@ -3041,7 +3033,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"HDMI Mixer", "MultiMedia9", "MM_DL9"},
 	{"HDMI Mixer", "MultiMedia10", "MM_DL10"},
 	{"HDMI Mixer", "MultiMedia11", "MM_DL11"},
-	{"HDMI Mixer", "Pseudo", "MM_DL12"},
 	{"HDMI", NULL, "HDMI Mixer"},
 
 	{"PSEUDO Mixer", "MultiMedia4", "MM_DL4"},
