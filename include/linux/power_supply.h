@@ -224,7 +224,7 @@ extern int power_supply_set_supply_type(struct power_supply *psy,
 extern int power_supply_is_system_supplied(void);
 #else
 static inline struct power_supply *power_supply_get_by_name(char *name)
-							{ return -ENOSYS; }
+							{ return ERR_PTR(-ENOSYS); }
 static inline int power_supply_am_i_supplied(struct power_supply *psy)
 							{ return -ENOSYS; }
 static inline int power_supply_set_battery_charged(struct power_supply *psy)
@@ -242,7 +242,7 @@ static inline int power_supply_set_charge_type(struct power_supply *psy,
 							int type)
 							{ return -ENOSYS; }
 static inline int power_supply_set_supply_type(struct power_supply *psy,
-					enum power_supply_type supply_type);
+					enum power_supply_type supply_type)
 							{ return -ENOSYS; }
 static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }
 #endif
