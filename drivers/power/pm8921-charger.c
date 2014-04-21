@@ -1583,6 +1583,9 @@ static int voltage_based_capacity(struct pm8921_chg_chip *chip)
 	unsigned int low_voltage = chip->min_voltage_mv;
 	unsigned int high_voltage = chip->max_voltage_mv;
 
+	if (chip->battery_less_hardware)
+		return 100;
+
 	if (current_voltage_uv < 0) {
 		pr_err("Error reading current voltage\n");
 		return -EIO;
@@ -1607,6 +1610,9 @@ static int get_prop_batt_status(struct pm8921_chg_chip *chip)
 	int batt_state = POWER_SUPPLY_STATUS_DISCHARGING;
 	int fsm_state = pm_chg_get_fsm_state(chip);
 	int i;
+
+	if (chip->battery_less_hardware)
+		return POWER_SUPPLY_STATUS_FULL;
 
 	if (chip->ext_psy) {
 		if (chip->ext_charge_done)
@@ -1704,6 +1710,9 @@ static int get_prop_batt_fcc(struct pm8921_chg_chip *chip)
 {
 	int rc;
 
+	if (chip->battery_less_hardware)
+		return 0;
+
 	rc = pm8921_bms_get_fcc();
 	if (rc < 0)
 		pr_err("unable to get batt fcc rc = %d\n", rc);
@@ -1729,6 +1738,9 @@ static int get_prop_batt_charge_now(struct pm8921_chg_chip *chip, int *cc_uah)
 static int get_prop_batt_health(struct pm8921_chg_chip *chip)
 {
 	int temp;
+
+	if (chip->battery_less_hardware)
+		return POWER_SUPPLY_HEALTH_GOOD;
 
 	temp = pm_chg_get_rt_status(chip, BATTTEMP_HOT_IRQ);
 	if (temp)
