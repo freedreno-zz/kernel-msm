@@ -3225,7 +3225,7 @@ static void ath6kl_usb_exit(void)
 }
 #endif
 
-module_init(ath6kl_usb_init);
+late_initcall(ath6kl_usb_init);
 module_exit(ath6kl_usb_exit);
 
 MODULE_AUTHOR("Atheros Communications, Inc.");
