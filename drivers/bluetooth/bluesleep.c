@@ -40,6 +40,7 @@
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
 
+#include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/param.h>
 #include <linux/bitops.h>
