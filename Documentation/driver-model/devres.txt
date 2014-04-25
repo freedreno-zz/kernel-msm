@@ -293,3 +293,10 @@ PWM
 PHY
   devm_usb_get_phy()
   devm_usb_put_phy()
+
+GPIO
+  devm_gpiod_get()
+  devm_gpiod_get_index()
+  devm_gpiod_get_optional()
+  devm_gpiod_get_index_optional()
+  devm_gpiod_put()
