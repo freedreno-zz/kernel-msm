@@ -2029,7 +2029,7 @@ static const struct hid_device_id hid_mouse_ignore_list[] = {
 	{ }
 };
 
-static bool hid_ignore(struct hid_device *hdev)
+bool hid_ignore(struct hid_device *hdev)
 {
 	switch (hdev->vendor) {
 	case USB_VENDOR_ID_CODEMERCS:

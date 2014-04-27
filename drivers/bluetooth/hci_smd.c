@@ -147,13 +147,6 @@ static int hci_smd_close(struct hci_dev *hdev)
 		return -EPERM;
 }
 
-
-static void hci_smd_destruct(struct hci_dev *hdev)
-{
-	if (NULL != hdev->driver_data)
-		kfree(hdev->driver_data);
-}
-
 static void hci_smd_recv_data(void)
 {
 	int len = 0;
@@ -189,7 +182,7 @@ static void hci_smd_recv_data(void)
 	bt_cb(skb)->pkt_type = HCI_ACLDATA_PKT;
 	skb_orphan(skb);
 
-	rc = hci_recv_frame(skb);
+	rc = hci_recv_frame(hsmd->hdev, skb);
 	if (rc < 0) {
 		BT_ERR("Error in passing the packet to HCI Layer");
 		/*
@@ -248,7 +241,7 @@ static void hci_smd_recv_event(void)
 
 		skb_orphan(skb);
 
-		rc = hci_recv_frame(skb);
+		rc = hci_recv_frame(hsmd->hdev, skb);
 		if (rc < 0) {
 			BT_ERR("Error in passing the packet to HCI Layer");
 			/*
@@ -274,7 +267,7 @@ out_event:
 		kfree_skb(skb);
 }
 
-static int hci_smd_send_frame(struct sk_buff *skb)
+static int hci_smd_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	int len;
 	int avail;
@@ -486,12 +479,9 @@ static int hci_smd_register_smd(struct hci_smd_data *hsmd)
 
 	hsmd->hdev = hdev;
 	hdev->bus = HCI_SMD;
-	hdev->driver_data = NULL;
 	hdev->open  = hci_smd_open;
 	hdev->close = hci_smd_close;
 	hdev->send  = hci_smd_send_frame;
-	hdev->destruct = hci_smd_destruct;
-	hdev->owner = THIS_MODULE;
 
 
 	tasklet_init(&hsmd->rx_task,
@@ -545,10 +535,7 @@ static void hci_smd_deregister_dev(struct hci_smd_data *hsmd)
 		BT_INFO("HCI device un-registration going on");
 
 		if (hsmd->hdev) {
-			if (hci_unregister_dev(hsmd->hdev) < 0)
-				BT_ERR("Can't unregister HCI device %s",
-					hsmd->hdev->name);
-
+			hci_unregister_dev(hsmd->hdev);
 			hci_free_dev(hsmd->hdev);
 			hsmd->hdev = NULL;
 		}

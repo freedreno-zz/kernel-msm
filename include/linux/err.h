@@ -59,6 +59,7 @@ static inline int __must_check PTR_RET(const void *ptr)
 	else
 		return 0;
 }
+#define PTR_ERR_OR_ZERO(p) PTR_RET(p)
 
 #endif
 
