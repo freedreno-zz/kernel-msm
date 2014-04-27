@@ -265,6 +265,12 @@ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 #define NL_NONROOT_SEND 0x2
 extern void netlink_set_nonroot(int protocol, unsigned flag);
 
+
+
+#define genl_info_snd_portid(__genl_info) (__genl_info->snd_pid)
+#define netlink_notify_portid(__notify) (__notify->pid)
+#define NETLINK_CB_PORTID(__skb) NETLINK_CB(__skb).pid
+
 #endif /* __KERNEL__ */
 
 #endif	/* __LINUX_NETLINK_H */

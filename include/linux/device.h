@@ -1036,4 +1036,18 @@ static void __exit __driver##_exit(void) \
 } \
 module_exit(__driver##_exit);
 
+#define DEVICE_ATTR_RO(_name) \
+struct device_attribute dev_attr_ ## _name = __ATTR_RO(_name);
+#define ATTRIBUTE_GROUPS_BACKPORT(_name) \
+static struct BP_ATTR_GRP_STRUCT _name##_dev_attrs[ARRAY_SIZE(_name##_attrs)];\
+static void init_##_name##_attrs(void)				\
+{									\
+	int i;								\
+	for (i = 0; _name##_attrs[i]; i++)				\
+		_name##_dev_attrs[i] =				\
+			*container_of(_name##_attrs[i],		\
+				      struct BP_ATTR_GRP_STRUCT,	\
+				      attr);				\
+}
+
 #endif /* _DEVICE_H_ */

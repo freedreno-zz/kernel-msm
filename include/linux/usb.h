@@ -1721,6 +1721,23 @@ do {									\
 /* debugfs stuff */
 extern struct dentry *usb_debug_root;
 
+/**
+ * Backports
+ *
+ * commit d81a5d1956731c453b85c141458d4ff5d6cc5366
+ * Author: Gustavo Padovan <gustavo.padovan@collabora.co.uk>
+ * Date:   Tue Jul 10 19:10:06 2012 -0300
+ *
+ *      USB: add USB_VENDOR_AND_INTERFACE_INFO() macro
+ */
+#define USB_VENDOR_AND_INTERFACE_INFO(vend, cl, sc, pr) \
+       .match_flags = USB_DEVICE_ID_MATCH_INT_INFO \
+               | USB_DEVICE_ID_MATCH_VENDOR, \
+       .idVendor = (vend), \
+       .bInterfaceClass = (cl), \
+       .bInterfaceSubClass = (sc), \
+       .bInterfaceProtocol = (pr)
+
 #endif  /* __KERNEL__ */
 
 #endif
