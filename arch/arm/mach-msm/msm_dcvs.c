@@ -461,9 +461,13 @@ static int msm_dcvs_do_freq(void *data)
 	struct dcvs_core *core = (struct dcvs_core *)data;
 
 	while (!kthread_should_stop()) {
-		wait_event(core->wait_q, !(core->pending_freq == 0 ||
+		int ret;
+
+		ret = wait_event_interruptible(core->wait_q, !(core->pending_freq == 0 ||
 					  core->pending_freq == -1) ||
 					  kthread_should_stop());
+		if (ret)
+			continue;
 
 		if (kthread_should_stop())
 			break;
