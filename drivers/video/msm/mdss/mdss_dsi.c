@@ -27,6 +27,8 @@
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
 
+static bool enable_dsi_param = true;
+
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -1074,6 +1076,11 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	const char *ctrl_name;
 	bool cmd_cfg_cont_splash = true;
 
+	if (!enable_dsi_param) {
+		pr_err("%s: DSI disabled by boot params\n", __func__);
+		return 0;
+	}
+
 	if (!mdss_is_ready()) {
 		pr_err("%s: MDP not probed yet!\n", __func__);
 		return -EPROBE_DEFER;
@@ -1572,6 +1579,16 @@ static void __exit mdss_dsi_driver_cleanup(void)
 	platform_driver_unregister(&mdss_dsi_ctrl_driver);
 }
 module_exit(mdss_dsi_driver_cleanup);
+
+/* Enable disable DSI through fastboot params */
+static struct kernel_param_ops dsi_param_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
+module_param_cb(enable, &dsi_param_ops,
+	&enable_dsi_param, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(enable, "Enable or Disable DSI");
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DSI controller driver");

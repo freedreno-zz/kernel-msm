@@ -50,6 +50,8 @@ struct dsi_host_v2_private {
 static struct dsi_host_v2_private *dsi_host_private;
 static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable);
 
+static bool enable_dsi2_param = true;
+
 int msm_dsi_init(void)
 {
 	if (!dsi_host_private) {
@@ -1461,6 +1463,11 @@ static int msm_dsi_probe(struct platform_device *pdev)
 	bool cmd_cfg_cont_splash = false;
 	struct resource *mdss_dsi_mres;
 
+	if (!enable_dsi2_param) {
+		pr_err("%s: DSI2 disabled by boot params\n", __func__);
+		return 0;
+	}
+
 	pr_debug("%s\n", __func__);
 
 	rc = msm_dsi_init();
@@ -1661,6 +1668,16 @@ static int __init msm_dsi_v2_driver_init(void)
 	return ret;
 }
 module_init(msm_dsi_v2_driver_init);
+
+/* Enable disable dsi2 through fastboot params */
+static struct kernel_param_ops dsi2_param_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
+module_param_cb(enable, &dsi2_param_ops,
+	&enable_dsi2_param, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(enable, "Enable or Disable DSI2");
 
 static void __exit msm_dsi_v2_driver_cleanup(void)
 {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,9 +22,12 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/version.h>
+#include <linux/moduleparam.h>
 
 #include "mdss_panel.h"
 #include "mdss_wb.h"
+
+static bool enable_wb_param = true;
 
 /**
  * mdss_wb_check_params - check new panel info params
@@ -123,6 +126,11 @@ static int mdss_wb_probe(struct platform_device *pdev)
 	struct mdss_wb_ctrl *wb_ctrl = NULL;
 	int rc = 0;
 
+	if (!enable_wb_param) {
+		pr_err("WB disabled by fastboot params\n");
+		return 0;
+	}
+
 	if (!pdev->dev.of_node)
 		return -ENODEV;
 
@@ -194,5 +202,14 @@ static int __init mdss_wb_driver_init(void)
 	rc = platform_driver_register(&mdss_wb_driver);
 	return rc;
 }
-
 module_init(mdss_wb_driver_init);
+
+/* Enable disable WB through fastboot params */
+static struct kernel_param_ops dsi_param_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
+module_param_cb(enable, &dsi_param_ops,
+	&enable_wb_param, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(enable, "Enable or Disable WB");

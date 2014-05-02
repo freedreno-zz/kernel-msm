@@ -40,6 +40,8 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+static bool enable_edp_param = true;
+
 static int mdss_edp_regulator_on(struct mdss_edp_drv_pdata *edp_drv);
 /*
  * Init regulator needed for edp, 8974_l12
@@ -1041,6 +1043,11 @@ static int mdss_edp_probe(struct platform_device *pdev)
 	struct mdss_edp_drv_pdata *edp_drv;
 	struct mdss_panel_cfg *pan_cfg = NULL;
 
+	if (!enable_edp_param) {
+		pr_err("%s: EDP disabled by boot params\n", __func__);
+		return 0;
+	}
+
 	if (!mdss_is_ready()) {
 		pr_err("%s: MDP not probed yet!\n", __func__);
 		return -EPROBE_DEFER;
@@ -1198,6 +1205,16 @@ static void __exit mdss_edp_driver_cleanup(void)
 	platform_driver_unregister(&mdss_edp_driver);
 }
 module_exit(mdss_edp_driver_cleanup);
+
+/* Enable disable EDP through fastboot params */
+static struct kernel_param_ops edp_param_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
+module_param_cb(enable, &edp_param_ops,
+	&enable_edp_param, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(enable, "Enable or Disable EDP");
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("eDP controller driver");

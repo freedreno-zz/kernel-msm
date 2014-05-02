@@ -1534,6 +1534,7 @@ static void dwc3_resume_work(struct work_struct *w)
 		}
 		return;
 	}
+	msleep(500);
 
 	/* bail out if system resume in process, else initiate RESUME */
 	if (atomic_read(&mdwc->pm_suspended)) {

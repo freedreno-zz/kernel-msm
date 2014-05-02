@@ -63,6 +63,12 @@
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
+/* HDMI as primary panel feature */
+static bool hdmi_primary_feature_on;
+
+/* hdmi resolution for hdmi primary feature */
+static int hdmi_resolution_id = HDMI_VFRMT_1920x1080p60_16_9;
+
 /* Supported HDMI Audio channels */
 #define MSM_HDMI_AUDIO_CHANNEL_2	2
 #define MSM_HDMI_AUDIO_CHANNEL_3	3
@@ -3318,9 +3324,8 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->panel_data.event_handler = hdmi_tx_panel_event_handler;
 
-	/* Default 1080p resolution for hdmi primary display */
 	if (hdmi_ctrl->pdata.primary)
-		hdmi_ctrl->video_resolution = DEFAULT_HDMI_PRIMARY_RESOLUTION;
+		hdmi_ctrl->video_resolution = hdmi_resolution_id;
 	else
 		hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
 
@@ -3923,6 +3928,11 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		goto failed_dt_data;
 	}
 
+	if (hdmi_primary_feature_on) {
+		DEV_DBG("%s: HDMI is primary\n", __func__);
+		hdmi_ctrl->pdata.primary = true;
+	}
+
 	rc = hdmi_tx_init_resource(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: FAILED: resource init. rc=%d\n",
@@ -4037,6 +4047,26 @@ static struct kernel_param_ops hdcp_feature_on_param_ops = {
 module_param_cb(hdcp, &hdcp_feature_on_param_ops, &hdcp_feature_on,
 	S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(hdcp, "Enable or Disable HDCP");
+
+/* HDMI as primary feature */
+static struct kernel_param_ops hdmi_primary_feature_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
+module_param_cb(primary, &hdmi_primary_feature_ops,
+	&hdmi_primary_feature_on, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(primary, "Make HDMI as primary or external");
+
+/* HDMI resolution selection */
+static struct kernel_param_ops hdmi_resolution_feature_ops = {
+	.set = param_set_int,
+	.get = param_get_int,
+};
+
+module_param_cb(resolution, &hdmi_resolution_feature_ops,
+	&hdmi_resolution_id, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(resolution, "Select HDMI primary resolution");
 
 module_init(hdmi_tx_drv_init);
 module_exit(hdmi_tx_drv_exit);

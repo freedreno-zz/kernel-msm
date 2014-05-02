@@ -213,9 +213,15 @@
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<48 165>, /* usb30_hs_phy_irq */
 			<49 165>, /* usb30_hs_phy_irq */
-			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<50 293>, /* usb30_sec_hs_phy_irq */
+			<50 293>, /* usb30_sec_hs_phy_irq */
+			<51 293>, /* usb30_sec_hs_phy_irq */
+			<52 293>, /* usb30_sec_hs_phy_irq */
+			<53 293>, /* usb30_sec_hs_phy_irq */
+			<57 293>, /* usb30_sec_hs_phy_irq */
+			<58 293>, /* usb30_sec_hs_phy_irq */
 			<0xff 33>, /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 34>, /* APCC_qgicL2ErrorIrptReq */
 			<0xff 35>, /* WDT_barkInt */
