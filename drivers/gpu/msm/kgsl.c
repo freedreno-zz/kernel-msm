@@ -38,6 +38,10 @@
 #include "kgsl_trace.h"
 #include "kgsl_sync.h"
 
+// HACK:
+int is_hdmi_audio_packet_enable(void) { return 0; }
+int hdmi_msm_toggle_hdmi(void) { return 0; }
+
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
