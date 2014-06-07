@@ -43,8 +43,7 @@
 DEFINE_MUTEX(drm_global_mutex);
 EXPORT_SYMBOL(drm_global_mutex);
 
-static int drm_open_helper(struct inode *inode, struct file *filp,
-			   struct drm_minor *minor);
+static int drm_open_helper(struct file *filp, struct drm_minor *minor);
 
 static int drm_setup(struct drm_device * dev)
 {
@@ -95,7 +94,7 @@ int drm_open(struct inode *inode, struct file *filp)
 	/* share address_space across all char-devs of a single device */
 	filp->f_mapping = dev->anon_inode->i_mapping;
 
-	retcode = drm_open_helper(inode, filp, minor);
+	retcode = drm_open_helper(filp, minor);
 	if (retcode)
 		goto err_undo;
 	if (need_setup) {
@@ -123,38 +122,30 @@ EXPORT_SYMBOL(drm_open);
  */
 int drm_stub_open(struct inode *inode, struct file *filp)
 {
-	struct drm_device *dev = NULL;
+	struct drm_device *dev;
 	struct drm_minor *minor;
-	int minor_id = iminor(inode);
 	int err = -ENODEV;
-	const struct file_operations *old_fops;
+	const struct file_operations *new_fops;
 
 	DRM_DEBUG("\n");
 
 	mutex_lock(&drm_global_mutex);
-	minor = idr_find(&drm_minors_idr, minor_id);
-	if (!minor)
-		goto out;
+	minor = drm_minor_acquire(iminor(inode));
+	if (IS_ERR(minor))
+		goto out_unlock;
 
-	if (!(dev = minor->dev))
-		goto out;
+	dev = minor->dev;
+	new_fops = fops_get(dev->driver->fops);
+	if (!new_fops)
+		goto out_release;
 
-	if (drm_device_is_unplugged(dev))
-		goto out;
+	replace_fops(filp, new_fops);
+	if (filp->f_op->open)
+		err = filp->f_op->open(inode, filp);
 
-	old_fops = filp->f_op;
-	filp->f_op = fops_get(dev->driver->fops);
-	if (filp->f_op == NULL) {
-		filp->f_op = old_fops;
-		goto out;
-	}
-	if (filp->f_op->open && (err = filp->f_op->open(inode, filp))) {
-		fops_put(filp->f_op);
-		filp->f_op = fops_get(old_fops);
-	}
-	fops_put(old_fops);
-
-out:
+out_release:
+	drm_minor_release(minor);
+out_unlock:
 	mutex_unlock(&drm_global_mutex);
 	return err;
 }
@@ -179,7 +170,6 @@ static int drm_cpu_valid(void)
 /**
  * Called whenever a process opens /dev/drm.
  *
- * \param inode device inode.
  * \param filp file pointer.
  * \param minor acquired minor-object.
  * \return zero on success or a negative number on failure.
@@ -187,8 +177,7 @@ static int drm_cpu_valid(void)
  * Creates and initializes a drm_file structure for the file private data in \p
  * filp and add it into the double linked list in \p dev.
  */
-static int drm_open_helper(struct inode *inode, struct file *filp,
-			   struct drm_minor *minor)
+static int drm_open_helper(struct file *filp, struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
 	struct drm_file *priv;

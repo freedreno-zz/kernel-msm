@@ -128,7 +128,10 @@ struct drm_master *drm_master_create(struct drm_minor *minor)
 	kref_init(&master->refcount);
 	spin_lock_init(&master->lock.spinlock);
 	init_waitqueue_head(&master->lock.lock_queue);
-	drm_ht_create(&master->magiclist, DRM_MAGIC_HASH_ORDER);
+	if (drm_ht_create(&master->magiclist, DRM_MAGIC_HASH_ORDER)) {
+		kfree(master);
+		return NULL;
+	}
 	INIT_LIST_HEAD(&master->magicfree);
 	master->minor = minor;
 
@@ -165,9 +168,6 @@ static void drm_master_destroy(struct kref *kref)
 		master->unique = NULL;
 		master->unique_len = 0;
 	}
-
-	kfree(dev->devname);
-	dev->devname = NULL;
 
 	list_for_each_entry_safe(pt, next, &master->magicfree, head) {
 		list_del(&pt->head);
@@ -294,6 +294,7 @@ static void drm_minor_free(struct drm_device *dev, unsigned int type)
 
 	slot = drm_minor_get_slot(dev, type);
 	if (*slot) {
+		drm_mode_group_destroy(&(*slot)->mode_group);
 		kfree(*slot);
 		*slot = NULL;
 	}
@@ -575,7 +576,7 @@ struct drm_device *drm_dev_alloc(struct drm_driver *driver,
 	INIT_LIST_HEAD(&dev->maplist);
 	INIT_LIST_HEAD(&dev->vblank_event_list);
 
-	spin_lock_init(&dev->count_lock);
+	spin_lock_init(&dev->buf_lock);
 	spin_lock_init(&dev->event_lock);
 	mutex_init(&dev->struct_mutex);
 	mutex_init(&dev->ctxlist_mutex);
@@ -653,8 +654,6 @@ static void drm_dev_release(struct kref *ref)
 	drm_minor_free(dev, DRM_MINOR_LEGACY);
 	drm_minor_free(dev, DRM_MINOR_RENDER);
 	drm_minor_free(dev, DRM_MINOR_CONTROL);
-
-	kfree(dev->devname);
 
 	mutex_destroy(&dev->master_mutex);
 	kfree(dev);

@@ -26,6 +26,7 @@
 #include <linux/list.h>
 #include <drm/drmP.h>
 #include <drm/drm_rect.h>
+#include <drm/drm_plane_helper.h>
 
 #define SUBPIXEL_MASK 0xffff
 
@@ -36,9 +37,9 @@
  * creating the primary plane.  However drivers that still call
  * drm_plane_init() will use this minimal format list as the default.
  */
-const static uint32_t safe_modeset_formats[] = {
-       DRM_FORMAT_XRGB8888,
-       DRM_FORMAT_ARGB8888,
+static const uint32_t safe_modeset_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
 };
 
 /*
@@ -53,6 +54,13 @@ static int get_connectors_for_crtc(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_connector *connector;
 	int count = 0;
+
+	/*
+	 * Note: Once we change the plane hooks to more fine-grained locking we
+	 * need to grab the connection_mutex here to be able to make these
+	 * checks.
+	 */
+	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head)
 		if (connector->encoder && connector->encoder->crtc == crtc) {
@@ -124,7 +132,6 @@ int drm_primary_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 		.y2 = crtc->mode.vdisplay,
 	};
 	struct drm_connector **connector_list;
-	struct drm_framebuffer *tmpfb;
 	int num_connectors, ret;
 
 	if (!crtc->enabled) {
@@ -145,6 +152,8 @@ int drm_primary_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/* Disallow scaling */
+	src_w >>= 16;
+	src_h >>= 16;
 	if (crtc_w != src_w || crtc_h != src_h) {
 		DRM_DEBUG_KMS("Can't scale primary plane\n");
 		return -EINVAL;
@@ -176,21 +185,14 @@ int drm_primary_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 	set.num_connectors = num_connectors;
 
 	/*
-	 * set_config() adjusts crtc->primary->fb; however the DRM setplane
-	 * code that called us expects to handle the framebuffer update and
-	 * reference counting; save and restore the current fb before
-	 * calling it.
-	 *
-	 * N.B., we call set_config() directly here rather than using
+	 * We call set_config() directly here rather than using
 	 * drm_mode_set_config_internal.  We're reprogramming the same
 	 * connectors that were already in use, so we shouldn't need the extra
 	 * cross-CRTC fb refcounting to accomodate stealing connectors.
 	 * drm_mode_setplane() already handles the basic refcounting for the
 	 * framebuffers involved in this operation.
 	 */
-	tmpfb = plane->fb;
 	ret = crtc->funcs->set_config(&set);
-	plane->fb = tmpfb;
 
 	kfree(connector_list);
 	return ret;
@@ -203,9 +205,9 @@ EXPORT_SYMBOL(drm_primary_helper_update);
  *
  * Provides a default plane disable handler for primary planes.  This is handler
  * is called in response to a userspace SetPlane operation on the plane with a
- * NULL framebuffer parameter.  We call the driver's modeset handler with a NULL
- * framebuffer to disable the CRTC if no other planes are currently enabled.
- * If other planes are still enabled on the same CRTC, we return -EBUSY.
+ * NULL framebuffer parameter.  It unconditionally fails the disable call with
+ * -EINVAL the only way to disable the primary plane without driver support is
+ * to disable the entier CRTC. Which does not match the plane ->disable hook.
  *
  * Note that some hardware may be able to disable the primary plane without
  * disabling the whole CRTC.  Drivers for such hardware should provide their
@@ -214,34 +216,11 @@ EXPORT_SYMBOL(drm_primary_helper_update);
  * disabled primary plane).
  *
  * RETURNS:
- * Zero on success, error code on failure
+ * Unconditionally returns -EINVAL.
  */
 int drm_primary_helper_disable(struct drm_plane *plane)
 {
-	struct drm_plane *p;
-	struct drm_mode_set set = {
-		.crtc = plane->crtc,
-		.fb = NULL,
-	};
-
-	if (plane->crtc == NULL || plane->fb == NULL)
-		/* Already disabled */
-		return 0;
-
-	list_for_each_entry(p, &plane->dev->mode_config.plane_list, head)
-		if (p != plane && p->fb) {
-			DRM_DEBUG_KMS("Cannot disable primary plane while other planes are still active on CRTC.\n");
-			return -EBUSY;
-		}
-
-	/*
-	 * N.B.  We call set_config() directly here rather than
-	 * drm_mode_set_config_internal() since drm_mode_setplane() already
-	 * handles the basic refcounting and we don't need the special
-	 * cross-CRTC refcounting (no chance of stealing connectors from
-	 * other CRTC's with this update).
-	 */
-	return plane->crtc->funcs->set_config(&set);
+	return -EINVAL;
 }
 EXPORT_SYMBOL(drm_primary_helper_disable);
 
@@ -255,7 +234,6 @@ EXPORT_SYMBOL(drm_primary_helper_disable);
  */
 void drm_primary_helper_destroy(struct drm_plane *plane)
 {
-	plane->funcs->disable_plane(plane);
 	drm_plane_cleanup(plane);
 	kfree(plane);
 }
