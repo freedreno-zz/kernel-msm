@@ -267,6 +267,16 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};
+
+		msmgpio: pinctrl@800000 {
+			compatible = "qcom,apq8064-pinctrl";
+			reg = <0x800000 0x4000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <0 16 0x4>;
 		};
 
 		gsbi3: gsbi@16200000 {
@@ -358,7 +368,6 @@
 				#size-cells = <0>;
 
 				pm8921_gpio: gpio@150 {
-
 					compatible = "qcom,pm8921-gpio";
 					reg = <0x150>;
 					interrupts = <192 1>, <193 1>, <194 1>,
@@ -379,7 +388,6 @@
 
 					gpio-controller;
 					#gpio-cells = <2>;
-
 				};
 
 				pm8921_mpps: mpps@50 {
