@@ -442,6 +442,7 @@
 		state_default: default_active {
 			uim_detect {
 				pins = "gpio100";
+				function = "gpio";
 
 				drive-strength = <2>;
 				bias-disable;
@@ -449,11 +450,15 @@
 
 			debug_gpio0 {
 				pins = "gpio55";
+				function = "gpio";
+
 				bias-pull-up;
 			};
 
 			debug_gpio1 {
 				pins = "gpio56";
+				function = "gpio";
+
 				bias-pull-up;
 			};
 
@@ -517,6 +522,7 @@
 		clearpad_active_state: clearpad_active {
 			ts_int {
 				pins = "gpio61";
+				function = "gpio";
 
 				drive-strength = <2>;
 				bias-disable;
@@ -527,12 +533,16 @@
 			maxim_default_state: maxim_default {
 				ts_int {
 					pins = "gpio61";
+					function = "gpio";
+
 					drive-strength = <2>;
 					bias-disable;
 				};
 
 				pwr_en {
 					pins = "gpio85";
+					function = "gpio";
+
 					drive-strength = <2>;
 					bias-disable;
 				};
