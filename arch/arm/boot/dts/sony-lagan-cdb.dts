@@ -116,6 +116,8 @@
 			sdc3_cd: sdc3_cd {
 				pin {
 					pins = "gpio26";
+					function = "gpio";
+
 					drive-strength = <2>;
 					bias-pull-up;
 				};
