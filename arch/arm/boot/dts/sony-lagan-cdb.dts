@@ -252,7 +252,8 @@
 
 		rpm {
 			compatible = "qcom,rpm-apq8064";
-			reg = <0x108000 0x1000 0x2011008 0x4>;
+			reg = <0x108000 0x1000>;
+			qcom,ipc = <&apcs 0x8 2>;
 
 			interrupts = <0 19 0>, <0 21 0>, <0 22 0>;
 			interrupt-names = "ack", "err", "wakeup";
