@@ -22,11 +22,11 @@
  */
 
 #include <linux/backlight.h>
-#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -74,7 +74,7 @@ struct panel_simple {
 	struct regulator *supply;
 	struct i2c_adapter *ddc;
 
-	struct gpio_desc *enable_gpio;
+	int enable_gpio;
 };
 
 static inline struct panel_simple *to_panel_simple(struct drm_panel *panel)
@@ -143,8 +143,9 @@ static int panel_simple_unprepare(struct drm_panel *panel)
 		return 0;
 
 	if (p->enable_gpio)
-		gpiod_set_value_cansleep(p->enable_gpio, 0);
+		gpio_set_value_cansleep(p->enable_gpio, 0);
 
+	if (p->supply)
 	regulator_disable(p->supply);
 
 	if (p->desc->delay.unprepare)
@@ -163,14 +164,16 @@ static int panel_simple_prepare(struct drm_panel *panel)
 	if (p->prepared)
 		return 0;
 
+	if (p->supply) {
 	err = regulator_enable(p->supply);
 	if (err < 0) {
 		dev_err(panel->dev, "failed to enable supply: %d\n", err);
 		return err;
 	}
+	}
 
 	if (p->enable_gpio)
-		gpiod_set_value_cansleep(p->enable_gpio, 1);
+		gpio_set_value_cansleep(p->enable_gpio, 1);
 
 	if (p->desc->delay.prepare)
 		msleep(p->desc->delay.prepare);
@@ -247,7 +250,8 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 	if (IS_ERR(panel->supply))
 		return PTR_ERR(panel->supply);
 
-	panel->enable_gpio = devm_gpiod_get_optional(dev, "enable");
+#if 0
+	panel->enable_gpio = devm_gpiod_get(dev, "enable");
 	if (IS_ERR(panel->enable_gpio)) {
 		err = PTR_ERR(panel->enable_gpio);
 		dev_err(dev, "failed to request GPIO: %d\n", err);
@@ -281,6 +285,7 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 			goto free_backlight;
 		}
 	}
+#endif
 
 	drm_panel_init(&panel->base);
 	panel->base.dev = dev;
@@ -679,6 +684,8 @@ static const struct of_device_id platform_of_match[] = {
 		.compatible = "samsung,ltn101nt05",
 		.data = &samsung_ltn101nt05,
 	}, {
+		.compatible = "simple-panel",
+	}, {
 		/* sentinel */
 	}
 };
@@ -715,6 +722,52 @@ static struct platform_driver panel_simple_platform_driver = {
 	.remove = panel_simple_platform_remove,
 	.shutdown = panel_simple_platform_shutdown,
 };
+
+/* Bring the named panel into existence without relying on devicetree
+ * to create the device.  This is useful to make simple-panel work
+ * without devicetree.  Although ideally we'd have something not
+ * limitied to panel-simple..
+ */
+
+static struct drm_panel *panel_simple_create(struct device *dev,
+		const struct panel_desc *desc)
+{
+	struct panel_simple *panel;
+	int err;
+
+	panel = devm_kzalloc(dev, sizeof(*panel), GFP_KERNEL);
+	if (!panel)
+		return NULL;
+
+	panel->enabled = false;
+	panel->desc = desc;
+
+	drm_panel_init(&panel->base);
+	panel->base.dev = dev;
+	panel->base.funcs = &panel_simple_funcs;
+
+	err = drm_panel_add(&panel->base);
+	if (err < 0)
+		return NULL;
+
+	return &panel->base;
+}
+
+/* really super big hack to make things kinda work enough for drm/msm on
+ * pre-DT kernels..
+ */
+struct drm_panel *panel_simple_register(struct device *dev, const char *name)
+{
+	int i;
+
+	for (i = 0; platform_of_match[i].compatible[0]; i++) {
+		const struct of_device_id *id = &platform_of_match[i];
+		if (!strcmp(id->compatible, name))
+			return panel_simple_create(dev, id->data);
+	}
+
+	return NULL;
+}
 
 struct panel_desc_dsi {
 	struct panel_desc desc;

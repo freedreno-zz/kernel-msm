@@ -209,9 +209,17 @@ static struct drm_panel *detect_panel(struct drm_device *dev, const char *name)
 	return panel;
 }
 #else
+static char *lvds = NULL;
+MODULE_PARM_DESC(lvds, "LVDS panel");
+module_param(lvds, charp, 0600);
+
 static struct drm_panel *detect_panel(struct drm_device *dev, const char *name)
 {
-	// ??? maybe use a module param to specify which panel is attached?
+	/* TODO get panel name from module param? */
+	const char *panelname = lvds;
+	if (!panelname)
+		return NULL;
+	return panel_simple_register(dev->dev, panelname);
 }
 #endif
 
