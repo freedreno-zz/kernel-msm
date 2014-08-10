@@ -42,7 +42,6 @@ struct mdp4_kms {
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *lut_clk;
-	struct clk *axi_clk;
 
 	struct mdp_irq error_handler;
 
