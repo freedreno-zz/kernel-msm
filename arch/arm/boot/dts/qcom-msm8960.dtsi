@@ -7,7 +7,7 @@
 #include <dt-bindings/mfd/qcom-rpm.h>
 #include <dt-bindings/soc/qcom,gsbi.h>
 
-#include <dt-bindings/soc/qcom,rpm.h>
+#include <dt-bindings/mfd/qcom,rpm.h>
 
 / {
 	model = "Qualcomm MSM8960";
