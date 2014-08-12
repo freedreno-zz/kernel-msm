@@ -63,6 +63,13 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
+			pwrkey@800 {
+				compatible = "qcom,pm8941-pwrkey";
+				reg = <0x800>;
+				interrupts = <0x0 0x8 0 0>;
+				bias-pull-up;
+			};
+
 			qcom,rtc@6000 {
 				compatible = "qcom,pm8941-rtc";
 				reg = <0x6000 0x6100>;
