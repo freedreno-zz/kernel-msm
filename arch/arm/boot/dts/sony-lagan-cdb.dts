@@ -126,7 +126,7 @@
 
 		gsbi1 {
 			compatible = "qcom,gsbi-v1.0.0";
-			reg = <0x12460000 0x100>;
+			reg = <0x12440000 0x100>;
 			clocks = <&gcc GSBI1_H_CLK>;
 			clock-names = "iface";
 			#address-cells = <1>;
@@ -155,7 +155,7 @@
 
 		gsbi2 {
 			compatible = "qcom,gsbi-v1.0.0";
-			reg = <0x124a0000 0x100>;
+			reg = <0x12480000 0x100>;
 			clocks = <&gcc GSBI2_H_CLK>;
 			clock-names = "iface";
 			#address-cells = <1>;
