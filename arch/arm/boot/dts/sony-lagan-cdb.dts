@@ -263,7 +263,7 @@
 
 			pm8921_l5: pm8921-l5 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L5>;
+				reg = <QCOM_RPM_PM8921_LDO5>;
 
 				regulator-min-microvolt = <2950000>;
 				regulator-max-microvolt = <2950000>;
@@ -273,7 +273,7 @@
 
 			pm8921_l6: pm8921-l6 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L6>;
+				reg = <QCOM_RPM_PM8921_LDO6>;
 
 				regulator-min-microvolt = <2950000>;
 				regulator-max-microvolt = <2950000>;
@@ -283,7 +283,7 @@
 
 			pm8921_l7: pm8921-l7 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L7>;
+				reg = <QCOM_RPM_PM8921_LDO7>;
 
 				regulator-min-microvolt = <1850000>;
 				regulator-max-microvolt = <2950000>;
@@ -293,7 +293,7 @@
 
 			pm8921-l29 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L29>;
+				reg = <QCOM_RPM_PM8921_LDO29>;
 
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
@@ -349,8 +349,8 @@
 			bias-pull-up;
 			input-enable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			qcom,drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
+			power-source = <2>;
 		};
 
 		volume-keys {
@@ -358,10 +358,11 @@
 			function = "normal";
 
 			bias-pull-up;
+			qcom,pull-up-strength = <0>;
 			input-enable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			qcom,drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
+			power-source = <2>;
 		};
 	};
 };

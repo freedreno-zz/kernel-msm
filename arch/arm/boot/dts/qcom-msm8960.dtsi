@@ -295,172 +295,172 @@
 
 			pm8921-s1 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S1>;
+				reg = <QCOM_RPM_PM8921_SMPS1>;
 			};
 
 			pm8921-s2 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S2>;
+				reg = <QCOM_RPM_PM8921_SMPS2>;
 			};
 
 			pm8921-s3 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S3>;
+				reg = <QCOM_RPM_PM8921_SMPS3>;
 			};
 
 			pm8921-s4 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S4>;
+				reg = <QCOM_RPM_PM8921_SMPS4>;
 			};
 
 			pm8921-s5 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S5>;
+				reg = <QCOM_RPM_PM8921_SMPS5>;
 			};
 
 			pm8921-s6 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S6>;
+				reg = <QCOM_RPM_PM8921_SMPS6>;
 			};
 
 			pm8921-s7 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S7>;
+				reg = <QCOM_RPM_PM8921_SMPS7>;
 			};
 
 			pm8921-s8 {
 				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_S8>;
+				reg = <QCOM_RPM_PM8921_SMPS8>;
 			};
 
 			pm8921-l1 {
 				comptible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_L1>;
+				reg = <QCOM_RPM_PM8921_LDO1>;
 			};
 
 			pm8921-2 {
 				comptible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_L2>;
+				reg = <QCOM_RPM_PM8921_LDO2>;
 			};
 
 			pm8921-l3 {
 				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L3>;
+				reg = <QCOM_RPM_PM8921_LDO3>;
 			};
 
 			pm8921-l4 {
 				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L4>;
+				reg = <QCOM_RPM_PM8921_LDO4>;
 			};
 
 			pm8921_l5: pm8921-l5 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L5>;
+				reg = <QCOM_RPM_PM8921_LDO5>;
 			};
 
 			pm8921_l6: pm8921-l6 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L6>;
+				reg = <QCOM_RPM_PM8921_LDO6>;
 			};
 
 			pm8921_l7: pm8921-l7 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L7>;
+				reg = <QCOM_RPM_PM8921_LDO7>;
 			};
 
 			pm8921-l8 {
 				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L8>;
+				reg = <QCOM_RPM_PM8921_LDO8>;
 			};
 
 			pm8921-l9 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L9>;
+				reg = <QCOM_RPM_PM8921_LDO9>;
 			};
 
 			pm8921-l10 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L10>;
+				reg = <QCOM_RPM_PM8921_LDO10>;
 			};
 
 			pm8921-l11 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L11>;
+				reg = <QCOM_RPM_PM8921_LDO11>;
 			};
 
 			pm8921-l12 {
 				compatible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_L12>;
+				reg = <QCOM_RPM_PM8921_LDO12>;
 			};
 
 			pm8921-l14 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L14>;
+				reg = <QCOM_RPM_PM8921_LDO14>;
 			};
 
 			pm8921-l15 {
 				compatible = "qcom-rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L15>;
+				reg = <QCOM_RPM_PM8921_LDO15>;
 			};
 
 			pm8921_l16: pm8921-l16 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L16>;
+				reg = <QCOM_RPM_PM8921_LDO16>;
 			};
 
 			pm8921-l17 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L17>;
+				reg = <QCOM_RPM_PM8921_LDO17>;
 			};
 
 			pm8921-l18 {
 				compatible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_L18>;
+				reg = <QCOM_RPM_PM8921_LDO18>;
 			};
 
 			pm8921-l21 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L21>;
+				reg = <QCOM_RPM_PM8921_LDO21>;
 			};
 
 			pm8921-l22 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L22>;
+				reg = <QCOM_RPM_PM8921_LDO22>;
 			};
 
 			pm8921-l23 {
 				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L23>;
+				reg = <QCOM_RPM_PM8921_LDO23>;
 			};
 
 			pm8921-l24 {
 				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_L24>;
+				reg = <QCOM_RPM_PM8921_LDO24>;
 			};
 
 			pm8921-l25 {
 				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_L25>;
+				reg = <QCOM_RPM_PM8921_LDO25>;
 			};
 
 			pm8921-l26 {
 				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_L26>;
+				reg = <QCOM_RPM_PM8921_LDO26>;
 			};
 
 			pm8921-l27 {
 				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_L27>;
+				reg = <QCOM_RPM_PM8921_LDO27>;
 			};
 
 			pm8921-l28 {
 				compatible = "qcom-rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_L28>;
+				reg = <QCOM_RPM_PM8921_LDO28>;
 			};
 
 			pm8921-l29 {
 				compatible = "qcom-rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_L29>;
+				reg = <QCOM_RPM_PM8921_LDO29>;
 			};
 
 			pm8921-lvs1 {
