@@ -1,6 +1,6 @@
 #include "qcom-msm8974.dtsi"
 #include <dt-bindings/clock/qcom,gcc-msm8974.h>
-#include <dt-bindings/mfd/qcom,rpm.h>
+#include <dt-bindings/mfd/qcom-rpm.h>
 
 / {
 	model = "Sony Rhine CDB";
@@ -37,7 +37,7 @@
 		reg-names = "mutex-base";
 		qcom,num-locks = <32>;
 
-		#hwspinlock-cells = <1>;
+		#hwlock-cells = <1>;
 	};
 
 	spmi: qcom,spmi@fc4c0000 {
@@ -580,7 +580,7 @@
 		reg = <0x0fa00000 0x200000>,
 		      <0xfc428000 0x4000>;
 
-		hwspinlocks = <&tcsr_mutex 3>;
+		hwlocks = <&tcsr_mutex 3>;
 	};
 
 	smsm {
