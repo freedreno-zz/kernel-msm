@@ -41,27 +41,8 @@
 		#hwlock-cells = <1>;
 	};
 
-	spmi: qcom,spmi@fc4c0000 {
-		compatible = "qcom,spmi-pmic-arb";
-		reg-names = "core", "intr", "cnfg";
-		reg = <0xfc4cf000 0x1000>,
-		      <0xfc4cb000 0x1000>,
-		      <0xfc4ca000 0x1000>;
-		interrupts = <0 190 0>;
-		interrupt-names = "periph_irq";
-		#address-cells = <2>;
-		#size-cells = <0>;
-
-		interrupt-controller;
-		#interrupt-cells = <4>;
-
-		qcom,ee = <0>;
-		qcom,channel = <0>;
-
-		qcom,pm8941@0 {
-			compatible = "qcom,pm8941";
-			reg = <0x0 0>;
-
+	spmi@fc4cf000 {
+		pm8941@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -76,7 +57,6 @@
 				compatible = "qcom,pm8941-rtc";
 				reg = <0x6000 0x6100>;
 				interrupts = <0x0 97 1 0>;
-				interrupt-parent = <&spmi>;
 			};
 
 			qcom,revid@100 {
@@ -89,7 +69,6 @@
 				interrupts = <0x0 0x31 0 0>,
 					<0x0 0x31 4 0>,
 					<0x0 0x31 3 0>;
-				interrupt-parent = <&spmi>;
 				reg = <0x3100>;
 				#io-channel-cells = <1>;
 			};
@@ -125,10 +104,7 @@
 			};
 		};
 
-		qcom,pm8941@1 {
-			compatible = "qcom,pm8941";
-			reg = <0x1 0>;
-
+		pm8941@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
