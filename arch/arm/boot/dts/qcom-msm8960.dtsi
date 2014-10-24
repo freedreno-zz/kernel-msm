@@ -175,7 +175,7 @@
 			reg = <0x500000 0x1000>;
 			qcom,controller-type = "pmic-arbiter";
 
-			pmic@0 {
+			pmicintc: pmic@0 {
 				compatible = "qcom,pm8921";
 				interrupt-parent = <&msmgpio>;
 				interrupts = <104 8>;
@@ -195,7 +195,6 @@
 				keypad@148 {
 					compatible = "qcom,pm8921-keypad";
 					reg = <0x148>;
-					interrupt-parent = <&pmicintc>;
 					interrupts = <74 1>, <75 1>;
 					debounce = <15>;
 					scan-delay = <32>;

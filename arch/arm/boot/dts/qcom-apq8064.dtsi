@@ -272,16 +272,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};
-
-		msmgpio: pinctrl@800000 {
-			compatible = "qcom,apq8064-pinctrl";
-			reg = <0x800000 0x4000>;
-
-			gpio-controller;
-			#gpio-cells = <2>;
-			interrupt-controller;
-			#interrupt-cells = <2>;
-			interrupts = <0 16 0x4>;
 		};
 
 		gsbi3: gsbi@16200000 {
