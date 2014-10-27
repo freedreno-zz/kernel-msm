@@ -36,7 +36,7 @@
 		compatible = "qcom,tcsr-mutex";
 		reg = <0xfd484000 0x1000>;
 		reg-names = "mutex-base";
-		qcom,num-locks = <32>;
+		hwlock-num-locks = <8>;
 
 		#hwlock-cells = <1>;
 	};
