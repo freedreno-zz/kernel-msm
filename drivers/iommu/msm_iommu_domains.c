@@ -506,7 +506,7 @@ int msm_register_domain(struct msm_iova_layout *layout)
 	if (data->domain_num < 0)
 		goto free_pools;
 
-	data->domain = iommu_domain_alloc(bus, layout->domain_flags);
+	data->domain = iommu_domain_alloc_flags(bus, layout->domain_flags);
 	if (!data->domain)
 		goto free_domain_num;
 
