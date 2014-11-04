@@ -282,7 +282,8 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 #ifdef CONFIG_OF
 	struct device_node *of_node = dev->of_node;
 
-	if (of_device_is_compatible(of_node, "qcom,hdmi-tx-8074")) {
+	if (of_device_is_compatible(of_node, "qcom,hdmi-tx-8074") ||
+			of_device_is_compatible(of_node, "qcom,hdmi-tx")) {
 		static const char *hpd_reg_names[] = {"hpd-gdsc", "hpd-5v"};
 		static const char *pwr_reg_names[] = {"core-vdda", "core-vcc"};
 		static const char *hpd_clk_names[] = {"iface_clk", "core_clk", "mdp_core_clk"};
@@ -396,6 +397,7 @@ static int hdmi_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dt_match[] = {
+	{ .compatible = "qcom,hdmi-tx" }, /* compat w/ downstream android dtbs */
 	{ .compatible = "qcom,hdmi-tx-8074" },
 	{ .compatible = "qcom,hdmi-tx-8960" },
 	{ .compatible = "qcom,hdmi-tx-8660" },
