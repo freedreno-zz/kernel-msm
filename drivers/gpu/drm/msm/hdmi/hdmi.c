@@ -331,6 +331,7 @@ static struct hdmi_platform_config hdmi_tx_8084_config = {
 };
 
 static const struct of_device_id dt_match[] = {
+	{ .compatible = "qcom,hdmi-tx", .data = &hdmi_tx_8084_config }, /* compat w/ downstream android dtbs */
 	{ .compatible = "qcom,hdmi-tx-8084", .data = &hdmi_tx_8084_config },
 	{ .compatible = "qcom,hdmi-tx-8074", .data = &hdmi_tx_8074_config },
 	{ .compatible = "qcom,hdmi-tx-8960", .data = &hdmi_tx_8960_config },
