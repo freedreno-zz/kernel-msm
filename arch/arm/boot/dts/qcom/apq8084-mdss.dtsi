@@ -130,6 +130,9 @@
 		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
 		qcom,mdss-prefill-fbc-lines = <2>;
 
+		connectors = <&mdss_hdmi_tx>;
+		gpus = <&msm_gpu>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
