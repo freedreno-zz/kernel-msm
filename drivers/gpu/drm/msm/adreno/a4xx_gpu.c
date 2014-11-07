@@ -408,19 +408,11 @@ const unsigned int a4xx_registers[] = {
 #ifdef CONFIG_DEBUG_FS
 static void a4xx_show(struct msm_gpu *gpu, struct seq_file *m)
 {
-	struct drm_device *dev = gpu->dev;
-
-	mutex_lock(&dev->struct_mutex);
-
 	gpu->funcs->pm_resume(gpu);
-
 	seq_printf(m, "status:   %08x\n",
 			gpu_read(gpu, REG_A4XX_RBBM_STATUS));
 	gpu->funcs->pm_suspend(gpu);
-
 	adreno_show(gpu, m);
-
-	mutex_unlock(&dev->struct_mutex);
 }
 #endif
 
