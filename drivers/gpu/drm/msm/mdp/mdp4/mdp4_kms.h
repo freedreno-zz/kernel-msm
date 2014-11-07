@@ -77,6 +77,12 @@ static inline u32 mdp4_read(struct mdp4_kms *mdp4_kms, u32 reg)
 	return msm_readl(mdp4_kms->mmio + reg);
 }
 
+/* TODO move these helper iterator macros somewhere common: */
+#define for_each_plane_on_crtc(_crtc, _plane) \
+	list_for_each_entry((_plane), &(_crtc)->dev->mode_config.plane_list, head) \
+		if ((_plane)->crtc == (_crtc))
+
+
 static inline uint32_t pipe2flush(enum mdp4_pipe pipe)
 {
 	switch (pipe) {
