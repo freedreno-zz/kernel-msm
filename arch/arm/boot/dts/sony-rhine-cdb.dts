@@ -603,7 +603,7 @@
 				interrupts = <0 145 0 0 146 0>;
 				interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
-				qcom,wcnss_mmio = <0xfb000000 0x280000>;
+				qcom,wcnss_mmio = <0xfb000000 0x21b000>;
 
 				qcom,tx-enable-gpios = <&apps_smsm 10 0>;
 				qcom,tx-rings-empty-gpios = <&apps_smsm 9 0>;
@@ -615,6 +615,8 @@
 			wcnss_ctrl {
 				compatible = "qcom,wcnss-ctrl";
 				qcom,smd-channels = "WCNSS_CTRL";
+
+				qcom,wcnss_mmio = <0xfb21b000 0x3000>;
 			};
 		};
 	};
@@ -896,15 +898,16 @@
 
 	pronto_rproc {
 		compatible = "qcom,rproc";
-		memory-region = <&pronto_reserve>;
 
 		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
-		clock-names = "iface", "bus", "core";
+		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
 
 		qcom,rproc-name = "wcnss";
 		qcom,pas-id = <6>;
 
-		pll-supply = <&pm8941_l12>;
+		qcom,pll-supply = <&pm8941_l12>;
+		qcom,pll-uV = <1800000>;
+		qcom,pll-uA = <18000>;
 	};
 };
 
