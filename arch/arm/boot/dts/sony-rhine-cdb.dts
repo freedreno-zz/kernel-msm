@@ -19,6 +19,11 @@
 			no-map;
 		};
 
+		lpass_reserve: lpass_reserve@dc00000 {
+			reg = <0xdc00000 0x1300000>;
+			no-map;
+		};
+
 		smem@fa00000 {
 			#memory-region-cells = <0>;
 			reg = <0x0fa00000 0x200000>;
@@ -619,6 +624,13 @@
 				qcom,wcnss_mmio = <0xfb21b000 0x3000>;
 			};
 		};
+
+		adsp {
+			interrupts = <0 156 1>;
+
+			qcom,ipc = <&apcs 8 8>;
+			qcom,smd-edge = <1>;
+		};
 	};
 
 	qcom,mpm@fc4281d0 {
@@ -894,6 +906,16 @@
 			nxp,gpio_fw = <&msmgpio 77 0x00>;
 			nxp,gpio_irq = <&msmgpio 59 0x00>;
 		};
+	};
+
+	lpass_rproc {
+		compatible = "qcom,rproc";
+
+		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
+		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
+
+		qcom,rproc-name = "adsp";
+		qcom,pas-id = <1>;
 	};
 
 	pronto_rproc {
