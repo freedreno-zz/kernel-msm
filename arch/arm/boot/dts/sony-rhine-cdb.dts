@@ -909,22 +909,22 @@
 	};
 
 	lpass_rproc {
-		compatible = "qcom,rproc";
+		compatible = "qcom,tz-pil";
 
 		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
 		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
 
-		qcom,rproc-name = "adsp";
+		qcom,firmware-name = "adsp";
 		qcom,pas-id = <1>;
 	};
 
 	pronto_rproc {
-		compatible = "qcom,rproc";
+		compatible = "qcom,tz-pil";
 
 		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
 		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
 
-		qcom,rproc-name = "wcnss";
+		qcom,firmware-name = "wcnss";
 		qcom,pas-id = <6>;
 
 		qcom,pll-supply = <&pm8941_l12>;
