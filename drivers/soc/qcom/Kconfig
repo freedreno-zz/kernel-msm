@@ -19,3 +19,9 @@ config QCOM_PM
 	  QCOM Platform specific power driver to manage cores and L2 low power
 	  modes. It interface with various system drivers to put the cores in
 	  low power modes.
+
+config QCOM_WCNSS_CTRL
+	tristate "Qualcomm WCNSS control driver"
+	depends on QCOM_SMD
+	help
+	  Test driver for the WCNSS_CTRL smd channel
