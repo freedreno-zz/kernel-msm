@@ -208,14 +208,6 @@ uint32_t mdp5_get_formats(enum mdp5_pipe pipe, uint32_t *pixel_formats,
 
 void mdp5_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj);
-void mdp5_plane_set_scanout(struct drm_plane *plane,
-		struct drm_framebuffer *fb);
-int mdp5_plane_mode_set(struct drm_plane *plane,
-		struct drm_crtc *crtc, struct drm_framebuffer *fb,
-		int crtc_x, int crtc_y,
-		unsigned int crtc_w, unsigned int crtc_h,
-		uint32_t src_x, uint32_t src_y,
-		uint32_t src_w, uint32_t src_h);
 void mdp5_plane_complete_flip(struct drm_plane *plane);
 enum mdp5_pipe mdp5_plane_pipe(struct drm_plane *plane);
 struct drm_plane *mdp5_plane_init(struct drm_device *dev,
@@ -226,8 +218,6 @@ uint32_t mdp5_crtc_vblank(struct drm_crtc *crtc);
 void mdp5_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 void mdp5_crtc_set_intf(struct drm_crtc *crtc, int intf,
 		enum mdp5_intf intf_id);
-void mdp5_crtc_attach(struct drm_crtc *crtc, struct drm_plane *plane);
-void mdp5_crtc_detach(struct drm_crtc *crtc, struct drm_plane *plane);
 struct drm_crtc *mdp5_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, int id);
 
