@@ -80,7 +80,7 @@ static const struct drm_plane_funcs mdp4_plane_funcs = {
 		.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
 };
 
-static int mdp4_prepare_fb(struct drm_plane *plane,
+static int mdp4_plane_prepare_fb(struct drm_plane *plane,
 		struct drm_framebuffer *fb)
 {
 	struct mdp4_plane *mdp4_plane = to_mdp4_plane(plane);
@@ -90,7 +90,7 @@ static int mdp4_prepare_fb(struct drm_plane *plane,
 	return msm_framebuffer_prepare(fb, mdp4_kms->id);
 }
 
-static void mdp4_cleanup_fb(struct drm_plane *plane,
+static void mdp4_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_framebuffer *fb)
 {
 	struct mdp4_plane *mdp4_plane = to_mdp4_plane(plane);
@@ -122,9 +122,9 @@ static void mdp4_plane_atomic_update(struct drm_plane *plane)
 	WARN_ON(ret < 0);
 }
 
-static const struct drm_plane_helper_funcs plane_helper_funcs = {
-		.prepare_fb = mdp4_prepare_fb,
-		.cleanup_fb = mdp4_cleanup_fb,
+static const struct drm_plane_helper_funcs mdp4_plane_helper_funcs = {
+		.prepare_fb = mdp4_plane_prepare_fb,
+		.cleanup_fb = mdp4_plane_cleanup_fb,
 		.atomic_check = mdp4_plane_atomic_check,
 		.atomic_update = mdp4_plane_atomic_update,
 };
@@ -279,7 +279,7 @@ struct drm_plane *mdp4_plane_init(struct drm_device *dev,
 	if (ret)
 		goto fail;
 
-	drm_plane_helper_add(plane, &plane_helper_funcs);
+	drm_plane_helper_add(plane, &mdp4_plane_helper_funcs);
 
 	mdp4_plane_install_properties(plane, &plane->base);
 
