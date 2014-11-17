@@ -19,6 +19,9 @@
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
 		qcom,msm-bus,num-cases = <3>;
@@ -329,6 +332,8 @@
 	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <8 0>;   /* MDP5_HW_INTR_STATUS.INTR_HDMI */
 		reg =	<0xfd922100 0x380>,
 			<0xfd922500 0x7C>,
 			<0xfc4b8000 0x6100>;
