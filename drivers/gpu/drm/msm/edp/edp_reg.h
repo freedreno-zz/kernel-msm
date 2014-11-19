@@ -1,0 +1,92 @@
+/*
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef __EDP_REG_H__
+#define __EDP_REG_H__
+
+#define EDP_MAINLINK_CTRL	0x004
+#define EDP_STATE_CTRL		0x008
+/* state ctrl bits */
+#define ST_TRAIN_PATTERN_1		BIT(0)
+#define ST_TRAIN_PATTERN_2		BIT(1)
+#define ST_TRAIN_PATTERN_3		BIT(2)
+#define ST_SYMBOL_ERR_RATE_MEASUREMENT	BIT(3)
+#define ST_PRBS7			BIT(4)
+#define ST_CUSTOM_80_BIT_PATTERN	BIT(5)
+#define ST_SEND_VIDEO			BIT(6)
+#define ST_PUSH_IDLE			BIT(7)
+
+#define EDP_CONFIGURATION_CTRL	0x00c
+#define EDP_SOFTWARE_MVID	0x014
+#define EDP_SOFTWARE_NVID	0X018
+#define EDP_TOTAL_HOR_VER	0x01c
+#define EDP_START_HOR_VER_FROM_SYNC	0x020
+#define EDP_HSYNC_VSYNC_WIDTH_POLARITY	0x024
+#define EDP_ACTIVE_HOR_VER	0x028
+#define EDP_MISC1_MISC0		0x02c
+#define EDP_PHY_CTRL		0x074
+#define EDP_MAINLINK_READY	0x084
+
+#define EDP_AUX_CTRL		0x300
+#define EDP_INTERRUPT_REG_1	0x308
+/* isr1 bits */
+#define EDP_INTR_HPD		BIT(0)
+#define EDP_INTR_AUX_I2C_DONE	BIT(3)
+#define EDP_INTR_WRONG_ADDR	BIT(6)
+#define EDP_INTR_TIMEOUT	BIT(9)
+#define EDP_INTR_NACK_DEFER	BIT(12)
+#define EDP_INTR_WRONG_DATA_CNT	BIT(15)
+#define EDP_INTR_I2C_NACK	BIT(18)
+#define EDP_INTR_I2C_DEFER	BIT(21)
+#define EDP_INTR_PLL_UNLOCKED	BIT(24)
+#define EDP_INTR_AUX_ERROR	BIT(27)
+
+#define EDP_INTR_AUX_I2C_ERR \
+	(EDP_INTR_WRONG_ADDR | EDP_INTR_TIMEOUT | EDP_INTR_NACK_DEFER | \
+	EDP_INTR_WRONG_DATA_CNT | EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER)
+#define EDP_INTR_TRANS_STATUS (EDP_INTR_AUX_I2C_DONE | EDP_INTR_AUX_I2C_ERR)
+
+#define EDP_INTR_STATUS1 \
+	(EDP_INTR_HPD | EDP_INTR_AUX_I2C_DONE | \
+	EDP_INTR_WRONG_ADDR | EDP_INTR_TIMEOUT | \
+	EDP_INTR_NACK_DEFER | EDP_INTR_WRONG_DATA_CNT | \
+	EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER | \
+	EDP_INTR_PLL_UNLOCKED | EDP_INTR_AUX_ERROR)
+#define EDP_INTR_MASK1		(EDP_INTR_STATUS1 << 2)
+
+#define EDP_INTERRUPT_REG_2	0x30c
+/* isr2 bits */
+#define EDP_INTR_READY_FOR_VIDEO	BIT(0)
+#define EDP_INTR_IDLE_PATTERNs_SENT	BIT(3)
+#define EDP_INTR_FRAME_END		BIT(6)
+#define EDP_INTR_CRC_UPDATED		BIT(9)
+
+#define EDP_INTR_STATUS2 \
+	(EDP_INTR_READY_FOR_VIDEO | EDP_INTR_IDLE_PATTERNs_SENT | \
+	EDP_INTR_FRAME_END | EDP_INTR_CRC_UPDATED)
+#define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
+
+#define EDP_INTERRUPT_TRANS_NUM 0x310
+#define EDP_AUX_DATA		0x314
+#define EDP_AUX_TRANS_CTRL	0x318
+#define EDP_AUX_STATUS		0x324
+
+#define EDP_PHY_EDPPHY_LNn_PD_CTL	0x404
+#define EDP_PHY_EDPPHY_GLB_VM_CFG0	0x510
+#define EDP_PHY_EDPPHY_GLB_VM_CFG1	0x514
+#define EDP_PHY_EDPPHY_GLB_MISC9	0x518
+#define EDP_PHY_EDPPHY_GLB_CFG		0x528
+#define EDP_PHY_EDPPHY_GLB_PD_CTL	0x52c
+#define EDP_PHY_EDPPHY_GLB_PHY_STATUS	0x598
+
+#endif /*__EDP_REG_H__*/
