@@ -1,6 +1,6 @@
 #include "qcom-msm8974.dtsi"
 #include <dt-bindings/clock/qcom,gcc-msm8974.h>
-#include <dt-bindings/mfd/qcom-rpm.h>
+#include <dt-bindings/mfd/qcom-smd-rpm.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
 / {
@@ -506,44 +506,44 @@
 				compatible = "qcom,rpm-msm8974";
 				qcom,smd-channels = "rpm_requests";
 
-				#address-cells = <1>;
+				#address-cells = <2>;
 				#size-cells = <0>;
 
 				pm8841_s1: pm8841-s1 {
-					compatible = "qcom,rpm-pm8841-smps";
-					reg = <QCOM_RPM_PM8841_SMPS1>;
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPB 1>;
 
 					regulator-min-microvolt = <675000>;
 					regulator-max-microvolt = <1050000>;
 				};
 
 				pm8841_s2: pm8841-s2 {
-					compatible = "qcom,rpm-pm8841-smps";
-					reg = <QCOM_RPM_PM8841_SMPS2>;
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPB 2>;
 
 					regulator-min-microvolt = <500000>;
 					regulator-max-microvolt = <1050000>;
 				};
 
 				pm8941_s1: pm8941-s1 {
-					compatible = "qcom,rpm-pm8941-smps";
-					reg = <QCOM_RPM_PM8941_SMPS1>;
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPA 1>;
 
 					regulator-min-microvolt = <1300000>;
 					regulator-max-microvolt = <1300000>;
 				};
 
 				pm8941_s2: pm8941-s2 {
-					compatible = "qcom,rpm-pm8941-smps";
-					reg = <QCOM_RPM_PM8941_SMPS2>;
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPA 2>;
 
 					regulator-min-microvolt = <2150000>;
 					regulator-max-microvolt = <2150000>;
 				};
 
 				pm8941_s3: pm8941-s3 {
-					compatible = "qcom,rpm-pm8941-smps";
-					reg = <QCOM_RPM_PM8941_SMPS3>;
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPA 3>;
 
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
@@ -552,16 +552,16 @@
 				};
 
 				pm8941_l3: pm8941-l3 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO3>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 3>;
 
 					regulator-min-microvolt = <1200000>;
 					regulator-max-microvolt = <1200000>;
 				};
 
 				pm8941_l6: pm8941-l6 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO6>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 6>;
 
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
@@ -570,16 +570,16 @@
 				};
 
 				pm8941_l9: pm8941-l9 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO9>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 9>;
 
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <2950000>;
 				};
 
 				pm8941_l11: pm8941-l11 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO11>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 11>;
 
 					regulator-min-microvolt = <1300000>;
 					regulator-max-microvolt = <1300000>;
@@ -588,16 +588,16 @@
 				};
 
 				pm8941_l12: pm8941-l12 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO12>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 12>;
 
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
 				};
 
 				pm8941_l19: pm8941-l19 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO19>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 19>;
 
 					regulator-min-microvolt = <3000000>;
 					regulator-max-microvolt = <3000000>;
@@ -606,16 +606,16 @@
 				};
 
 				pm8941_l20: pm8941-l20 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO20>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 20>;
 
 					regulator-min-microvolt = <2950000>;
 					regulator-max-microvolt = <2950000>;
 				};
 
 				pm8941_l22: pm8941-l22 {
-					compatible = "qcom,rpm-pm8941-ldo";
-					reg = <QCOM_RPM_PM8941_LDO22>;
+					compatible = "qcom,smd-rpm-ldo";
+					reg = <QCOM_SMD_RPM_LDOA 22>;
 
 					regulator-min-microvolt = <3000000>;
 					regulator-max-microvolt = <3000000>;
@@ -959,7 +959,10 @@
 
 		qcom,firmware-name = "adsp";
 		qcom,pas-id = <1>;
-		qcom,crash-reason = <&smem 423>;
+		qcom,smem = <&smem>;
+		qcom,crash-reason = <423>;
+
+		qcom,pll-supply = <&pm8841_s2>;
 
 		qcom,stop-gpios = <&lpass_smp2p_master 0 0>;
 	};
