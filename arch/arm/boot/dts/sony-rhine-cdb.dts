@@ -434,6 +434,34 @@
 		};
 	};
 
+	lpass-smp2p {
+		compatible = "qcom,smp2p-v1";
+		qcom,smem = <&smem>;
+		qcom,smem-ids = <429 443>;
+
+		interrupts = <0 158 1>;
+
+		qcom,ipc = <&apcs 8 10>;
+
+		qcom,remote-pid = <2>;
+
+		lpass_smp2p_master: master-kernel {
+			qcom,entry-name = "master-kernel";
+			qcom,outbound;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		lpass_smp2p_slave: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			qcom,inbound;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
 	wcnss-smp2p {
 		compatible = "qcom,smp2p-v1";
 		qcom,smem = <&smem>;
@@ -447,9 +475,18 @@
 
 		wcnss_smp2p_out: master-kernel {
 			qcom,entry-name = "master-kernel";
+			qcom,outbound;
 
 			gpio-controller;
 			#gpio-cells = <2>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		wcnss_smp2p_slave: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			qcom,inbound;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -910,16 +947,32 @@
 
 	lpass_rproc {
 		compatible = "qcom,tz-pil";
+		interrupts-extended = <&intc 0 162 1>,
+				      <&lpass_smp2p_slave 0 0>,
+				      <&lpass_smp2p_slave 1 0>,
+				      <&lpass_smp2p_slave 2 0>,
+				      <&lpass_smp2p_slave 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
 
 		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
 		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
 
 		qcom,firmware-name = "adsp";
 		qcom,pas-id = <1>;
+		qcom,crash-reason = <&smem 423>;
+
+		qcom,stop-gpios = <&lpass_smp2p_master 0 0>;
 	};
 
 	pronto_rproc {
 		compatible = "qcom,tz-pil";
+
+		interrupts-extended = <&intc 0 149 1>,
+				      <&wcnss_smp2p_slave 0 0>,
+				      <&wcnss_smp2p_slave 1 0>,
+				      <&wcnss_smp2p_slave 2 0>,
+				      <&wcnss_smp2p_slave 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
 
 		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
 		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
@@ -927,9 +980,14 @@
 		qcom,firmware-name = "wcnss";
 		qcom,pas-id = <6>;
 
+		qcom,smem = <&smem>;
+		qcom,crash-reason = <422>;
+
 		qcom,pll-supply = <&pm8941_l12>;
 		qcom,pll-uV = <1800000>;
 		qcom,pll-uA = <18000>;
+
+		qcom,stop-gpio = <&wcnss_smp2p_out 0 0>;
 	};
 };
 
