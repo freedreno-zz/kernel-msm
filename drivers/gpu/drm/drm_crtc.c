@@ -1948,6 +1948,15 @@ static bool drm_mode_expose_to_userspace(const struct drm_display_mode *mode,
 	return true;
 }
 
+static struct drm_encoder *drm_connector_get_encoder(struct drm_connector *connector)
+{
+	/* For atomic drivers only state objects are synchronously updated and
+	 * protected by modeset locks, so check those first. */
+	if (connector->state)
+		return connector->state->best_encoder;
+	return connector->encoder;
+}
+
 /**
  * drm_mode_getconnector - get connector configuration
  * @dev: drm device for the ioctl
@@ -1966,6 +1975,7 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 {
 	struct drm_mode_get_connector *out_resp = data;
 	struct drm_connector *connector;
+	struct drm_encoder *encoder;
 	struct drm_display_mode *mode;
 	int mode_count = 0;
 	int props_count = 0;
@@ -2021,8 +2031,10 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 	out_resp->subpixel = connector->display_info.subpixel_order;
 	out_resp->connection = connector->status;
 	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
-	if (connector->encoder)
-		out_resp->encoder_id = connector->encoder->base.id;
+
+	encoder = drm_connector_get_encoder(connector);
+	if (encoder)
+		out_resp->encoder_id = encoder->base.id;
 	else
 		out_resp->encoder_id = 0;
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
@@ -2092,6 +2104,33 @@ out:
 	return ret;
 }
 
+static struct drm_crtc *drm_encoder_get_crtc(struct drm_encoder *encoder)
+{
+	struct drm_connector *connector;
+	struct drm_device *dev = encoder->dev;
+	bool uses_atomic = false;
+
+	/* For atomic drivers only state objects are synchronously updated and
+	 * protected by modeset locks, so check those first. */
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (!connector->state)
+			continue;
+
+		uses_atomic = true;
+
+		if (connector->state->best_encoder != encoder)
+			continue;
+
+		return connector->state->crtc;
+	}
+
+	/* Don't return stale data (e.g. pending async disable). */
+	if (uses_atomic)
+		return NULL;
+
+	return encoder->crtc;
+}
+
 /**
  * drm_mode_getencoder - get encoder configuration
  * @dev: drm device for the ioctl
@@ -2103,37 +2142,37 @@ out:
  * Called by the user via ioctl.
  *
  * Returns:
- * Zero on success, errno on failure.
+ * Zero on success, negative errno on failure.
  */
 int drm_mode_getencoder(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
 	struct drm_mode_get_encoder *enc_resp = data;
 	struct drm_encoder *encoder;
-	int ret = 0;
+	struct drm_crtc *crtc;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	drm_modeset_lock_all(dev);
 	encoder = drm_encoder_find(dev, enc_resp->encoder_id);
-	if (!encoder) {
-		ret = -ENOENT;
-		goto out;
-	}
+	if (!encoder)
+		return -ENOENT;
 
-	if (encoder->crtc)
+	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+	crtc = drm_encoder_get_crtc(encoder);
+	if (crtc)
+		enc_resp->crtc_id = crtc->base.id;
+	else if (encoder->crtc)
 		enc_resp->crtc_id = encoder->crtc->base.id;
 	else
 		enc_resp->crtc_id = 0;
+	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	enc_resp->encoder_type = encoder->encoder_type;
 	enc_resp->encoder_id = encoder->base.id;
 	enc_resp->possible_crtcs = encoder->possible_crtcs;
 	enc_resp->possible_clones = encoder->possible_clones;
 
-out:
-	drm_modeset_unlock_all(dev);
-	return ret;
+	return 0;
 }
 
 /**
