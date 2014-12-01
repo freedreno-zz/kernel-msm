@@ -21,7 +21,9 @@
 void hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 {
 	uint32_t ctrl = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&hdmi->reg_lock, flags);
 	if (power_on) {
 		ctrl |= HDMI_CTRL_ENABLE;
 		if (!hdmi->hdmi_mode) {
@@ -36,6 +38,7 @@ void hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 	}
 
 	hdmi_write(hdmi, REG_HDMI_CTRL, ctrl);
+	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
 	DBG("HDMI Core: %s, HDMI_CTRL=0x%08x",
 			power_on ? "Enable" : "Disable", ctrl);
 }
@@ -50,6 +53,9 @@ static irqreturn_t hdmi_irq(int irq, void *dev_id)
 	/* Process DDC: */
 	hdmi_i2c_irq(hdmi->i2c);
 
+	/* Process HDCP: */
+	hdmi_hdcp_irq(hdmi->hdcp_ctrl);
+
 	/* TODO audio.. */
 
 	return IRQ_HANDLED;
@@ -58,6 +64,16 @@ static irqreturn_t hdmi_irq(int irq, void *dev_id)
 static void hdmi_destroy(struct hdmi *hdmi)
 {
 	struct hdmi_phy *phy = hdmi->phy;
+
+	/*
+	 * at this point, hpd has been disabled,
+	 * after flush workq, it's safe to deinit hdcp
+	 */
+	if (hdmi->workq) {
+		flush_workqueue(hdmi->workq);
+		destroy_workqueue(hdmi->workq);
+	}
+	hdmi_hdcp_destroy(hdmi);
 
 	if (phy)
 		phy->funcs->destroy(phy);
@@ -76,6 +92,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 {
 	struct hdmi_platform_config *config = pdev->dev.platform_data;
 	struct hdmi *hdmi = NULL;
+	struct resource *res;
 	int i, ret;
 
 	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
@@ -86,6 +103,8 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 
 	hdmi->pdev = pdev;
 	hdmi->config = config;
+
+	spin_lock_init(&hdmi->reg_lock);
 
 	/* not sure about which phy maps to which msm.. probably I miss some */
 	if (config->phy_init)
@@ -104,6 +123,22 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 	if (IS_ERR(hdmi->mmio)) {
 		ret = PTR_ERR(hdmi->mmio);
 		goto fail;
+	}
+
+	/* HDCP needs physical address of hdmi register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+		config->mmio_name);
+	hdmi->mmio_phy_addr = res->start;
+
+	if (config->qfprom_mmio_name) {
+		hdmi->qfprom_mmio = msm_ioremap(pdev,
+			config->qfprom_mmio_name, "HDMI_QFPROM");
+		if (IS_ERR(hdmi->qfprom_mmio)) {
+			dev_info(&pdev->dev, "can't find qfprom resource\n");
+			hdmi->qfprom_mmio = NULL;
+		}
+	} else {
+		hdmi->qfprom_mmio = NULL;
 	}
 
 	BUG_ON(config->hpd_reg_cnt > ARRAY_SIZE(hdmi->hpd_regs));
@@ -168,6 +203,8 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		hdmi->pwr_clks[i] = clk;
 	}
 
+	hdmi->workq = alloc_ordered_workqueue("msm_hdmi", 0);
+
 	hdmi->i2c = hdmi_i2c_init(hdmi);
 	if (IS_ERR(hdmi->i2c)) {
 		ret = PTR_ERR(hdmi->i2c);
@@ -219,6 +256,13 @@ int hdmi_modeset_init(struct hdmi *hdmi,
 		dev_err(dev->dev, "failed to create HDMI connector: %d\n", ret);
 		hdmi->connector = NULL;
 		goto fail;
+	}
+
+	hdmi->hdcp_ctrl = hdmi_hdcp_init(hdmi);
+	if (IS_ERR(hdmi->hdcp_ctrl)) {
+		ret = PTR_ERR(hdmi->hdcp_ctrl);
+		dev_warn(dev->dev, "failed to init hdcp: %d (disabled)\n", ret);
+		hdmi->hdcp_ctrl = NULL;
 	}
 
 	hdmi->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
@@ -325,6 +369,7 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	config.mmio_name     = "core_physical";
+	config.qfprom_mmio_name = "qfprom_physical";
 	config.ddc_clk_gpio  = get_gpio(dev, of_node, "qcom,hdmi-tx-ddc-clk");
 	config.ddc_data_gpio = get_gpio(dev, of_node, "qcom,hdmi-tx-ddc-data");
 	config.hpd_gpio      = get_gpio(dev, of_node, "qcom,hdmi-tx-hpd");

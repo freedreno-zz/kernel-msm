@@ -105,6 +105,7 @@ static void hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	phy->funcs->powerup(phy, hdmi->pixclock);
 	hdmi_set_mode(hdmi, true);
+	hdmi_hdcp_on(hdmi);
 }
 
 static void hdmi_bridge_enable(struct drm_bridge *bridge)
@@ -144,8 +145,6 @@ static void hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	mode = adjusted_mode;
 
 	hdmi->pixclock = mode->clock * 1000;
-
-	hdmi->hdmi_mode = drm_match_cea_mode(mode) > 1;
 
 	hstart = mode->htotal - mode->hsync_start;
 	hend   = mode->htotal - mode->hsync_start + mode->hdisplay;
