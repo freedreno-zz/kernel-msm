@@ -12,9 +12,9 @@ The rules-ng-ng source files this header was generated from are:
 - /home/robclark/src/freedreno/envytools/rnndb/freedreno_copyright.xml  (   1453 bytes, from 2013-03-31 16:51:27)
 - /home/robclark/src/freedreno/envytools/rnndb/adreno/a2xx.xml          (  32901 bytes, from 2014-06-02 15:21:30)
 - /home/robclark/src/freedreno/envytools/rnndb/adreno/adreno_common.xml (  10551 bytes, from 2014-11-13 22:44:30)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/adreno_pm4.xml    (  15053 bytes, from 2014-11-09 15:45:47)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/a3xx.xml          (  63169 bytes, from 2014-11-13 22:44:18)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/a4xx.xml          (  49097 bytes, from 2014-11-14 15:38:00)
+- /home/robclark/src/freedreno/envytools/rnndb/adreno/adreno_pm4.xml    (  15076 bytes, from 2014-12-01 22:40:01)
+- /home/robclark/src/freedreno/envytools/rnndb/adreno/a3xx.xml          (  63990 bytes, from 2014-12-02 03:55:35)
+- /home/robclark/src/freedreno/envytools/rnndb/adreno/a4xx.xml          (  49142 bytes, from 2014-12-02 01:03:04)
 
 Copyright (C) 2013-2014 by the following authors:
 - Rob Clark <robdclark@gmail.com> (robclark)
@@ -122,6 +122,7 @@ enum a4xx_tex_fmt {
 	TFMT4_NORM_UINT_A8 = 3,
 	TFMT4_NORM_UINT_L8_A8 = 13,
 	TFMT4_NORM_UINT_8 = 4,
+	TFMT4_NORM_UINT_8_8 = 14,
 	TFMT4_NORM_UINT_8_8_8_8 = 28,
 	TFMT4_FLOAT_16 = 20,
 	TFMT4_FLOAT_16_16 = 40,
@@ -372,7 +373,7 @@ static inline uint32_t A4XX_RB_ALPHA_CONTROL_ALPHA_TEST_FUNC(enum adreno_compare
 }
 
 #define REG_A4XX_RB_FS_OUTPUT					0x000020f9
-#define A4XX_RB_FS_OUTPUT_ENABLE_COLOR_PIPE			0x00000001
+#define A4XX_RB_FS_OUTPUT_ENABLE_BLEND				0x00000001
 #define A4XX_RB_FS_OUTPUT_FAST_CLEAR				0x00000100
 #define A4XX_RB_FS_OUTPUT_SAMPLE_MASK__MASK			0xffff0000
 #define A4XX_RB_FS_OUTPUT_SAMPLE_MASK__SHIFT			16
@@ -508,7 +509,7 @@ static inline uint32_t A4XX_RB_DEPTH_INFO_DEPTH_BASE(uint32_t val)
 #define A4XX_RB_DEPTH_PITCH__SHIFT				0
 static inline uint32_t A4XX_RB_DEPTH_PITCH(uint32_t val)
 {
-	return ((val >> 4) << A4XX_RB_DEPTH_PITCH__SHIFT) & A4XX_RB_DEPTH_PITCH__MASK;
+	return ((val >> 5) << A4XX_RB_DEPTH_PITCH__SHIFT) & A4XX_RB_DEPTH_PITCH__MASK;
 }
 
 #define REG_A4XX_RB_DEPTH_PITCH2				0x00002105
@@ -516,7 +517,7 @@ static inline uint32_t A4XX_RB_DEPTH_PITCH(uint32_t val)
 #define A4XX_RB_DEPTH_PITCH2__SHIFT				0
 static inline uint32_t A4XX_RB_DEPTH_PITCH2(uint32_t val)
 {
-	return ((val >> 4) << A4XX_RB_DEPTH_PITCH2__SHIFT) & A4XX_RB_DEPTH_PITCH2__MASK;
+	return ((val >> 5) << A4XX_RB_DEPTH_PITCH2__SHIFT) & A4XX_RB_DEPTH_PITCH2__MASK;
 }
 
 #define REG_A4XX_RB_STENCIL_CONTROL				0x00002106
