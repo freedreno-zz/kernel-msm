@@ -49,11 +49,10 @@
 
 #define EDP_BACKLIGHT_MAX	255
 
-static int cont_splash;	/* 1 to enable continuous splash screen */
-EXPORT_SYMBOL(cont_splash);
+static int edp_cont_splash;	/* 1 to enable continuous splash screen */
 
-module_param(cont_splash, int, 0);
-MODULE_PARM_DESC(cont_splash, "Enable continuous splash screen on eDP");
+module_param(edp_cont_splash, int, 0);
+MODULE_PARM_DESC(edp_cont_splash, "Enable continuous splash screen on eDP");
 
 struct edp_ctrl {
 	struct platform_device *pdev;
@@ -1201,7 +1200,7 @@ static int edp_ctrl_set_backlight(struct edp_ctrl *ctrl, u32 bl_level)
 
 	period_ns = ctrl->pwm_period * NSEC_PER_USEC;
 	ret = pwm_config(ctrl->bl_pwm,
-		(u64)bl_level * period_ns / EDP_BACKLIGHT_MAX,
+		div_u64((u64)bl_level * period_ns, EDP_BACKLIGHT_MAX),
 		period_ns);
 	if (ret) {
 		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
@@ -1475,7 +1474,7 @@ int msm_edp_ctrl_init(struct msm_edp *edp)
 	ctrl->gpio_panel_en = -1;
 	ctrl->gpio_panel_hpd = -1;
 
-	ctrl->cont_splash = cont_splash;
+	ctrl->cont_splash = edp_cont_splash;
 
 	DBG("cont_splash=%d", ctrl->cont_splash);
 

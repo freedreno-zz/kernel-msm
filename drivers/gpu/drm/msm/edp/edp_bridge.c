@@ -42,10 +42,10 @@ static inline bool edp_bridge_helper_mode_match(
 				*suggested_mode = m;
 
 			if ((m->hdisplay == req_mode->hdisplay) &&
-			(m->vdisplay == req_mode->vdisplay) &&
-			(m->htotal == req_mode->htotal) &&
-			(m->vtotal == req_mode->vtotal) &&
-			(m->clock == req_mode->clock)) {
+					(m->vdisplay == req_mode->vdisplay) &&
+					(m->htotal == req_mode->htotal) &&
+					(m->vtotal == req_mode->vtotal) &&
+					(m->clock == req_mode->clock)) {
 				*suggested_mode = m;
 				return true;
 			}
