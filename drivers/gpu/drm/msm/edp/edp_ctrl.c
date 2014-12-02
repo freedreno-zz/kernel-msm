@@ -649,23 +649,6 @@ static void edp_fill_link_cfg(struct edp_ctrl *ctrl)
 	DBG("rate=%d lane=%d", ctrl->link_rate, ctrl->lane_cnt);
 }
 
-static int edp_sink_power_state(struct edp_ctrl *ctrl, u8 state)
-{
-	u8 s = state;
-
-	DBG("%d", s);
-
-	if (ctrl->dp_link.revision < 0x11)
-		return 0;
-
-	if (drm_dp_dpcd_write(ctrl->drm_aux, DP_SET_POWER, &s, 1) < 1) {
-		pr_err("%s: Set power state to panel failed\n", __func__);
-		return -ENOLINK;
-	}
-
-	return 0;
-}
-
 static void edp_config_ctrl(struct edp_ctrl *ctrl)
 {
 	u32 data = 0;
@@ -1324,7 +1307,7 @@ static void edp_ctrl_on_worker(struct work_struct *work)
 	}
 
 	edp_ctrl_irq_enable(ctrl, 1);
-	ret = edp_sink_power_state(ctrl, DP_SET_POWER_D0);
+	ret = drm_dp_link_power_up(ctrl->drm_aux, &ctrl->dp_link);
 	if (ret)
 		goto fail;
 
@@ -1380,7 +1363,7 @@ static void edp_ctrl_off_worker(struct work_struct *work)
 
 	edp_state_ctrl(ctrl, 0);
 
-	edp_sink_power_state(ctrl, DP_SET_POWER_D3);
+	drm_dp_link_power_down(ctrl->drm_aux, &ctrl->dp_link);
 
 	edp_ctrl_irq_enable(ctrl, 0);
 
