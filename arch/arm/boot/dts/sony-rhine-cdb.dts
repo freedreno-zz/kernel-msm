@@ -107,6 +107,31 @@
 					power-source = <PM8941_GPIO_S3>;
 				};
 			};
+
+			charger@1000 {
+				compatible = "qcom,pm8941-charger";
+				reg = <0x1000 0x700>;
+				interrupts = <0x0 0x10 7 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x10 5 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x10 4 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x12 1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x12 0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x13 2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x13 1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x0 0x14 1 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "chg-done",
+						  "chg-fast",
+						  "chg-trkl",
+						  "bat-temp-ok",
+						  "bat-present",
+						  "chg-gone",
+						  "usb-valid",
+						  "dc-valid";
+
+				battery-charge-control-limit = <1000000>;
+				usb-charge-control-limit = <500000>;
+				dc-charge-control-limit = <1000000>;
+			};
 		};
 
 		pm8941@1 {
