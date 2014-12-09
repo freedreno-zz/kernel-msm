@@ -207,7 +207,8 @@
 			pm8xxx-wled@d800 {
 				compatible = "qcom,pm8941-wled";
 				reg = <0xd800>;
-				linux,name = "backlight";
+				label = "backlight";
+
 				qcom,cs-out;
 				qcom,current-limit = <20>;
 				qcom,current-boost-limit = <805>;
