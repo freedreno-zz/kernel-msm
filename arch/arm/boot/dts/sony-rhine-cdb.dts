@@ -429,15 +429,18 @@
 		compatible = "qcom,smsm";
 		qcom,smem = <&smem>;
 
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		apps_smsm: apps@0 {
-			qcom,state = <0>;
+			reg = <0>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
 
 		modem_smsm: modem@1 {
-			qcom,state = <1>;
+			reg = <1>;
 			qcom,ipc = <&apcs 8 13>;
 			interrupts = <0 26 1>;
 
@@ -449,7 +452,7 @@
 		};
 
 		adsp_smsm: adsp@2 {
-			qcom,state = <2>;
+			reg = <2>;
 			qcom,ipc = <&apcs 8 9>;
 			interrupts = <0 157 1>;
 
@@ -461,7 +464,7 @@
 		};
 
 		wcnss_smsm: wcnss@7 {
-			qcom,state = <7>;
+			reg = <7>;
 			qcom,ipc = <&apcs 8 19>;
 			interrupts = <0 144 1>;
 
