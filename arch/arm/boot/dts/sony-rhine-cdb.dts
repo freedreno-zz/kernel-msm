@@ -355,15 +355,28 @@
 			};
 		};
 
-		wcnss_state: wcnss-state {
-			mux {
+		wcnss_active_state: wcnss-active {
+			wlan {
 				pins =  "gpio36", "gpio37", "gpio38", "gpio39", "gpio40";
 				function = "wlan";
+
+				drive-strength = <6>;
+				bias-pull-down;
 			};
 
-			conf {
-				pins =  "gpio36", "gpio37", "gpio38", "gpio39", "gpio40";
-				drive-strength = <6>;
+			bt {
+				pins = "gpio35", "gpio43", "gpio44";
+				function = "bt";
+
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+
+			fm {
+				pins = "gpio41", "gpio42";
+				function = "fm";
+
+				drive-strength = <2>;
 				bias-pull-down;
 			};
 		};
@@ -675,9 +688,6 @@
 
 				qcom,tx-enable-gpios = <&apps_smsm 10 0>;
 				qcom,tx-rings-empty-gpios = <&apps_smsm 9 0>;
-
-				pinctrl-names = "default";
-				pinctrl-0 = <&wcnss_state>;
 			};
 
 			wcnss_ctrl {
@@ -685,6 +695,9 @@
 				qcom,smd-channels = "WCNSS_CTRL";
 
 				qcom,wcnss_mmio = <0xfb21b000 0x3000>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&wcnss_active_state>;
 			};
 		};
 
