@@ -680,6 +680,11 @@
 			};
 #endif
 
+			ipcrtr {
+				compatible = "qcom,ipcrtr";
+				qcom,smd-channels = "IPCRTR";
+			};
+
 			wifi {
 				compatible = "qcom,wcn3680";
 				qcom,smd-channels = "WLAN_CTRL";
