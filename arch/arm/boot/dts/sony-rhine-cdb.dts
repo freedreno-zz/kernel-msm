@@ -684,7 +684,7 @@
 				compatible = "qcom,wcn3680";
 				qcom,smd-channels = "WLAN_CTRL";
 
-				interrupts = <0 145 0 0 146 0>;
+				interrupts = <0 145 0>, <0 146 0>;
 				interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
 				qcom,wcnss_mmio = <0xfb000000 0x21b000>;
