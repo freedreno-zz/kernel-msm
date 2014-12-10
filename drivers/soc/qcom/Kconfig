@@ -35,3 +35,9 @@ config QCOM_SMEM
 	  Say y here to enable support for the Qualcomm Shared Memory Manager.
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
+
+config QCOM_IPCRTR_STUB
+	tristate "Qualcomm IPCRTR stub driver"
+	depends on QCOM_SMD
+	help
+	  Stub driver to bring the IPCRTR channel up.
