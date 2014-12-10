@@ -703,9 +703,6 @@
 				qcom,smd-channels = "WCNSS_CTRL";
 
 				qcom,wcnss_mmio = <0xfb21b000 0x3000>;
-
-				pinctrl-names = "default";
-				pinctrl-0 = <&wcnss_active_state>;
 			};
 		};
 
@@ -1039,6 +1036,9 @@
 		qcom,pll-uA = <18000>;
 
 		qcom,stop-gpio = <&wcnss_smp2p_out 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcnss_active_state>;
 	};
 };
 
