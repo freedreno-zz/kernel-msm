@@ -666,7 +666,7 @@
 			};
 		};
 
-		pronto {
+		pronto_smd_edge: pronto {
 			interrupts = <0 142 1>;
 
 			qcom,ipc = <&apcs 8 17>;
@@ -1027,6 +1027,7 @@
 
 		qcom,smem = <&smem>;
 		qcom,crash-reason = <422>;
+		qcom,smd-edges = <&pronto_smd_edge>;
 
 		qcom,pll-supply = <&pm8941_l12>;
 		qcom,pll-uV = <1800000>;
