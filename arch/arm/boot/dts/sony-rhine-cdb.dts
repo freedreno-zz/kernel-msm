@@ -485,6 +485,7 @@
 
 		qcom,ipc = <&apcs 8 10>;
 
+		qcom,local-pid = <0>;
 		qcom,remote-pid = <2>;
 
 		lpass_smp2p_master: master-kernel {
@@ -513,6 +514,7 @@
 
 		qcom,ipc = <&apcs 8 18>;
 
+		qcom,local-pid = <0>;
 		qcom,remote-pid = <4>;
 
 		wcnss_smp2p_out: master-kernel {
