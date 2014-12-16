@@ -1,0 +1,17 @@
+# Qualcomm IPC router configuration
+#
+
+config QRTR
+	bool "Qualcomm IPC router support"
+	---help---
+	  Say Y if you intend to use Qualcomm IPC router protocol.
+
+if QRTR
+
+config QRTR_SMD
+	tristate "SMD IPC router channels"
+	depends on QRTR
+	---help---
+	  Say Y here to support SMD based ipcrouter channels.
+
+endif # QRTR
