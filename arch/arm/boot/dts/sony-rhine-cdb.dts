@@ -299,24 +299,6 @@
 				bias-pull-up;
 			};
 
-			sdc1_clk_mux: sdc1_clk {
-				pins = "sdc1_clk";
-				drive-strength = <10>;
-				bias-disable;
-			};
-
-			sdc1_cmd_mux: sdc1_cmd {
-				pins = "sdc1_cmd";
-				drive-strength = <10>;
-				bias-pull-up;
-			};
-
-			sdc1_data_mux: sdc1_data {
-				pins = "sdc1_data";
-				drive-strength = <16>;
-				bias-pull-up;
-			};
-
 			i2c2 {
 				pins = "gpio6", "gpio7";
 				function = "blsp_i2c2";
@@ -331,6 +313,20 @@
 
 				drive-strength = <2>;
 				bias-disable;
+			};
+		};
+
+		sdhc1_active: sdhc1-active {
+			clk {
+				pins = "sdc1_clk";
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			cmd {
+				pins = "sdc1_cmd", "sdc1_data";
+				drive-strength = <10>;
+				bias-pull-up;
 			};
 		};
 
@@ -811,24 +807,19 @@
 			<41  144>;
 	};
 
-	sdhc1: sdhc@f9824900 {
-		compatible = "qcom,sdhci-msm-v4";
-		reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
-		status = "broken";
-
-		interrupts = <0 123 0>;
-
-		bus-width = <8>;
-		non-removable;
-
+	sdhci@f9824900 {
 		vmmc-supply = <&pm8941_l20>;
 		vqmmc-supply = <&pm8941_s3>;
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&sdc1_clk_mux &sdc1_cmd_mux &sdc1_data_mux>;
+		mmc-ddr-1_8v;
+		sd-uhs-ddr50;
+		broken-hs200;
+		non-removable;
 
-		clocks = <&gcc GCC_SDCC1_APPS_CLK>, <&gcc GCC_SDCC1_AHB_CLK>;
-		clock-names = "core", "iface";
+		pinctrl-names = "default";
+		pinctrl-0 = <&sdhc1_active>;
+
+		status = "ok";
 	};
 
 	gpio_keys {
