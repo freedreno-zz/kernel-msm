@@ -352,6 +352,8 @@ source "drivers/net/plip/Kconfig"
 
 source "drivers/net/ppp/Kconfig"
 
+source "drivers/net/qrtr/Kconfig"
+
 source "drivers/net/slip/Kconfig"
 
 source "drivers/s390/net/Kconfig"
