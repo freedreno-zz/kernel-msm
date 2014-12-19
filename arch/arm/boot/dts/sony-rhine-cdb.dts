@@ -821,7 +821,9 @@
 		non-removable;
 
 		vmmc-supply = <&pm8941_l20>;
+		vmmc-load = <500000>;
 		vqmmc-supply = <&pm8941_s3>;
+		vqmmc-load = <154000>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdhc1_active>;
