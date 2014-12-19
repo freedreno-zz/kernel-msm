@@ -591,6 +591,14 @@
 					regulator-always-on;
 				};
 
+				pm8941_boost: pm8941-boost {
+					compatible = "qcom,smd-rpm-switch";
+					reg = <0x61747362 1>;
+
+					regulator-min-microvolt = <5000000>;
+					regulator-max-microvolt = <5000000>;
+				};
+
 				pm8941_l3: pm8941-l3 {
 					compatible = "qcom,smd-rpm-ldo";
 					reg = <QCOM_SMD_RPM_LDOA 3>;
@@ -651,6 +659,8 @@
 
 					regulator-min-microvolt = <2950000>;
 					regulator-max-microvolt = <2950000>;
+
+					vin-supply = <&pm8941_boost>;
 				};
 
 				pm8941_l22: pm8941-l22 {
@@ -808,13 +818,10 @@
 	};
 
 	sdhci@f9824900 {
+		non-removable;
+
 		vmmc-supply = <&pm8941_l20>;
 		vqmmc-supply = <&pm8941_s3>;
-
-		mmc-ddr-1_8v;
-		sd-uhs-ddr50;
-		broken-hs200;
-		non-removable;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdhc1_active>;
