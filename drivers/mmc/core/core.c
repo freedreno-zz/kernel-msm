@@ -1457,12 +1457,18 @@ int mmc_regulator_get_supply(struct mmc_host *mmc)
 			mmc->ocr_avail = ret;
 		else
 			dev_warn(dev, "Failed getting OCR mask: %d\n", ret);
+
+		if (mmc->supply.vmmc_load)
+			regulator_set_load(mmc->supply.vmmc, mmc->supply.vmmc_load);
 	}
 
 	if (IS_ERR(mmc->supply.vqmmc)) {
 		if (PTR_ERR(mmc->supply.vqmmc) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
 		dev_info(dev, "No vqmmc regulator found\n");
+	} else {
+		if (mmc->supply.vqmmc_load)
+			regulator_set_load(mmc->supply.vqmmc, mmc->supply.vqmmc_load);
 	}
 
 	return 0;
