@@ -1,5 +1,6 @@
 #include "qcom-msm8974.dtsi"
 #include <dt-bindings/clock/qcom,gcc-msm8974.h>
+#include <dt-bindings/reset/qcom,gcc-msm8974.h>
 #include <dt-bindings/mfd/qcom-smd-rpm.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
@@ -13,20 +14,18 @@
 		#size-cells = <1>;
 		ranges;
 
-		pronto_reserve: pronto_reserve@d200000 {
-			#memory-region-cells = <0>;
-			reg = <0xd200000 0x800000>;
-			no-map;
-		};
-
-		lpass_reserve: lpass_reserve@dc00000 {
-			reg = <0xdc00000 0x1300000>;
+		peripheral-region@5d00000 {
+			reg = <0x5d00000 0xa200000>;
 			no-map;
 		};
 
 		smem@fa00000 {
-			#memory-region-cells = <0>;
 			reg = <0x0fa00000 0x200000>;
+			no-map;
+		};
+
+		external-image@fc00000 {
+			reg = <0x0fc00000 0x300000>;
 			no-map;
 		};
 	};
@@ -501,6 +500,34 @@
 		};
 	};
 
+	modem-smp2p {
+		compatible = "qcom,smp2p-v1";
+		qcom,smem = <&smem>;
+		qcom,smem-ids = <428>, <435>;
+
+		interrupts = <0 27 1>;
+		qcom,ipc = <&apcs 8 14>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			qcom,outbound;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			qcom,inbound;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
 	wcnss-smp2p {
 		compatible = "qcom,smp2p-v1";
 		qcom,smem = <&smem>;
@@ -562,6 +589,14 @@
 					reg = <QCOM_SMD_RPM_SMPB 2>;
 
 					regulator-min-microvolt = <500000>;
+					regulator-max-microvolt = <1050000>;
+				};
+
+				pm8841_s3: pm8841-s3 {
+					compatible = "qcom,smd-rpm-smps";
+					reg = <QCOM_SMD_RPM_SMPB 3>;
+
+					regulator-min-microvolt = <675000>;
 					regulator-max-microvolt = <1050000>;
 				};
 
@@ -1011,6 +1046,48 @@
 		qcom,pll-supply = <&pm8841_s2>;
 
 		qcom,stop-gpios = <&lpass_smp2p_master 0 0>;
+	};
+
+	modem_rproc {
+		compatible = "qcom,q6v5-pil";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base";
+
+		interrupts-extended = <&intc 0 24 1>,
+				      <&modem_smp2p_in 0 0>,
+				      <&modem_smp2p_in 1 0>,
+				      <&modem_smp2p_in 2 0>,
+				      <&modem_smp2p_in 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
+
+		clocks = <&gcc GCC_MSS_Q6_BIMC_AXI_CLK>, <&gcc GCC_MSS_CFG_AHB_CLK>, <&gcc GCC_BOOT_ROM_AHB_CLK>;
+		clock-names = "iface", "bus", "mem";
+
+		resets = <&gcc GCC_MSS_RESTART>;
+		reset-names = "mss_restart";
+
+		qcom,firmware-name = "modem";
+
+		qcom,vdd-supply = <&pm8841_s3>;
+
+		qcom,cx-supply = <&pm8841_s2>;
+
+		qcom,mx-supply = <&pm8841_s1>;
+		qcom,mx-uV = <1050000>;
+
+		qcom,pll-supply = <&pm8941_l12>;
+		qcom,pll-uV = <1800000>;
+
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
+
+		qcom,stop-gpio = <&modem_smp2p_out 0 0>;
+
+		/* Sometimes it loads fine and corrupts memory most of the time */
+		status = "fail";
 	};
 
 	pronto_rproc {
