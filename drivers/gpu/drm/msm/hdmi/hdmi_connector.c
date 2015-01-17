@@ -424,8 +424,7 @@ struct drm_connector *hdmi_connector_init(struct hdmi *hdmi)
 			DRM_MODE_CONNECTOR_HDMIA);
 	drm_connector_helper_add(connector, &hdmi_connector_helper_funcs);
 
-	connector->polled = DRM_CONNECTOR_POLL_HPD |
-			DRM_CONNECTOR_POLL_CONNECT |
+	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
 			DRM_CONNECTOR_POLL_DISCONNECT;
 
 	connector->interlace_allowed = 0;
