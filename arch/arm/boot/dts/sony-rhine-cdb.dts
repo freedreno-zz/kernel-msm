@@ -863,6 +863,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdhc1_active>;
 
+		bus-width = <8>;
+
 		status = "ok";
 	};
 
