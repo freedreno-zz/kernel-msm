@@ -53,7 +53,7 @@
 			pwrkey@800 {
 				compatible = "qcom,pm8941-pwrkey";
 				reg = <0x800>;
-				interrupts = <0x0 0x8 0 0>;
+				interrupts = <0x0 0x8 0 IRQ_TYPE_EDGE_BOTH>;
 				bias-pull-up;
 			};
 
