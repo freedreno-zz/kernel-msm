@@ -343,10 +343,11 @@ unlock:
 static void clk_debug_unregister(struct clk *clk)
 {
 	mutex_lock(&clk_debug_lock);
+	hlist_del_init(&clk->debug_node);
+
 	if (!clk->dentry)
 		goto out;
 
-	hlist_del_init(&clk->debug_node);
 	debugfs_remove_recursive(clk->dentry);
 	clk->dentry = NULL;
 out:
