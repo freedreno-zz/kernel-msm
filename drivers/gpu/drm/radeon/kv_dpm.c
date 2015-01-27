@@ -1925,6 +1925,7 @@ void kv_dpm_setup_asic(struct radeon_device *rdev)
 	kv_init_sclk_t(rdev);
 }
 
+#if 0
 void kv_dpm_reset_asic(struct radeon_device *rdev)
 {
 	struct kv_power_info *pi = kv_get_pi(rdev);
@@ -1945,6 +1946,7 @@ void kv_dpm_reset_asic(struct radeon_device *rdev)
 		kv_set_enabled_level(rdev, pi->graphics_boot_level);
 	}
 }
+#endif
 
 //XXX use sumo_dpm_display_configuration_changed
 
@@ -2745,13 +2747,11 @@ int kv_dpm_init(struct radeon_device *rdev)
 	pi->enable_auto_thermal_throttling = true;
 	pi->disable_nb_ps3_in_battery = false;
 	if (radeon_bapm == -1) {
-		/* There are stability issues reported on with
-		 * bapm enabled on an asrock system.
-		 */
-		if (rdev->pdev->subsystem_vendor == 0x1849)
-			pi->bapm_enable = false;
-		else
+		/* only enable bapm on KB, ML by default */
+		if (rdev->family == CHIP_KABINI || rdev->family == CHIP_MULLINS)
 			pi->bapm_enable = true;
+		else
+			pi->bapm_enable = false;
 	} else if (radeon_bapm == 0) {
 		pi->bapm_enable = false;
 	} else {

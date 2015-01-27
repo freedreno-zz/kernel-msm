@@ -841,6 +841,8 @@ int i915_reset(struct drm_device *dev)
 		return ret;
 	}
 
+	intel_overlay_reset(dev_priv);
+
 	/* Ok, now get things going again... */
 
 	/*
@@ -940,8 +942,7 @@ static int i915_pm_suspend(struct device *dev)
 
 static int i915_pm_suspend_late(struct device *dev)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_device *drm_dev = dev_to_i915(dev)->dev;
 
 	/*
 	 * We have a suspedn ordering issue with the snd-hda driver also
@@ -960,8 +961,7 @@ static int i915_pm_suspend_late(struct device *dev)
 
 static int i915_pm_resume_early(struct device *dev)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_device *drm_dev = dev_to_i915(dev)->dev;
 
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
@@ -971,8 +971,7 @@ static int i915_pm_resume_early(struct device *dev)
 
 static int i915_pm_resume(struct device *dev)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_device *drm_dev = dev_to_i915(dev)->dev;
 
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
@@ -1299,7 +1298,9 @@ static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
 	err = vlv_allow_gt_wake(dev_priv, false);
 	if (err)
 		goto err2;
-	vlv_save_gunit_s0ix_state(dev_priv);
+
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		vlv_save_gunit_s0ix_state(dev_priv);
 
 	err = vlv_force_gfx_clock(dev_priv, false);
 	if (err)
@@ -1330,7 +1331,8 @@ static int vlv_resume_prepare(struct drm_i915_private *dev_priv,
 	 */
 	ret = vlv_force_gfx_clock(dev_priv, true);
 
-	vlv_restore_gunit_s0ix_state(dev_priv);
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		vlv_restore_gunit_s0ix_state(dev_priv);
 
 	err = vlv_allow_gt_wake(dev_priv, true);
 	if (!ret)

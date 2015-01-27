@@ -127,6 +127,26 @@ static void add_fb(struct msm_commit *c, struct drm_framebuffer *fb)
 }
 
 
+int msm_atomic_check(struct drm_device *dev,
+		     struct drm_atomic_state *state)
+{
+	int ret;
+
+	/*
+	 * msm ->atomic_check can update ->mode_changed for pixel format
+	 * changes, hence must be run before we check the modeset changes.
+	 */
+	ret = drm_atomic_helper_check_planes(dev, state);
+	if (ret)
+		return ret;
+
+	ret = drm_atomic_helper_check_modeset(dev, state);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
 /**
  * drm_atomic_helper_commit - commit validated state object
  * @dev: DRM device
@@ -145,6 +165,7 @@ int msm_atomic_commit(struct drm_device *dev,
 {
 	int nplanes = dev->mode_config.num_total_plane;
 	int ncrtcs = dev->mode_config.num_crtc;
+	struct timespec timeout;
 	struct msm_commit *c;
 	int i, ret;
 
@@ -217,7 +238,9 @@ int msm_atomic_commit(struct drm_device *dev,
 		return 0;
 	}
 
-	ret = msm_wait_fence_interruptable(dev, c->fence, NULL);
+	jiffies_to_timespec(jiffies + msecs_to_jiffies(1000), &timeout);
+
+	ret = msm_wait_fence_interruptable(dev, c->fence, &timeout);
 	if (ret) {
 		WARN_ON(ret);  // TODO unswap state back?  or??
 		kfree(c);

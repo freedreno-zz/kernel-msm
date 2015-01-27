@@ -142,6 +142,17 @@ int drm_plane_helper_check_update(struct drm_plane *plane,
 {
 	int hscale, vscale;
 
+	if (!fb) {
+		*visible = false;
+		return 0;
+	}
+
+	/* crtc should only be NULL when disabling (i.e., !fb) */
+	if (WARN_ON(!crtc)) {
+		*visible = false;
+		return 0;
+	}
+
 	if (!crtc->enabled && !can_update_disabled) {
 		DRM_DEBUG_KMS("Cannot update plane of a disabled CRTC.\n");
 		return -EINVAL;
@@ -153,11 +164,6 @@ int drm_plane_helper_check_update(struct drm_plane *plane,
 	if (hscale < 0 || vscale < 0) {
 		DRM_DEBUG_KMS("Invalid scaling of plane\n");
 		return -ERANGE;
-	}
-
-	if (!fb) {
-		*visible = false;
-		return 0;
 	}
 
 	*visible = drm_rect_clip_scaled(src, dest, clip, hscale, vscale);
@@ -517,6 +523,7 @@ int drm_plane_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 		plane_state = kzalloc(sizeof(*plane_state), GFP_KERNEL);
 	if (!plane_state)
 		return -ENOMEM;
+	plane_state->plane = plane;
 
 	plane_state->crtc = crtc;
 	drm_atomic_set_fb_for_plane(plane_state, fb);
@@ -563,6 +570,7 @@ int drm_plane_helper_disable(struct drm_plane *plane)
 		plane_state = kzalloc(sizeof(*plane_state), GFP_KERNEL);
 	if (!plane_state)
 		return -ENOMEM;
+	plane_state->plane = plane;
 
 	plane_state->crtc = NULL;
 	drm_atomic_set_fb_for_plane(plane_state, NULL);
