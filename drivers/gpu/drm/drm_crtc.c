@@ -3304,6 +3304,24 @@ static int framebuffer_check(const struct drm_mode_fb_cmd2 *r)
 				      r->modifier[i], i);
 			return -EINVAL;
 		}
+
+		/* modifier specific checks: */
+		switch (r->modifier[i]) {
+		case DRM_FORMAT_MOD_SAMSUNG_64_32_TILE:
+			/* NOTE: the pitch restriction may be lifted later if it turns
+			 * out that no hw has this restriction:
+			 */
+			if (r->pixel_format != DRM_FORMAT_NV12 ||
+					width % 128 || height % 32 ||
+					r->pitches[i] % 128) {
+				DRM_DEBUG_KMS("bad modifier data for plane %d\n", i);
+				return -EINVAL;
+			}
+			break;
+
+		default:
+			break;
+		}
 	}
 
 	return 0;
