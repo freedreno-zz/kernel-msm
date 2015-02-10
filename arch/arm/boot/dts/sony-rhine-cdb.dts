@@ -422,7 +422,7 @@
 
 	smsm {
 		compatible = "qcom,smsm";
-		qcom,smem = <&smem>;
+		qcom,smem = <&smem 85>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -472,9 +472,8 @@
 	};
 
 	lpass-smp2p {
-		compatible = "qcom,smp2p-v1";
-		qcom,smem = <&smem>;
-		qcom,smem-ids = <429 443>;
+		compatible = "qcom,smp2p";
+		qcom,smem = <&smem 429>, <&smem 443>;
 
 		interrupts = <0 158 1>;
 
@@ -501,9 +500,8 @@
 	};
 
 	modem-smp2p {
-		compatible = "qcom,smp2p-v1";
-		qcom,smem = <&smem>;
-		qcom,smem-ids = <428>, <435>;
+		compatible = "qcom,smp2p";
+		qcom,smem = <&smem 428>, <&smem 435>;
 
 		interrupts = <0 27 1>;
 		qcom,ipc = <&apcs 8 14>;
@@ -529,9 +527,8 @@
 	};
 
 	wcnss-smp2p {
-		compatible = "qcom,smp2p-v1";
-		qcom,smem = <&smem>;
-		qcom,smem-ids = <431 451>;
+		compatible = "qcom,smp2p";
+		qcom,smem = <&smem 431>, <&smem 451>;
 
 		interrupts = <0 143 1>;
 
@@ -1050,8 +1047,7 @@
 
 		qcom,firmware-name = "adsp";
 		qcom,pas-id = <1>;
-		qcom,smem = <&smem>;
-		qcom,crash-reason = <423>;
+		qcom,crash-reason = <&smem 423>;
 
 		qcom,pll-supply = <&pm8841_s2>;
 
@@ -1116,8 +1112,7 @@
 		qcom,firmware-name = "wcnss";
 		qcom,pas-id = <6>;
 
-		qcom,smem = <&smem>;
-		qcom,crash-reason = <422>;
+		qcom,crash-reason = <&smem 422>;
 		qcom,smd-edges = <&pronto_smd_edge>;
 
 		qcom,pll-supply = <&pm8941_l12>;
