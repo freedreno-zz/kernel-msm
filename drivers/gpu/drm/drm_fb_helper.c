@@ -741,7 +741,9 @@ int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 	int i, j, rc = 0;
 	int start;
 
-	drm_modeset_lock_all(dev);
+	if (__drm_modeset_lock_all(dev, !!oops_in_progress)) {
+		return -EBUSY;
+	}
 	if (!drm_fb_helper_is_bound(fb_helper)) {
 		drm_modeset_unlock_all(dev);
 		return -EBUSY;
@@ -915,7 +917,9 @@ int drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
 	int ret = 0;
 	int i;
 
-	drm_modeset_lock_all(dev);
+	if (__drm_modeset_lock_all(dev, !!oops_in_progress)) {
+		return -EBUSY;
+	}
 	if (!drm_fb_helper_is_bound(fb_helper)) {
 		drm_modeset_unlock_all(dev);
 		return -EBUSY;
@@ -1688,7 +1692,7 @@ out:
  * RETURNS:
  * Zero if everything went ok, nonzero otherwise.
  */
-bool drm_fb_helper_initial_config(struct drm_fb_helper *fb_helper, int bpp_sel)
+int drm_fb_helper_initial_config(struct drm_fb_helper *fb_helper, int bpp_sel)
 {
 	struct drm_device *dev = fb_helper->dev;
 	int count = 0;
