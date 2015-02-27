@@ -36,12 +36,14 @@
 		status = "ok";
 	};
 
+	tcsr: syscon@1a400000 {
+	      compatible = "qcom,tcsr-msm8974", "syscon";
+	      reg = <0xfd484000 0x2000>;
+	};
+
 	tcsr_mutex: hwlock@fd484000 {
 		compatible = "qcom,tcsr-mutex";
-		reg = <0xfd484000 0x1000>;
-		reg-names = "mutex-base";
-		hwlock-num-locks = <8>;
-
+		syscon = <&tcsr 0 0x80>;
 		#hwlock-cells = <1>;
 	};
 
