@@ -113,7 +113,7 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 	mutex_lock(&smp2p->lock);
 
 	if (!smp2p->in) {
-		ret = qcom_smem_get(smp2p->smem_items[0], (void**)&in, &size);
+		ret = qcom_smem_get(-1, smp2p->smem_items[0], (void**)&in, &size);
 		if (ret < 0 || size != ALIGN(sizeof(*in), 8))
 			dev_err(smp2p->dev, "Unable to acquire remote smp2p item\n");
 		else
@@ -280,7 +280,7 @@ static int qcom_smp2p_alloc_outgoing(struct qcom_smp2p *smp2p)
 	struct smp2p_entry *entry;
 	int ret;
 
-	ret = qcom_smem_alloc(smp2p->smem_items[1], sizeof(*out));
+	ret = qcom_smem_alloc(-1, smp2p->smem_items[1], sizeof(*out));
 	if (ret < 0 && ret != -EEXIST) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(smp2p->dev,
@@ -288,7 +288,7 @@ static int qcom_smp2p_alloc_outgoing(struct qcom_smp2p *smp2p)
 		return ret;
 	}
 
-	ret = qcom_smem_get(smp2p->smem_items[1], (void**)&out, NULL);
+	ret = qcom_smem_get(-1, smp2p->smem_items[1], (void**)&out, NULL);
 	if (ret < 0) {
 		dev_err(smp2p->dev, "Unable to acquire local smp2p item\n");
 		return ret;
