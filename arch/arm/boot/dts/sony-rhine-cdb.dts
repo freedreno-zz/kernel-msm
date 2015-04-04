@@ -7,7 +7,6 @@
 / {
 	model = "Sony Rhine CDB";
 	compatible = "sony,msm8974-rhine_cdb", "qcom,msm8974";
-	qcom,msm-id = <126 8 0>, <185 8 0>, <186 8 0>;
 
 	reserved-memory {
 		#address-cells = <1>;
@@ -19,7 +18,7 @@
 			no-map;
 		};
 
-		smem@fa00000 {
+		smem_region: smem@fa00000 {
 			reg = <0x0fa00000 0x200000>;
 			no-map;
 		};
@@ -416,8 +415,8 @@
 
 	smem: smem@fa00000 {
 		compatible = "qcom,smem";
-		reg = <0x0fa00000 0x200000>,
-		      <0xfc428000 0x4000>;
+		memory-region = <&smem_region>;
+		reg = <0xfc428000 0x4000>;
 
 		hwlocks = <&tcsr_mutex 3>;
 	};
