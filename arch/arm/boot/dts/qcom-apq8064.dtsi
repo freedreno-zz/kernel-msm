@@ -16,7 +16,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		smem@80000000 {
+		smem_region: smem@80000000 {
 			reg = <0x80000000 0x200000>;
 			no-map;
 		};
@@ -689,7 +689,7 @@
 
 		smem@80000000 {
 			compatible = "qcom,smem";
-			reg = <0x80000000 0x200000>;
+			memory-region = <&smem_region>;
 
 			hwlocks = <&sfpb_mutex 3>;
 		};

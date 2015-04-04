@@ -226,6 +226,8 @@
 
 				pinctrl-names = "default";
 				pinctrl-0 = <&sdc1_active>;
+
+				status = "ok";
 			};
 
 			sdcc3: sdcc@12180000 {
