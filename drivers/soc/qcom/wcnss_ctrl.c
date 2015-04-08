@@ -109,13 +109,13 @@ struct nv_data {
 #define NV_FRAGMENT_SIZE  3072
 
 static int wcnss_ctrl_callback(struct qcom_smd_device *qsdev,
-				 void *data,
+				 const void *data,
 				 size_t count)
 {
-	struct wcnss_nvbin_download_res *nvbin;
-	struct wcnss_version *version;
+	const struct wcnss_nvbin_download_res *nvbin;
+	const struct wcnss_version *version;
+	const struct smd_msg_hdr *hdr = data;
 	struct wcnss_ctrl *wcnss = dev_get_drvdata(&qsdev->dev);
-	struct smd_msg_hdr *hdr = data;
 
 	// print_hex_dump(KERN_DEBUG, "WCNSS_CTRL <<<: ", DUMP_PREFIX_OFFSET, 16, 1, data, count, true);
 
