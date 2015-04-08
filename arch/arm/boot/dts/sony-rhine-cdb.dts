@@ -574,143 +574,103 @@
 				#address-cells = <2>;
 				#size-cells = <0>;
 
-				pm8841_s1: pm8841-s1 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPB 1>;
+				pm8841 {
+					compatible = "qcom,rpm-pm8841-regulators";
 
-					regulator-min-microvolt = <675000>;
-					regulator-max-microvolt = <1050000>;
+					pm8841_s1: s1 {
+						regulator-min-microvolt = <675000>;
+						regulator-max-microvolt = <1050000>;
+					};
+
+					pm8841_s2: s2 {
+						regulator-min-microvolt = <500000>;
+						regulator-max-microvolt = <1050000>;
+					};
+
+					pm8841_s3: s3 {
+						regulator-min-microvolt = <675000>;
+						regulator-max-microvolt = <1050000>;
+					};
 				};
 
-				pm8841_s2: pm8841-s2 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPB 2>;
+				pm8941 {
+					compatible  = "qcom,rpm-pm8941-regulators";
+					vdd_l6_l12_l14_l15-supply = <&pm8941_s2>;
+					vdd_l4_l11-supply = <&pm8941_s1>;
+					vdd_l13_l20_l23_l24-supply = <&pm8941_boost>;
 
-					regulator-min-microvolt = <500000>;
-					regulator-max-microvolt = <1050000>;
-				};
+					pm8941_s1: s1 {
+						regulator-min-microvolt = <1300000>;
+						regulator-max-microvolt = <1300000>;
+					};
 
-				pm8841_s3: pm8841-s3 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPB 3>;
+					pm8941_s2: s2 {
+						regulator-min-microvolt = <2150000>;
+						regulator-max-microvolt = <2150000>;
+					};
 
-					regulator-min-microvolt = <675000>;
-					regulator-max-microvolt = <1050000>;
-				};
+					pm8941_s3: s3 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
 
-				pm8941_s1: pm8941-s1 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPA 1>;
+						regulator-always-on;
+					};
 
-					regulator-min-microvolt = <1300000>;
-					regulator-max-microvolt = <1300000>;
-				};
+					pm8941_boost: s4 {
+						regulator-min-microvolt = <5000000>;
+						regulator-max-microvolt = <5000000>;
+					};
 
-				pm8941_s2: pm8941-s2 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPA 2>;
+					pm8941_l3: l3 {
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+					};
 
-					regulator-min-microvolt = <2150000>;
-					regulator-max-microvolt = <2150000>;
-				};
+					pm8941_l6: l6 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
 
-				pm8941_s3: pm8941-s3 {
-					compatible = "qcom,smd-rpm-smps";
-					reg = <QCOM_SMD_RPM_SMPA 3>;
+						regulator-always-on;
+					};
 
-					regulator-min-microvolt = <1800000>;
-					regulator-max-microvolt = <1800000>;
+					pm8941_l9: l9 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <2950000>;
+					};
 
-					regulator-always-on;
-				};
+					pm8941_l11: l11 {
+						regulator-min-microvolt = <1300000>;
+						regulator-max-microvolt = <1300000>;
 
-				pm8941_boost: pm8941-boost {
-					compatible = "qcom,smd-rpm-switch";
-					reg = <0x61747362 1>;
+						regulator-always-on;
+					};
 
-					regulator-min-microvolt = <5000000>;
-					regulator-max-microvolt = <5000000>;
-				};
+					pm8941_l12: l12 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
 
-				pm8941_l3: pm8941-l3 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 3>;
+						regulator-allow-change-load;
+					};
 
-					regulator-min-microvolt = <1200000>;
-					regulator-max-microvolt = <1200000>;
+					pm8941_l19: l19 {
+						regulator-min-microvolt = <3000000>;
+						regulator-max-microvolt = <3000000>;
 
-					vin-supply = <&pm8941_s1>;
-				};
+						regulator-always-on;
+					};
 
-				pm8941_l6: pm8941-l6 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 6>;
+					pm8941_l20: l20 {
+						regulator-min-microvolt = <2950000>;
+						regulator-max-microvolt = <2950001>;
 
-					regulator-min-microvolt = <1800000>;
-					regulator-max-microvolt = <1800000>;
+						regulator-allow-change-load;
+					};
 
-					regulator-always-on;
-
-					vin-supply = <&pm8941_s2>;
-				};
-
-				pm8941_l9: pm8941-l9 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 9>;
-
-					regulator-min-microvolt = <1800000>;
-					regulator-max-microvolt = <2950000>;
-				};
-
-				pm8941_l11: pm8941-l11 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 11>;
-
-					regulator-min-microvolt = <1300000>;
-					regulator-max-microvolt = <1300000>;
-
-					regulator-always-on;
-
-					vin-supply = <&pm8941_s1>;
-				};
-
-				pm8941_l12: pm8941-l12 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 12>;
-
-					regulator-min-microvolt = <1800000>;
-					regulator-max-microvolt = <1800000>;
-
-					vin-supply = <&pm8941_s2>;
-				};
-
-				pm8941_l19: pm8941-l19 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 19>;
-
-					regulator-min-microvolt = <3000000>;
-					regulator-max-microvolt = <3000000>;
-
-					regulator-always-on;
-				};
-
-				pm8941_l20: pm8941-l20 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 20>;
-
-					regulator-min-microvolt = <2950000>;
-					regulator-max-microvolt = <2950000>;
-
-					vin-supply = <&pm8941_boost>;
-				};
-
-				pm8941_l22: pm8941-l22 {
-					compatible = "qcom,smd-rpm-ldo";
-					reg = <QCOM_SMD_RPM_LDOA 22>;
-
-					regulator-min-microvolt = <3000000>;
-					regulator-max-microvolt = <3000000>;
-					regulator-always-on;
+					pm8941_l22: l22 {
+						regulator-min-microvolt = <3000000>;
+						regulator-max-microvolt = <3000000>;
+						regulator-always-on;
+					};
 				};
 			};
 		};
