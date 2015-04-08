@@ -2090,11 +2090,11 @@ out:
 	return ret;
 }
 
-int wcn36xx_smd_rsp_process(struct qcom_smd_device *sdev, void *buf, size_t len)
+int wcn36xx_smd_rsp_process(struct qcom_smd_device *sdev, const void *buf, size_t len)
 {
+	const struct wcn36xx_hal_msg_header *msg_header = buf;
 	struct ieee80211_hw *hw = dev_get_drvdata(&sdev->dev);
 	struct wcn36xx *wcn = hw->priv;
-	struct wcn36xx_hal_msg_header *msg_header = buf;
 	struct wcn36xx_hal_ind_msg *msg_ind;
 	wcn36xx_dbg_dump(WCN36XX_DBG_SMD_DUMP, "SMD <<< ", buf, len);
 
