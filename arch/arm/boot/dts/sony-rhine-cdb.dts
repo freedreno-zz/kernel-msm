@@ -423,7 +423,7 @@
 
 	smsm {
 		compatible = "qcom,smsm";
-		qcom,smem = <&smem 85>;
+		qcom,smem = <85>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -474,7 +474,7 @@
 
 	lpass-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <&smem 429>, <&smem 443>;
+		qcom,smem = <429>, <443>;
 
 		interrupts = <0 158 1>;
 
@@ -502,7 +502,7 @@
 
 	modem-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <&smem 428>, <&smem 435>;
+		qcom,smem = <428>, <435>;
 
 		interrupts = <0 27 1>;
 		qcom,ipc = <&apcs 8 14>;
@@ -529,7 +529,7 @@
 
 	wcnss-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <&smem 431>, <&smem 451>;
+		qcom,smem = <431>, <451>;
 
 		interrupts = <0 143 1>;
 
@@ -560,7 +560,6 @@
 
 	smd {
 		compatible = "qcom,smd";
-		qcom,smem = <&smem>;
 
 		rpm {
 			interrupts = <0 168 1>;
@@ -661,7 +660,7 @@
 
 					pm8941_l20: l20 {
 						regulator-min-microvolt = <2950000>;
-						regulator-max-microvolt = <2950001>;
+						regulator-max-microvolt = <2950000>;
 
 						regulator-allow-change-load;
 					};
@@ -1008,7 +1007,7 @@
 
 		qcom,firmware-name = "adsp";
 		qcom,pas-id = <1>;
-		qcom,crash-reason = <&smem 423>;
+		qcom,crash-reason = <423>;
 
 		qcom,pll-supply = <&pm8841_s2>;
 
@@ -1073,7 +1072,7 @@
 		qcom,firmware-name = "wcnss";
 		qcom,pas-id = <6>;
 
-		qcom,crash-reason = <&smem 422>;
+		qcom,crash-reason = <422>;
 		qcom,smd-edges = <&pronto_smd_edge>;
 
 		qcom,pll-supply = <&pm8941_l12>;
