@@ -1,0 +1,62 @@
+fixes
+	<no branch> (a4b6916cb3578b05f30ef520cd6deb7f8fd97dda)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.1-fixes-for-rc3
+	patch
+		ARM: Gemini: Maintainers update
+		ARM64: juno: add sp810 support and fix sp804 clock frequency
+		ARM: vexpress/ca9: Add unified-cache property to l2 cache node
+		ARM: vexpress/ca9: Add interrupt-affinity to the PMU node
+		ARM: vexpress/tc2: Add interrupt-affinity to the PMU node
+	<no branch> (e60a8fe1792dcd3aacda0959e0f4865bfefb7bb5)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.1/fixes-rc2
+	patch
+		ARM: gemini: fix compiler warning due wrong data type
+
+next/cleanup
+	patch
+		arm64: dts: kill skeleton.dtsi
+
+next/soc
+	patch
+		ARM: UniPhier: add basic support for UniPhier architecture
+		MAINTAINERS: add myself as ARM/UniPhier maintainer
+	sunxi/core
+		https://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux tags/sunxi-core-for-4.2
+
+next/dt
+	patch
+		ARM: digicolor: enable CX92755 on-chip RTC device
+		ARM: digicolor: add i2c master controller support
+	sti/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-dt-for-v4.2-1
+	patch
+		ARM: dts: UniPhier: add support for UniPhier SoCs and boards
+	hisi/hip04-dt
+		git://github.com/hisilicon/linux-hisi tags/hip04-dt-for-4.2
+	at91/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt
+	socfpga/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_for_v4.2
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux tags/sunxi-dt-for-4.2
+
+next/defconfig
+	patch
+		ARM: multi_v7_defconfig: enable Conexant Digicolor platform
+	sti/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-defconfig-for-v4.2-1
+	patch
+		ARM: multi_v7_defconfig: enable UniPhier SoC family
+	hisi/hip04-config
+		git://github.com/hisilicon/linux-hisi tags/hip04-config-for-4.2
+	patch
+		ARM: multi_v7_defconfig: Replace USB_RCAR_GEN2_PHY by PHY_RCAR_GEN2
+		ARM: multi_v7_defconfig: enable asm and NEON accelerated crypto modules
+
+next/drivers
+	drivers/simple-mfd
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/simple-mfd
+	drivers/ccn
+		git://git.linaro.org/people/pawel.moll/linux tags/ccn/updates-for-4.2
+
+
