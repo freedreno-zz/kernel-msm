@@ -20,9 +20,9 @@ dtb-$(CONFIG_SOC_SAM_V4_V5) += \
 	tny_a9263.dtb \
 	usb_a9263.dtb \
 	at91-foxg20.dtb \
+	at91-kizbox.dtb \
 	at91sam9g20ek.dtb \
 	at91sam9g20ek_2mmc.dtb \
-	kizbox.dtb \
 	tny_a9g20.dtb \
 	usb_a9g20.dtb \
 	usb_a9g20_lpw.dtb \
@@ -32,12 +32,14 @@ dtb-$(CONFIG_SOC_SAM_V4_V5) += \
 	at91sam9rlek.dtb \
 	at91-ariag25.dtb \
 	at91-cosino_mega2560.dtb \
+	at91-kizboxmini.dtb \
 	at91sam9g15ek.dtb \
 	at91sam9g25ek.dtb \
 	at91sam9g35ek.dtb \
 	at91sam9x25ek.dtb \
 	at91sam9x35ek.dtb
 dtb-$(CONFIG_SOC_SAM_V7) += \
+	at91-kizbox2.dtb \
 	at91-sama5d3_xplained.dtb \
 	sama5d31ek.dtb \
 	sama5d33ek.dtb \
@@ -496,7 +498,7 @@ dtb-$(CONFIG_ARCH_SHMOBILE_MULTI) += \
 	sh73a0-kzm9g.dtb
 dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	socfpga_arria5_socdk.dtb \
-	socfpga_arria10_socdk.dtb \
+	socfpga_arria10_socdk_sdmmc.dtb \
 	socfpga_cyclone5_socdk.dtb \
 	socfpga_cyclone5_sockit.dtb \
 	socfpga_cyclone5_socrates.dtb \
@@ -525,26 +527,31 @@ dtb-$(CONFIG_MACH_SUN4I) += \
 	sun4i-a10-ba10-tvbox.dtb \
 	sun4i-a10-chuwi-v7-cw0825.dtb \
 	sun4i-a10-cubieboard.dtb \
+	sun4i-a10-gemei-g9.dtb \
+	sun4i-a10-hackberry.dtb \
+	sun4i-a10-hyundai-a7hd.dtb \
+	sun4i-a10-inet97fv2.dtb \
+	sun4i-a10-jesurun-q5.dtb \
 	sun4i-a10-marsboard.dtb \
 	sun4i-a10-mini-xplus.dtb \
 	sun4i-a10-mk802.dtb \
 	sun4i-a10-mk802ii.dtb \
-	sun4i-a10-hackberry.dtb \
-	sun4i-a10-hyundai-a7hd.dtb \
-	sun4i-a10-inet97fv2.dtb \
 	sun4i-a10-olinuxino-lime.dtb \
 	sun4i-a10-pcduino.dtb
 dtb-$(CONFIG_MACH_SUN5I) += \
+	sun5i-a10s-auxtek-t004.dtb \
 	sun5i-a10s-mk802.dtb \
 	sun5i-a10s-olinuxino-micro.dtb \
 	sun5i-a10s-r7-tv-dongle.dtb \
 	sun5i-a13-hsg-h702.dtb \
 	sun5i-a13-olinuxino.dtb \
-	sun5i-a13-olinuxino-micro.dtb
+	sun5i-a13-olinuxino-micro.dtb \
+	sun5i-a13-utoo-p66.dtb
 dtb-$(CONFIG_MACH_SUN6I) += \
 	sun6i-a31-app4-evb1.dtb \
 	sun6i-a31-colombus.dtb \
 	sun6i-a31-hummingbird.dtb \
+	sun6i-a31-i7.dtb \
 	sun6i-a31-m9.dtb \
 	sun6i-a31s-cs908.dtb
 dtb-$(CONFIG_MACH_SUN7I) += \
@@ -555,15 +562,21 @@ dtb-$(CONFIG_MACH_SUN7I) += \
 	sun7i-a20-hummingbird.dtb \
 	sun7i-a20-i12-tvbox.dtb \
 	sun7i-a20-m3.dtb \
+	sun7i-a20-mk808c.dtb \
 	sun7i-a20-olinuxino-lime.dtb \
 	sun7i-a20-olinuxino-lime2.dtb \
 	sun7i-a20-olinuxino-micro.dtb \
-	sun7i-a20-pcduino3.dtb
+	sun7i-a20-orangepi.dtb \
+	sun7i-a20-orangepi-mini.dtb \
+	sun7i-a20-pcduino3.dtb \
+	sun7i-a20-pcduino3-nano.dtb \
+	sun7i-a20-wexler-tab7200.dtb
 dtb-$(CONFIG_MACH_SUN8I) += \
 	sun8i-a23-ippo-q8h-v5.dtb \
 	sun8i-a23-ippo-q8h-v1.2.dtb
 dtb-$(CONFIG_MACH_SUN9I) += \
-	sun9i-a80-optimus.dtb
+	sun9i-a80-optimus.dtb \
+	sun9i-a80-cubieboard4.dtb
 dtb-$(CONFIG_ARCH_TEGRA_2x_SOC) += \
 	tegra20-harmony.dtb \
 	tegra20-iris-512.dtb \
@@ -600,6 +613,11 @@ dtb-$(CONFIG_ARCH_U8500) += \
 	ste-hrefv60plus-tvk.dtb \
 	ste-ccu8540.dtb \
 	ste-ccu9540.dtb
+dtb-$(CONFIG_ARCH_UNIPHIER) += \
+	uniphier-ph1-sld3-ref.dtb \
+	uniphier-ph1-ld4-ref.dtb \
+	uniphier-ph1-pro4-ref.dtb \
+	uniphier-ph1-sld8-ref.dtb
 dtb-$(CONFIG_ARCH_VERSATILE) += \
 	versatile-ab.dtb \
 	versatile-pb.dtb
