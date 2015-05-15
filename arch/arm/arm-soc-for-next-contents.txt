@@ -41,6 +41,14 @@ next/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-soc-for-armsoc-v4.2
 	pxa/soc
 		https://github.com/rjarzmik/linux tags/pxa-for-4.2
+	patch
+		ARM: Add STM32 family machine
+		ARM: lpc18xx: add basic support for NXP LPC18xx/43xx SoCs
+		ARM: zx: add basic support for ZTE ZX296702
+		ARM: zx: add low level debug support for zx296702
+		ARM: zx: enable SMP and hotplug for zx296702
+		MAINTAINERS: add entry for ARM ZTE architecture
+		MAINTAINERS: Add entry for STM32 MCUs
 
 next/dt
 	patch
@@ -78,8 +86,13 @@ next/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-dt-for-armsoc-v4.2
 	sti/dt2
 		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-dt-for-v4.2-2
-	<no branch> (973ed08377f6d61dd4e9fd62207737c8ec0d49e9)
+	mvebu/dt
 		git://git.infradead.org/linux-mvebu tags/mvebu-dt-4.2
+	patch
+		ARM: dts: Add ARM System timer as clocksource in armv7m
+		ARM: dts: Add base DT for NXP LPC18xx
+		ARM: dts: Add DT for Embedded Artists LPC4357 Developers Kit
+		ARM: dts: Add DT for Hitex LPC4350 Evaluation Board
 
 next/defconfig
 	patch
@@ -99,6 +112,10 @@ next/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-defconfig
 	renesas/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig-for-v4.2
+	patch
+		ARM: lpc18xx: add kernel config
+		ARM: zx: Add basic defconfig support for ZX296702
+		ARM: configs: Add STM32 defconfig
 
 next/drivers
 	drivers/simple-mfd
@@ -113,4 +130,5 @@ next/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-emc
 	patch
 		bus: arm-ccn: Use hrtimer_start() again
+
 
