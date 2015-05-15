@@ -13,6 +13,12 @@ fixes
 		ARM: gemini: fix compiler warning due wrong data type
 	<no branch> (3f937cf3db466093c533efbcd601952509727a9d)
 		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v4.1-rockchip-socfixes2
+	patch
+		MAINTAINERS: ARM: EXYNOS: Add Krzysztof Kozlowski as co-maintainer
+	<no branch> (31c17ac98fc005c0998f890094eb8fe17061e667)
+		git://git.infradead.org/linux-mvebu tags/mvebu-fixes-4.1-2
+	<no branch> (c1f0ecff492ea7c804fe543267f673eaac12259c)
+		git://git.kernel.org/pub/scm/linux/kernel/git/kgene/linux-samsung tags/samsung-fixes-2
 
 next/cleanup
 	patch
@@ -31,6 +37,10 @@ next/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_updates_for_v4.2
 	tegra/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-soc
+	rpi/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-soc-for-armsoc-v4.2
+	pxa/soc
+		https://github.com/rjarzmik/linux tags/pxa-for-4.2
 
 next/dt
 	patch
@@ -56,6 +66,20 @@ next/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_for_v4.2_part_2
 	tegra/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-dt
+	broadcom/dts
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/dts
+	pxa/dt
+		https://github.com/rjarzmik/linux tags/pxa-dt-4.2
+	renesas/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-dt-for-v4.2
+	patch
+		ARM: ux500: add SCU and WD to device tree
+	rpi/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-dt-for-armsoc-v4.2
+	sti/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-dt-for-v4.2-2
+	<no branch> (973ed08377f6d61dd4e9fd62207737c8ec0d49e9)
+		git://git.infradead.org/linux-mvebu tags/mvebu-dt-4.2
 
 next/defconfig
 	patch
@@ -73,6 +97,8 @@ next/defconfig
 		ARM: ux500: enable CoreSight in defconfig
 	tegra/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-defconfig
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig-for-v4.2
 
 next/drivers
 	drivers/simple-mfd
