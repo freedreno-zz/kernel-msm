@@ -1,31 +1,11 @@
-fixes
-	<no branch> (a4b6916cb3578b05f30ef520cd6deb7f8fd97dda)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.1-fixes-for-rc3
-	patch
-		ARM: Gemini: Maintainers update
-		ARM64: juno: add sp810 support and fix sp804 clock frequency
-		ARM: vexpress/ca9: Add unified-cache property to l2 cache node
-		ARM: vexpress/ca9: Add interrupt-affinity to the PMU node
-		ARM: vexpress/tc2: Add interrupt-affinity to the PMU node
-	<no branch> (e60a8fe1792dcd3aacda0959e0f4865bfefb7bb5)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.1/fixes-rc2
-	patch
-		ARM: gemini: fix compiler warning due wrong data type
-	<no branch> (3f937cf3db466093c533efbcd601952509727a9d)
-		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v4.1-rockchip-socfixes2
-	patch
-		MAINTAINERS: ARM: EXYNOS: Add Krzysztof Kozlowski as co-maintainer
-	<no branch> (31c17ac98fc005c0998f890094eb8fe17061e667)
-		git://git.infradead.org/linux-mvebu tags/mvebu-fixes-4.1-2
-	<no branch> (c1f0ecff492ea7c804fe543267f673eaac12259c)
-		git://git.kernel.org/pub/scm/linux/kernel/git/kgene/linux-samsung tags/samsung-fixes-2
-
 next/cleanup
 	patch
 		arm64: dts: kill skeleton.dtsi
 		ARM: ux500: get rid of static maps
 	tegra/cleanup
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-cleanup
+	<no branch> (1da4d13912e773523ef095fa05704d6962babe90)
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-stericsson tags/ux500-cleanup-v4.2
 
 next/soc
 	patch
@@ -49,6 +29,19 @@ next/soc
 		ARM: zx: enable SMP and hotplug for zx296702
 		MAINTAINERS: add entry for ARM ZTE architecture
 		MAINTAINERS: Add entry for STM32 MCUs
+		MAINTAINERS: Add entry for NXP LPC18xx/43xx MCUs
+		ARM: lpc18xx: define low-level debug symbol for LPC18xx/43xx
+		ARM: uniphier: only select TWD for SMP
+	<no branch> (ef6ca1a84a3da9bf45d31399090153e00fc6cd68)
+		https://github.com/Xilinx/linux-xlnx tags/zynq-soc-for-4.2
+	<no branch> (5009a289ccb58b35425a9bc06e4f071e5ff27038)
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/maintainers
+	depends/irq-for-arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip irq/for-arm
+	patch
+		ARM: unify MMU/!MMU addruart calls
+		ARM: introduce ARM_SINGLE_ARMV7M for ARMv7-M platforms
+		ARM: vf610: enable Cortex-M4 configuration on Vybrid SoC
 
 next/dt
 	patch
@@ -93,6 +86,12 @@ next/dt
 		ARM: dts: Add base DT for NXP LPC18xx
 		ARM: dts: Add DT for Embedded Artists LPC4357 Developers Kit
 		ARM: dts: Add DT for Hitex LPC4350 Evaluation Board
+	<no branch> (8d545f32bd77c10c2ab85fce4ddf1273d325d7d3)
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt2
+	berlin/dt
+		git://git.infradead.org/users/hesselba/linux-berlin tags/berlin-dt-4.2-1
+	patch
+		ARM: dts: add support for Vybrid running on Cortex-M4
 
 next/defconfig
 	patch
@@ -116,6 +115,12 @@ next/defconfig
 		ARM: lpc18xx: add kernel config
 		ARM: zx: Add basic defconfig support for ZX296702
 		ARM: configs: Add STM32 defconfig
+		ARM: xz: do not try to use a ramdisk in defconfig
+		ARM: stm32: do not try to use a ramdisk in defconfig
+	<no branch> (822cfdfb9511c2658a10a21b0323144c632aa08c)
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-defconfig
+	patch
+		ARM: vf610m4: add defconfig for Linux on Vybrids Cortex-M4
 
 next/drivers
 	drivers/simple-mfd
@@ -130,5 +135,7 @@ next/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-emc
 	patch
 		bus: arm-ccn: Use hrtimer_start() again
+	berlin/simplemfd
+		git://git.infradead.org/users/hesselba/linux-berlin tags/berlin-simple-mfd-4.2-1
 
 
