@@ -3063,8 +3063,6 @@ int num_ioctls;</synopsis>
   drm_helper_connector_dpms() in reaction to fbdev blanking events. Do drivers
   that don't implement (or just don't use) fbcon compatibility need to call
   those functions themselves?
-- KMS drivers must call drm_vblank_pre_modeset() and drm_vblank_post_modeset()
-  around mode setting. Should this be done in the DRM core?
 - vblank_disable_allowed is set to 1 in the first drm_vblank_post_modeset()
   call and never set back to 0. It seems to be safe to permanently set it to 1
   in drm_vblank_init() for KMS driver, and it might be safe for UMS drivers as
