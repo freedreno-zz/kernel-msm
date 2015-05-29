@@ -5,6 +5,12 @@ fixes
 		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.1/fixes-rc4
 	patch
 		ARM: pxa: pxa_cplds: signedness bug in probe
+	samsung/fixes-3
+		git://git.kernel.org/pub/scm/linux/kernel/git/kgene/linux-samsung tags/samsung-fixes-3
+	imx/fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-4.1-3
+	patch
+		ARM: multi_v7_defconfig: Replace CONFIG_USB_ISP1760_HCD by CONFIG_USB_ISP1760
 
 next/cleanup
 	patch
@@ -18,6 +24,8 @@ next/cleanup
 		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/clean
 	at91/cleanup
 		git://git.kernel.org/pub/scm/linux/kernel/git/abelloni/linux tags/at91-cleanup
+	<no branch> (6a53bc750004fdab11494e9e6c864b4a425fc1a1)
+		git://ftp.arm.linux.org.uk/~rmk/linux-arm for-arm-soc
 
 next/soc
 	patch
@@ -61,6 +69,8 @@ next/soc
 	patch
 		ARM: zx: fix building with CONFIG_THUMB2_KERNEL
 		ARM: use ARM_SINGLE_ARMV7M for ARMv7-M platforms
+	renesas/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-soc-for-v4.2
 
 next/dt
 	patch
@@ -115,8 +125,21 @@ next/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v4.2-rockchip-dts2
 	at91/dt3
 		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt3
-	juno/dt
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/dt-pt1
+	qcom/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-dt-for-4.2
+	mediatek/dts
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-dts
+	zynq/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynq-dt-for-4.2
+	renesas/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-dt2-for-v4.2
+	qcom/arm64
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-arm64-for-4.2
+	<no branch> (41275490f7479be6a32a7b019ec13f3b4ff8c232)
 		git://linux-arm.org/linux-ld for-upstream/juno-dts
+		contains juno/dt
 
 next/defconfig
 	patch
@@ -160,6 +183,14 @@ next/defconfig
 		ARM: multi_v7_defconfig: Enable PMIC and MUIC drivers for exynos
 		ARM: multi_v7_defconfig: Enable TMU for exynos SoCs
 		ARM: multi_v7_defconfig: Enable OHCI on exynos SoCs
+	qcom/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-defconfig-for-4.2
+	patch
+		ARM: multi_v7_defconfig: Make sound support modular
+		ARM: multi_v7_defconfig: Make media support modular
+		ARM: lpc18xx: remove DEBUG_LL_UART_8250 from defconfig
+	renesas/defconfig2
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig2-for-v4.2
 
 next/drivers
 	drivers/simple-mfd
@@ -176,4 +207,16 @@ next/drivers
 		bus: arm-ccn: Use hrtimer_start() again
 	berlin/simplemfd
 		git://git.infradead.org/users/hesselba/linux-berlin tags/berlin-simple-mfd-4.2-1
+	mediatek/soc
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-soc
+	patch
+		arm-cci: Do not enable CCI-400 PMU by default
+		arm-cci: Cleanup PMU driver code
+		arm-cci: Abstract out the PMU counter details
+		arm-cci: Abstract handling for CCI events
+		arm-cci: Sanitise CCI400 PMU driver specific code
+		arm-cci: Add CCI-500 PMU support
+		arm-cci: Add aliases for PMU events
+	qcom/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-soc-for-4.2-1
 
