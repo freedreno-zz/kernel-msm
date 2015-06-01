@@ -1,16 +1,12 @@
 fixes
-	<no branch> (e46b5a6470a5e2c8e1096f8f60887ac19949055b)
-		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-4.1-2
-	<no branch> (f25bf74c8862efdc30453d16d60cf22958a4873e)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.1/fixes-rc4
-	patch
-		ARM: pxa: pxa_cplds: signedness bug in probe
-	samsung/fixes-3
-		git://git.kernel.org/pub/scm/linux/kernel/git/kgene/linux-samsung tags/samsung-fixes-3
-	imx/fixes
-		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-4.1-3
-	patch
-		ARM: multi_v7_defconfig: Replace CONFIG_USB_ISP1760_HCD by CONFIG_USB_ISP1760
+	mediatek/soc
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-soc
+	<no branch> (885dbd154b2f2ee305cec6fd0a162e1a77ae2b06)
+		git://git.infradead.org/linux-mvebu tags/mvebu-fixes-4.1-3
+	<no branch> (fe931229c61c04e0a7906c4ebef9623a4538a5ab)
+		https://github.com/krzk/linux tags/samsung-fixes-4.1-4
+	<no branch> (692ef3ee36833b6098a352c079d3cea8fc6ed3ef)
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-arm64-fixes
 
 next/cleanup
 	patch
@@ -24,8 +20,10 @@ next/cleanup
 		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/clean
 	at91/cleanup
 		git://git.kernel.org/pub/scm/linux/kernel/git/abelloni/linux tags/at91-cleanup
-	<no branch> (6a53bc750004fdab11494e9e6c864b4a425fc1a1)
+	rmk/for-arm-soc
 		git://ftp.arm.linux.org.uk/~rmk/linux-arm for-arm-soc
+	imx/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-cleanup-4.2
 
 next/soc
 	patch
@@ -71,6 +69,10 @@ next/soc
 		ARM: use ARM_SINGLE_ARMV7M for ARMv7-M platforms
 	renesas/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-soc-for-v4.2
+	bcm/soc
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/soc-part2
+	patch
+		ARM: Kconfig: Select clocksource in STM32 entry
 
 next/dt
 	patch
@@ -137,9 +139,17 @@ next/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-dt2-for-v4.2
 	qcom/arm64
 		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-arm64-for-4.2
-	<no branch> (41275490f7479be6a32a7b019ec13f3b4ff8c232)
+	junu/dt2
 		git://linux-arm.org/linux-ld for-upstream/juno-dts
 		contains juno/dt
+	mvebu/dt2
+		git://git.infradead.org/linux-mvebu tags/mvebu-dt-4.2-2
+	bcm/dts-fixes
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/dts-fixes
+	mediatek/arm64-2
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-arm64
+	ux500/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-stericsson tags/dt-for-armsoc
 
 next/defconfig
 	patch
@@ -191,6 +201,8 @@ next/defconfig
 		ARM: lpc18xx: remove DEBUG_LL_UART_8250 from defconfig
 	renesas/defconfig2
 		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig2-for-v4.2
+	imx/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-4.2
 
 next/drivers
 	drivers/simple-mfd
@@ -219,4 +231,7 @@ next/drivers
 		arm-cci: Add aliases for PMU events
 	qcom/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-soc-for-4.2-1
-
+	mvebu/drivers
+		git://git.infradead.org/linux-mvebu tags/mvebu-drivers-4.2
+	patch
+		drivers: soc: sunxi: Introduce SoC driver to map SRAMs
