@@ -1,7 +1,6 @@
 /*
- * Copyright 2014 Chen-Yu Tsai
- *
- * Chen-Yu Tsai <wens@csie.org>
+ * Copyright 2015 Vishnu Patekar
+ * Vishnu Patekar <vishnupatekar0510@gmail.com>
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -42,27 +41,48 @@
  *     OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "sun8i-a23-a33.dtsi"
+/dts-v1/;
+#include "sun8i-a33.dtsi"
+#include "sunxi-common-regulators.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/pinctrl/sun4i-a10.h>
 
 / {
-	memory {
-		reg = <0x40000000 0x40000000>;
+	model = "ET Q8 Quad Core Tablet (v1.6)";
+	compatible = "et,q8-v1.6", "allwinner,sun8i-a33";
+
+	aliases {
+		serial0 = &uart0;
 	};
 
-	clocks {
-		mbus_clk: clk@01c2015c {
-			#clock-cells = <0>;
-			compatible = "allwinner,sun8i-a23-mbus-clk";
-			reg = <0x01c2015c 0x4>;
-			clocks = <&osc24M>, <&pll6 1>, <&pll5>;
-			clock-output-names = "mbus";
-		};
+	chosen {
+		stdout-path = "serial0:115200n8";
 	};
 };
 
-&pio {
-	compatible = "allwinner,sun8i-a23-pinctrl";
-	interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+&lradc {
+	vref-supply = <&reg_vcc3v0>;
+	status = "okay";
+
+	button@200 {
+		label = "Volume Up";
+		linux,code = <KEY_VOLUMEUP>;
+		channel = <0>;
+		voltage = <200000>;
+	};
+
+	button@400 {
+		label = "Volume Down";
+		linux,code = <KEY_VOLUMEDOWN>;
+		channel = <0>;
+		voltage = <400000>;
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins_a>;
+	status = "okay";
 };
