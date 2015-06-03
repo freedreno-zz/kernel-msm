@@ -1,5 +1,7 @@
 /*
- * Copyright 2014 Hans de Goede <hdegoede@redhat.com>
+ * Copyright 2015 Chen-Yu Tsai
+ *
+ * Chen-Yu Tsai <wens@csie.org>
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -41,15 +43,16 @@
  */
 
 /dts-v1/;
-#include "sun6i-a31.dtsi"
+#include "sun8i-a33.dtsi"
 #include "sunxi-common-regulators.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include <dt-bindings/pinctrl/sun4i-a10.h>
 
 / {
-	model = "Mele M9 top set box";
-	compatible = "mele,m9", "allwinner,sun6i-a31";
+	model = "Sinlinx SinA33";
+	compatible = "sinlinx,sina33", "allwinner,sun8i-a33";
 
 	aliases {
 		serial0 = &uart0;
@@ -58,92 +61,69 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+};
 
-	leds {
-		compatible = "gpio-leds";
-		pinctrl-names = "default";
-		pinctrl-0 = <&led_pins_m9>;
+&lradc {
+	vref-supply = <&reg_vcc3v0>;
+	status = "okay";
 
-		blue {
-			label = "m9:blue:usr";
-			gpios = <&pio 7 13 GPIO_ACTIVE_HIGH>;
-		};
+	button@200 {
+		label = "Volume Up";
+		linux,code = <KEY_VOLUMEUP>;
+		channel = <0>;
+		voltage = <191011>;
 	};
-};
 
-&ehci0 {
-	status = "okay";
-};
-
-&ehci1 {
-	status = "okay";
-};
-
-&gmac {
-	pinctrl-names = "default";
-	pinctrl-0 = <&gmac_pins_mii_a>;
-	phy = <&phy1>;
-	phy-mode = "mii";
-	status = "okay";
-
-	phy1: ethernet-phy@1 {
-		reg = <1>;
+	button@400 {
+		label = "Volume Down";
+		linux,code = <KEY_VOLUMEDOWN>;
+		channel = <0>;
+		voltage = <391304>;
 	};
-};
 
-&ir {
-	pinctrl-names = "default";
-	pinctrl-0 = <&ir_pins_a>;
-	status = "okay";
+	button@600 {
+		label = "Home";
+		linux,code = <KEY_HOME>;
+		channel = <0>;
+		voltage = <600000>;
+	};
 };
 
 &mmc0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin_m9>;
-	vmmc-supply = <&reg_vcc3v3>;
+	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin_sina33>;
+	vmmc-supply = <&reg_vcc3v0>;
 	bus-width = <4>;
-	cd-gpios = <&pio 7 22 GPIO_ACTIVE_HIGH>; /* PH22 */
+	cd-gpios = <&pio 1 4 GPIO_ACTIVE_HIGH>; /* PB4 */
 	cd-inverted;
 	status = "okay";
 };
 
-&pio {
-	led_pins_m9: led_pins@0 {
-		allwinner,pins = "PH13";
-		allwinner,function = "gpio_out";
-		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
-		allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
-	};
+&mmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_8bit_pins>;
+	vmmc-supply = <&reg_vcc3v0>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
 
-	mmc0_cd_pin_m9: mmc0_cd_pin@0 {
-		allwinner,pins = "PH22";
+&mmc2_8bit_pins {
+	/* eMMC is missing pull-ups */
+	allwinner,pull = <SUN4I_PINCTRL_PULL_UP>;
+};
+
+&pio {
+	mmc0_cd_pin_sina33: mmc0_cd_pin@0 {
+		allwinner,pins = "PB4";
 		allwinner,function = "gpio_in";
 		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
 		allwinner,pull = <SUN4I_PINCTRL_PULL_UP>;
 	};
-
-	usb1_vbus_pin_m9: usb1_vbus_pin@0 {
-		allwinner,pins = "PC27";
-		allwinner,function = "gpio_out";
-		allwinner,drive = <SUN4I_PINCTRL_10_MA>;
-		allwinner,pull = <SUN4I_PINCTRL_NO_PULL>;
-	};
-};
-
-&reg_usb1_vbus {
-	pinctrl-names = "default";
-	pinctrl-0 = <&usb1_vbus_pin_m9>;
-	gpio = <&pio 2 27 GPIO_ACTIVE_HIGH>;
-	status = "okay";
 };
 
 &uart0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pins_a>;
-	status = "okay";
-};
-
-&usbphy {
-	usb1_vbus-supply = <&reg_usb1_vbus>;
+	pinctrl-0 = <&uart0_pins_b>;
 	status = "okay";
 };
