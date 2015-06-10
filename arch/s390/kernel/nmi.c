@@ -157,8 +157,10 @@ static int notrace s390_revalidate_registers(struct mci *mci)
 			 */
 			kill_task = 1;
 		}
-		restore_vx_regs((__vector128 *)
-				S390_lowcore.vector_save_area_addr);
+		memcpy(current->thread.fpu.vxrs,
+		       (void *)S390_lowcore.vector_save_area_addr,
+		       __NUM_VXRS * sizeof(__vector128));
+		set_cpu_flag(CIF_FPU);
 	}
 	/* Revalidate access registers */
 	asm volatile(
