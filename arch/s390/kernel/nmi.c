@@ -21,6 +21,7 @@
 #include <asm/nmi.h>
 #include <asm/crw.h>
 #include <asm/switch_to.h>
+#include <asm/fpu-internal.h>
 
 struct mcck_struct {
 	int kill_task;
@@ -148,7 +149,7 @@ static int notrace s390_revalidate_registers(struct mci *mci)
 		"	ld	15,120(%0)\n"
 		: : "a" (fpt_save_area));
 	/* Revalidate vector registers */
-	if (MACHINE_HAS_VX && current->thread.vxrs) {
+	if (MACHINE_HAS_VX && is_vx_task(current)) {
 		if (!mci->vr) {
 			/*
 			 * Vector registers can't be restored and therefore
