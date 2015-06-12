@@ -33,8 +33,3 @@ ARM_BE8(rev	r4, r4)
 1:	.long	.
 	.long	socfpga_cpu1start_addr
 ENTRY(secondary_trampoline_end)
-
-ENTRY(socfpga_secondary_startup)
-       bl      v7_invalidate_l1
-       b       secondary_startup
-ENDPROC(socfpga_secondary_startup)
