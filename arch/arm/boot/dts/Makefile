@@ -31,6 +31,7 @@ dtb-$(CONFIG_SOC_SAM_V4_V5) += \
 	at91sam9n12ek.dtb \
 	at91sam9rlek.dtb \
 	at91-ariag25.dtb \
+	at91-ariettag25.dtb \
 	at91-cosino_mega2560.dtb \
 	at91-kizboxmini.dtb \
 	at91sam9g15ek.dtb \
@@ -68,6 +69,7 @@ dtb-$(CONFIG_ARCH_BCM_5301X) += \
 	bcm47081-asus-rt-n18u.dtb \
 	bcm47081-buffalo-wzr-600dhp2.dtb \
 	bcm47081-buffalo-wzr-900dhp.dtb \
+	bcm4709-asus-rt-ac87u.dtb \
 	bcm4709-buffalo-wxr-1900dhp.dtb \
 	bcm4709-netgear-r8000.dtb
 dtb-$(CONFIG_ARCH_BCM_63XX) += \
@@ -119,6 +121,7 @@ dtb-$(CONFIG_ARCH_EXYNOS5) += \
 	exynos5420-peach-pit.dtb \
 	exynos5420-smdk5420.dtb \
 	exynos5422-odroidxu3.dtb \
+	exynos5422-odroidxu3-lite.dtb \
 	exynos5440-sd5v1.dtb \
 	exynos5440-ssdk5440.dtb \
 	exynos5800-peach-pi.dtb
@@ -263,14 +266,18 @@ dtb-$(CONFIG_SOC_IMX53) += \
 	imx53-tx53-x13x.dtb \
 	imx53-voipac-bsb.dtb
 dtb-$(CONFIG_SOC_IMX6Q) += \
+	imx6dl-apf6dev.dtb \
 	imx6dl-aristainetos_4.dtb \
 	imx6dl-aristainetos_7.dtb \
+	imx6dl-aristainetos2_4.dtb \
+	imx6dl-aristainetos2_7.dtb \
 	imx6dl-cubox-i.dtb \
 	imx6dl-dfi-fs700-m60.dtb \
 	imx6dl-gw51xx.dtb \
 	imx6dl-gw52xx.dtb \
 	imx6dl-gw53xx.dtb \
 	imx6dl-gw54xx.dtb \
+	imx6dl-gw551x.dtb \
 	imx6dl-gw552x.dtb \
 	imx6dl-hummingboard.dtb \
 	imx6dl-nitrogen6x.dtb \
@@ -286,6 +293,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-udoo.dtb \
 	imx6dl-wandboard.dtb \
 	imx6dl-wandboard-revb1.dtb \
+	imx6q-apf6dev.dtb \
 	imx6q-arm2.dtb \
 	imx6q-cm-fx6.dtb \
 	imx6q-cubox-i.dtb \
@@ -297,6 +305,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-gw53xx.dtb \
 	imx6q-gw5400-a.dtb \
 	imx6q-gw54xx.dtb \
+	imx6q-gw551x.dtb \
 	imx6q-gw552x.dtb \
 	imx6q-hummingboard.dtb \
 	imx6q-nitrogen6x.dtb \
@@ -322,6 +331,8 @@ dtb-$(CONFIG_SOC_IMX6SX) += \
 	imx6sx-sabreauto.dtb \
 	imx6sx-sdb-reva.dtb \
 	imx6sx-sdb.dtb
+dtb-$(CONFIG_SOC_IMX7D) += \
+	imx7d-sdb.dtb
 dtb-$(CONFIG_SOC_LS1021A) += \
 	ls1021a-qds.dtb \
 	ls1021a-twr.dtb
@@ -421,6 +432,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-sl50.dtb \
 	am335x-evm.dtb \
 	am335x-evmsk.dtb \
 	am335x-nano.dtb \
@@ -532,6 +544,7 @@ dtb-$(CONFIG_ARCH_STI) += \
 	stih416-b2020.dtb \
 	stih416-b2020e.dtb \
 	stih418-b2199.dtb
+dtb-$(CONFIG_ARCH_STM32)+= stm32f429-disco.dtb
 dtb-$(CONFIG_MACH_SUN4I) += \
 	sun4i-a10-a1000.dtb \
 	sun4i-a10-ba10-tvbox.dtb \
@@ -563,6 +576,7 @@ dtb-$(CONFIG_MACH_SUN6I) += \
 	sun6i-a31-hummingbird.dtb \
 	sun6i-a31-i7.dtb \
 	sun6i-a31-m9.dtb \
+	sun6i-a31-mele-a1000g-quad.dtb \
 	sun6i-a31s-cs908.dtb
 dtb-$(CONFIG_MACH_SUN7I) += \
 	sun7i-a20-bananapi.dtb \
@@ -582,8 +596,12 @@ dtb-$(CONFIG_MACH_SUN7I) += \
 	sun7i-a20-pcduino3-nano.dtb \
 	sun7i-a20-wexler-tab7200.dtb
 dtb-$(CONFIG_MACH_SUN8I) += \
+	sun8i-a23-evb.dtb \
 	sun8i-a23-ippo-q8h-v5.dtb \
-	sun8i-a23-ippo-q8h-v1.2.dtb
+	sun8i-a23-ippo-q8h-v1.2.dtb \
+	sun8i-a33-et-q8-v1.6.dtb \
+	sun8i-a33-ga10h-v1.1.dtb \
+	sun8i-a33-sinlinx-sina33.dtb
 dtb-$(CONFIG_MACH_SUN9I) += \
 	sun9i-a80-optimus.dtb \
 	sun9i-a80-cubieboard4.dtb

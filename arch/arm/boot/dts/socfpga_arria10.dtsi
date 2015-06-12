@@ -24,6 +24,7 @@
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		enable-method = "altr,socfpga-a10-smp";
 
 		cpu@0 {
 			compatible = "arm,cortex-a9";
@@ -396,6 +397,7 @@
 
 		gmac0: ethernet@ff800000 {
 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.72a", "snps,dwmac";
+			altr,sysmgr-syscon = <&sysmgr 0x44 0>;
 			reg = <0xff800000 0x2000>;
 			interrupts = <0 92 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
@@ -403,11 +405,16 @@
 			mac-address = [00 00 00 00 00 00];
 			snps,multicast-filter-bins = <256>;
 			snps,perfect-filter-entries = <128>;
+			tx-fifo-depth = <4096>;
+			rx-fifo-depth = <16384>;
+			clocks = <&l4_mp_clk>;
+			clock-names = "stmmaceth";
 			status = "disabled";
 		};
 
 		gmac1: ethernet@ff802000 {
 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.72a", "snps,dwmac";
+			altr,sysmgr-syscon = <&sysmgr 0x48 0>;
 		        reg = <0xff802000 0x2000>;
 			interrupts = <0 93 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
@@ -417,11 +424,14 @@
 			snps,perfect-filter-entries = <128>;
 			tx-fifo-depth = <4096>;
 			rx-fifo-depth = <16384>;
+			clocks = <&l4_mp_clk>;
+			clock-names = "stmmaceth";
 			status = "disabled";
 		};
 
 		gmac2: ethernet@ff804000 {
 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.72a", "snps,dwmac";
+			altr,sysmgr-syscon = <&sysmgr 0x4C 0>;
 			reg = <0xff804000 0x2000>;
 			interrupts = <0 94 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
@@ -431,6 +441,8 @@
 			snps,perfect-filter-entries = <128>;
 			tx-fifo-depth = <4096>;
 			rx-fifo-depth = <16384>;
+			clocks = <&l4_mp_clk>;
+			clock-names = "stmmaceth";
 			status = "disabled";
 		};
 
@@ -565,6 +577,11 @@
 			#reset-cells = <1>;
 			compatible = "altr,rst-mgr";
 			reg = <0xffd05000 0x100>;
+		};
+
+		scu: snoop-control-unit@ffffc000 {
+			compatible = "arm,cortex-a9-scu";
+			reg = <0xffffc000 0x100>;
 		};
 
 		sysmgr: sysmgr@ffd06000 {
