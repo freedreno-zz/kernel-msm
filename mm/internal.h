@@ -388,10 +388,14 @@ static inline void mminit_verify_zonelist(void)
 #endif /* CONFIG_DEBUG_MEMORY_INIT */
 
 /*
- * Deferred struct page initialisation requires some early init functions that
- * are removed before kswapd is up and running. The feature depends on memory
- * hotplug so put the data and code required by deferred initialisation into
- * the __meminit section where they are preserved.
+ * Deferred struct page initialisation requires init functions that are freed
+ * before kswapd is available. Reuse the memory hotplug section annotation
+ * to mark the required code.
+ *
+ * __defermem_init is code that always exists but is annotated __meminit to
+ * 	avoid section warnings.
+ * __defer_init code gets marked __meminit when deferring struct page
+ *	initialistion but is otherwise in the init section.
  */
 #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
 #define __defermem_init __meminit
