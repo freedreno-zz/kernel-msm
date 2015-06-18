@@ -3,6 +3,7 @@
 #include <linux/err.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/pagemap.h>
 #include <linux/sched.h>
 
