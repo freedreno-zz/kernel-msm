@@ -18,6 +18,7 @@
 #include <linux/mm.h>
 #include <linux/swap.h>
 #include <linux/interrupt.h>
+#include <linux/rwsem.h>
 #include <linux/pagemap.h>
 #include <linux/jiffies.h>
 #include <linux/bootmem.h>
@@ -1075,12 +1076,12 @@ static void __init deferred_free_range(struct page *page,
 		__free_pages_boot_core(page, pfn, 0);
 }
 
-static struct rw_semaphore __initdata pgdat_init_rwsem;
+static __initdata DECLARE_RWSEM(pgdat_init_rwsem);
 
 /* Initialise remaining memory on a node */
 static int __init deferred_init_memmap(void *data)
 {
-	pg_data_t *pgdat = (pg_data_t *)data;
+	pg_data_t *pgdat = data;
 	int nid = pgdat->node_id;
 	struct mminit_pfnnid_cache nid_init_state = { };
 	unsigned long start = jiffies;
@@ -1096,7 +1097,7 @@ static int __init deferred_init_memmap(void *data)
 		return 0;
 	}
 
-	/* Bound memory initialisation to a local node if possible */
+	/* Bind memory initialisation thread to a local node if possible */
 	if (!cpumask_empty(cpumask))
 		set_cpus_allowed_ptr(current, cpumask);
 
@@ -1200,7 +1201,6 @@ void __init page_alloc_init_late(void)
 {
 	int nid;
 
-	init_rwsem(&pgdat_init_rwsem);
 	for_each_node_state(nid, N_MEMORY) {
 		down_read(&pgdat_init_rwsem);
 		kthread_run(deferred_init_memmap, NODE_DATA(nid), "pgdatinit%d", nid);
