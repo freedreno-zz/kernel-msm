@@ -218,7 +218,8 @@ static ssize_t proc_pid_cmdline_read(struct file *file, char __user *buf,
 	put_task_struct(tsk);
 	if (!mm)
 		return 0;
-	if (!mm->arg_end) {
+	/* Check if process spawned far enough to have cmdline. */
+	if (!mm->env_end) {
 		rv = 0;
 		goto out_mmput;
 	}
