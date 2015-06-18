@@ -197,11 +197,12 @@ static int proc_root_link(struct dentry *dentry, struct path *path)
 }
 
 static ssize_t proc_pid_cmdline_read(struct file *file, char __user *buf,
-				     size_t count, loff_t *pos)
+				     size_t _count, loff_t *pos)
 {
 	struct task_struct *tsk;
 	struct mm_struct *mm;
 	char *page;
+	unsigned long count = _count;
 	unsigned long arg_start, arg_end, env_start, env_end;
 	unsigned long len1, len2, len;
 	unsigned long p;
