@@ -1171,24 +1171,18 @@ static int scan_should_stop(void)
  * found to the gray list.
  */
 static void scan_block(void *_start, void *_end,
-		       struct kmemleak_object *scanned, int allow_resched)
+		       struct kmemleak_object *scanned)
 {
 	unsigned long *ptr;
 	unsigned long *start = PTR_ALIGN(_start, BYTES_PER_POINTER);
 	unsigned long *end = _end - (BYTES_PER_POINTER - 1);
-	unsigned long klflags;
+	unsigned long flags;
 
-	read_lock_irqsave(&kmemleak_lock, klflags);
+	read_lock_irqsave(&kmemleak_lock, flags);
 	for (ptr = start; ptr < end; ptr++) {
 		struct kmemleak_object *object;
-		unsigned long flags;
 		unsigned long pointer;
 
-		if (allow_resched && need_resched()) {
-			read_unlock_irqrestore(&kmemleak_lock, klflags);
-			cond_resched();
-			read_lock_irqsave(&kmemleak_lock, klflags);
-		}
 		if (scan_should_stop())
 			break;
 
@@ -1222,11 +1216,10 @@ static void scan_block(void *_start, void *_end,
 		 * previously acquired in scan_object(). These locks are
 		 * enclosed by scan_mutex.
 		 */
-		spin_lock_irqsave_nested(&object->lock, flags,
-					 SINGLE_DEPTH_NESTING);
+		spin_lock_nested(&object->lock, SINGLE_DEPTH_NESTING);
 		if (!color_white(object)) {
 			/* non-orphan, ignored or new */
-			spin_unlock_irqrestore(&object->lock, flags);
+			spin_unlock(&object->lock);
 			continue;
 		}
 
@@ -1241,13 +1234,25 @@ static void scan_block(void *_start, void *_end,
 			/* put_object() called when removing from gray_list */
 			WARN_ON(!get_object(object));
 			list_add_tail(&object->gray_list, &gray_list);
-			spin_unlock_irqrestore(&object->lock, flags);
-			continue;
 		}
-
-		spin_unlock_irqrestore(&object->lock, flags);
+		spin_unlock(&object->lock);
 	}
-	read_unlock_irqrestore(&kmemleak_lock, klflags);
+	read_unlock_irqrestore(&kmemleak_lock, flags);
+}
+
+/*
+ * Scan a large memory block in MAX_SCAN_SIZE chunks to reduce the latency.
+ */
+static void scan_large_block(void *start, void *end)
+{
+	void *next;
+
+	while (start < end) {
+		next = min(start + MAX_SCAN_SIZE, end);
+		scan_block(start, next, NULL);
+		start = next;
+		cond_resched();
+	}
 }
 
 /*
@@ -1272,22 +1277,25 @@ static void scan_object(struct kmemleak_object *object)
 	if (hlist_empty(&object->area_list)) {
 		void *start = (void *)object->pointer;
 		void *end = (void *)(object->pointer + object->size);
+		void *next;
 
-		while (start < end && (object->flags & OBJECT_ALLOCATED) &&
-		       !(object->flags & OBJECT_NO_SCAN)) {
-			scan_block(start, min(start + MAX_SCAN_SIZE, end),
-				   object, 0);
-			start += MAX_SCAN_SIZE;
+		do {
+			next = min(start + MAX_SCAN_SIZE, end);
+			scan_block(start, next, object);
+
+			start = next;
+			if (start >= end)
+				break;
 
 			spin_unlock_irqrestore(&object->lock, flags);
 			cond_resched();
 			spin_lock_irqsave(&object->lock, flags);
-		}
+		} while (object->flags & OBJECT_ALLOCATED);
 	} else
 		hlist_for_each_entry(area, &object->area_list, node)
 			scan_block((void *)area->start,
 				   (void *)(area->start + area->size),
-				   object, 0);
+				   object);
 out:
 	spin_unlock_irqrestore(&object->lock, flags);
 }
@@ -1364,14 +1372,14 @@ static void kmemleak_scan(void)
 	rcu_read_unlock();
 
 	/* data/bss scanning */
-	scan_block(_sdata, _edata, NULL, 1);
-	scan_block(__bss_start, __bss_stop, NULL, 1);
+	scan_large_block(_sdata, _edata);
+	scan_large_block(__bss_start, __bss_stop);
 
 #ifdef CONFIG_SMP
 	/* per-cpu sections scanning */
 	for_each_possible_cpu(i)
-		scan_block(__per_cpu_start + per_cpu_offset(i),
-			   __per_cpu_end + per_cpu_offset(i), NULL, 1);
+		scan_large_block(__per_cpu_start + per_cpu_offset(i),
+				 __per_cpu_end + per_cpu_offset(i));
 #endif
 
 	/*
@@ -1392,7 +1400,7 @@ static void kmemleak_scan(void)
 			/* only scan if page is in use */
 			if (page_count(page) == 0)
 				continue;
-			scan_block(page, page + 1, NULL, 1);
+			scan_block(page, page + 1, NULL);
 		}
 	}
 	put_online_mems();
@@ -1406,7 +1414,7 @@ static void kmemleak_scan(void)
 		read_lock(&tasklist_lock);
 		do_each_thread(g, p) {
 			scan_block(task_stack_page(p), task_stack_page(p) +
-				   THREAD_SIZE, NULL, 0);
+				   THREAD_SIZE, NULL);
 		} while_each_thread(g, p);
 		read_unlock(&tasklist_lock);
 	}
