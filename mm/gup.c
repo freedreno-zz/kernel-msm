@@ -1155,10 +1155,7 @@ void frame_vector_destroy(struct frame_vector *vec)
 {
 	/* Make sure put_vaddr_frames() got called properly... */
 	VM_BUG_ON(vec->nr_frames > 0);
-	if (!is_vmalloc_addr(vec))
-		kfree(vec);
-	else
-		vfree(vec);
+	kvfree(vec);
 }
 EXPORT_SYMBOL(frame_vector_destroy);
 
