@@ -232,7 +232,7 @@ void smpboot_unpark_threads(unsigned int cpu)
 
 	mutex_lock(&smpboot_threads_lock);
 	list_for_each_entry(cur, &hotplug_threads, list)
-		if (cpumask_test_cpu(cpu, &cur->cpumask))
+		if (cpumask_test_cpu(cpu, cur->cpumask))
 			smpboot_unpark_thread(cur, cpu);
 	mutex_unlock(&smpboot_threads_lock);
 }
@@ -260,7 +260,7 @@ static void smpboot_destroy_threads(struct smp_hotplug_thread *ht)
 	unsigned int cpu;
 
 	/* Unpark any threads that were voluntarily parked. */
-	for_each_cpu_not(cpu, &ht->cpumask) {
+	for_each_cpu_not(cpu, ht->cpumask) {
 		if (cpu_online(cpu)) {
 			struct task_struct *tsk = *per_cpu_ptr(ht->store, cpu);
 			if (tsk)
@@ -291,7 +291,10 @@ int smpboot_register_percpu_thread(struct smp_hotplug_thread *plug_thread)
 	unsigned int cpu;
 	int ret = 0;
 
-	cpumask_copy(&plug_thread->cpumask, cpu_possible_mask);
+	if (!alloc_cpumask_var(&plug_thread->cpumask, GFP_KERNEL))
+		return -ENOMEM;
+	cpumask_copy(plug_thread->cpumask, cpu_possible_mask);
+
 	get_online_cpus();
 	mutex_lock(&smpboot_threads_lock);
 	for_each_online_cpu(cpu) {
@@ -324,6 +327,7 @@ void smpboot_unregister_percpu_thread(struct smp_hotplug_thread *plug_thread)
 	smpboot_destroy_threads(plug_thread);
 	mutex_unlock(&smpboot_threads_lock);
 	put_online_cpus();
+	free_cpumask_var(plug_thread->cpumask);
 }
 EXPORT_SYMBOL_GPL(smpboot_unregister_percpu_thread);
 
@@ -338,7 +342,7 @@ EXPORT_SYMBOL_GPL(smpboot_unregister_percpu_thread);
 int smpboot_update_cpumask_percpu_thread(struct smp_hotplug_thread *plug_thread,
 					 const struct cpumask *new)
 {
-	struct cpumask *old = &plug_thread->cpumask;
+	struct cpumask *old = plug_thread->cpumask;
 	cpumask_var_t tmp;
 	unsigned int cpu;
 

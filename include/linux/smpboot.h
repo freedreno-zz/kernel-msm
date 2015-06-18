@@ -43,7 +43,7 @@ struct smp_hotplug_thread {
 	void				(*park)(unsigned int cpu);
 	void				(*unpark)(unsigned int cpu);
 	void				(*pre_unpark)(unsigned int cpu);
-	struct cpumask			cpumask;
+	cpumask_var_t			cpumask;
 	bool				selfparking;
 	const char			*thread_comm;
 };
