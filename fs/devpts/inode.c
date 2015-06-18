@@ -689,7 +689,8 @@ static int __init init_devpts_fs(void)
 	struct ctl_table_header *table;
 
 	if (!err) {
-		static struct vfsmount *mnt;
+		struct vfsmount *mnt;
+
 		table = register_sysctl_table(pty_root_table);
 		mnt = kern_mount(&devpts_fs_type);
 		if (IS_ERR(mnt)) {
