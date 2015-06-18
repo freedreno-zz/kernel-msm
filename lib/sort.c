@@ -8,6 +8,12 @@
 #include <linux/export.h>
 #include <linux/sort.h>
 
+static int alignment_ok(const void *base, int align)
+{
+	return IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) ||
+		((unsigned long)base & (align - 1)) == 0;
+}
+
 static void u32_swap(void *a, void *b, int size)
 {
 	u32 t = *(u32 *)a;
@@ -58,29 +64,11 @@ void sort(void *base, size_t num, size_t size,
 	int i = (num/2 - 1) * size, n = num * size, c, r;
 
 	if (!swap_func) {
-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-		switch (size) {
-		case 4:
+		if (size == 4 && alignment_ok(base, 4))
 			swap_func = u32_swap;
-			break;
-		case 8:
+		else if (size == 8 && alignment_ok(base, 8))
 			swap_func = u64_swap;
-			break;
-		}
-#else
-		switch (size) {
-		case 4:
-			if (((unsigned long)base & 3) == 0)
-				swap_func = u32_swap;
-			break;
-		case 8:
-			if (((unsigned long)base & 7) == 0)
-				swap_func = u64_swap;
-			break;
-		}
-#endif /* CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS */
-
-		if (!swap_func)
+		else
 			swap_func = generic_swap;
 	}
 
