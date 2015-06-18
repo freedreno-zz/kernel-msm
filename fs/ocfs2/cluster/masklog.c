@@ -90,7 +90,7 @@ void __mlog_printk(const u64 *mask, const char *func, int line,
 	vaf.fmt = fmt;
 	vaf.va = &args;
 
-	printk("%s(%s,%u,%lu):%s:%d %s%pV",
+	printk("%s(%s,%u,%u):%s:%d %s%pV",
 	       level, current->comm, task_pid_nr(current),
 	       raw_smp_processor_id(), func, line, prefix, &vaf);
 
