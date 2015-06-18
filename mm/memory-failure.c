@@ -1129,12 +1129,12 @@ int memory_failure(unsigned long pfn, int trapno, int flags)
 
 	if (!PageHuge(p) && PageTransHuge(hpage)) {
 		if (!PageAnon(hpage)) {
-			pr_info("MCE: %#lx: non anonymous thp", pfn);
+			pr_err("MCE: %#lx: non anonymous thp\n", pfn);
 			put_page(p);
 			return -EBUSY;
 		}
 		if (unlikely(split_huge_page(hpage))) {
-			pr_info("MCE: %#lx: thp split failed", pfn);
+			pr_err("MCE: %#lx: thp split failed\n", pfn);
 			put_page(p);
 			return -EBUSY;
 		}
