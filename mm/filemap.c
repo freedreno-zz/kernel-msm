@@ -196,7 +196,7 @@ void __delete_from_page_cache(struct page *page, void *shadow)
 	page->mapping = NULL;
 	/* Leave page->index set: truncation lookup relies upon it */
 
-	/* hugetlb pages do not participate into page cache accounting. */
+	/* hugetlb pages do not participate in page cache accounting. */
 	if (!PageHuge(page))
 		__dec_zone_page_state(page, NR_FILE_PAGES);
 	if (PageSwapBacked(page))
@@ -487,8 +487,7 @@ int replace_page_cache_page(struct page *old, struct page *new, gfp_t gfp_mask)
 		mapping->nrpages++;
 
 		/*
-		 * hugetlb pages do not participate into page cache
-		 * accounting.
+		 * hugetlb pages do not participate in page cache accounting.
 		 */
 		if (!PageHuge(new))
 			__inc_zone_page_state(new, NR_FILE_PAGES);
@@ -584,7 +583,7 @@ static int __add_to_page_cache_locked(struct page *page,
 	if (unlikely(error))
 		goto err_insert;
 
-	/* hugetlb pages do not participate into page cache accounting. */
+	/* hugetlb pages do not participate in page cache accounting. */
 	if (!huge)
 		__inc_zone_page_state(page, NR_FILE_PAGES);
 	spin_unlock_irq(&mapping->tree_lock);
