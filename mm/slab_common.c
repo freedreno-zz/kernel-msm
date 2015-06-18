@@ -784,14 +784,14 @@ struct kmem_cache *kmalloc_slab(size_t size, gfp_t flags)
 }
 
 /*
- * The kmalloc_names is to make slub_debug=,kmalloc-xx option work in the boot
- * time. The kmalloc_index() support to 2^26=64MB. So, the final entry of the
- * table is kmalloc-67108864.
+ * kmalloc_info[] is to make slub_debug=,kmalloc-xx option work at boot time.
+ * kmalloc_index() supports up to 2^26=64MB, so the final entry of the table is
+ * kmalloc-67108864.
  */
 static struct {
 	const char *name;
 	unsigned long size;
-} const kmalloc_names[] __initconst = {
+} const kmalloc_info[] __initconst = {
 	{NULL,                      0},		{"kmalloc-96",             96},
 	{"kmalloc-192",           192},		{"kmalloc-8",               8},
 	{"kmalloc-16",             16},		{"kmalloc-32",             32},
@@ -861,8 +861,8 @@ void __init create_kmalloc_caches(unsigned long flags)
 	for (i = KMALLOC_LOOP_LOW; i <= KMALLOC_SHIFT_HIGH; i++) {
 		if (!kmalloc_caches[i]) {
 			kmalloc_caches[i] = create_kmalloc_cache(
-						kmalloc_names[i].name,
-						kmalloc_names[i].size,
+						kmalloc_info[i].name,
+						kmalloc_info[i].size,
 						flags);
 		}
 
