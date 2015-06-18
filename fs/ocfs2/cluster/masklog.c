@@ -109,6 +109,7 @@ void __mlog_printk(const u64 *mask, const char *func, int line,
 
 	va_end(args);
 }
+EXPORT_SYMBOL_GPL(__mlog_printk);
 
 struct mlog_attribute {
 	struct attribute attr;
