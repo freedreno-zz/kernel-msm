@@ -142,7 +142,7 @@ static void userfaultfd_ctx_put(struct userfaultfd_ctx *ctx)
 
 static inline void msg_init(struct uffd_msg *msg)
 {
-	BUILD_BUG_ON(sizeof(struct uffd_msg) != 32);
+//	BUILD_BUG_ON(sizeof(struct uffd_msg) != 32);
 	/*
 	 * Must use memset to zero out the paddings or kernel data is
 	 * leaked to userland.
