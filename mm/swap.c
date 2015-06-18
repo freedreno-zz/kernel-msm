@@ -209,6 +209,8 @@ out_put_single:
 		 */
 		if (put_page_testzero(page_head))
 			VM_BUG_ON_PAGE(1, page_head);
+		/* __split_huge_page_refcount will wait now */
+		VM_BUG_ON_PAGE(page_mapcount(page) <= 0, page);
 		atomic_dec(&page->_mapcount);
 		VM_BUG_ON_PAGE(atomic_read(&page_head->_count) <= 0, page_head);
 		VM_BUG_ON_PAGE(atomic_read(&page->_count) != 0, page);

@@ -915,17 +915,26 @@ static int page_action(struct page_state *ps, struct page *p,
 	return (result == RECOVERED || result == DELAYED) ? 0 : -EBUSY;
 }
 
-/*
- * Get refcount for memory error handling:
- * - @page: raw page
+/**
+ * get_hwpoison_page() - Get refcount for memory error handling:
+ * @page:	raw error page (hit by memory error)
+ *
+ * Return: return 0 if failed to grab the refcount, otherwise true (some
+ * non-zero value.)
  */
-inline int get_hwpoison_page(struct page *page)
+int get_hwpoison_page(struct page *page)
 {
 	struct page *head = compound_head(page);
 
 	if (PageHuge(head))
 		return get_page_unless_zero(head);
-	else if (PageTransHuge(head))
+
+	/*
+	 * Thp tail page has special refcounting rule (refcount of tail pages
+	 * is stored in ->_mapcount,) so we can't call get_page_unless_zero()
+	 * directly for tail pages.
+	 */
+	if (PageTransHuge(head)) {
 		if (get_page_unless_zero(head)) {
 			if (PageTail(page))
 				get_page(page);
@@ -933,8 +942,9 @@ inline int get_hwpoison_page(struct page *page)
 		} else {
 			return 0;
 		}
-	else
-		return get_page_unless_zero(page);
+	}
+
+	return get_page_unless_zero(page);
 }
 
 /*
@@ -1151,12 +1161,20 @@ int memory_failure(unsigned long pfn, int trapno, int flags)
 	if (!PageHuge(p) && PageTransHuge(hpage)) {
 		if (!PageAnon(hpage)) {
 			pr_err("MCE: %#lx: non anonymous thp\n", pfn);
+			if (TestClearPageHWPoison(p))
+				atomic_long_sub(nr_pages, &num_poisoned_pages);
 			put_page(p);
+			if (p != hpage)
+				put_page(hpage);
 			return -EBUSY;
 		}
 		if (unlikely(split_huge_page(hpage))) {
 			pr_err("MCE: %#lx: thp split failed\n", pfn);
+			if (TestClearPageHWPoison(p))
+				atomic_long_sub(nr_pages, &num_poisoned_pages);
 			put_page(p);
+			if (p != hpage)
+				put_page(hpage);
 			return -EBUSY;
 		}
 		VM_BUG_ON_PAGE(!page_count(p), p);
@@ -1427,10 +1445,17 @@ int unpoison_memory(unsigned long pfn)
 		return 0;
 	}
 
-	if (PageHuge(page))
-		nr_pages = 1 << compound_order(page);
-	else
-		nr_pages = 1;
+	/*
+	 * unpoison_memory() can encounter thp only when the thp is being
+	 * worked by memory_failure() and the page lock is not held yet.
+	 * In such case, we yield to memory_failure() and make unpoison fail.
+	 */
+	if (!PageHuge(page) && PageTransHuge(page)) {
+		pr_info("MCE: Memory failure is now running on %#lx\n", pfn);
+		return 0;
+	}
+
+	nr_pages = 1 << compound_order(page);
 
 	if (!get_hwpoison_page(p)) {
 		/*
@@ -1456,7 +1481,7 @@ int unpoison_memory(unsigned long pfn)
 	 * the PG_hwpoison page will be caught and isolated on the entrance to
 	 * the free buddy page pool.
 	 */
-	if (TestClearPageHWPoison(p)) {
+	if (TestClearPageHWPoison(page)) {
 		pr_info("MCE: Software-unpoisoned page %#lx\n", pfn);
 		atomic_long_sub(nr_pages, &num_poisoned_pages);
 		freeit = 1;
@@ -1465,9 +1490,9 @@ int unpoison_memory(unsigned long pfn)
 	}
 	unlock_page(page);
 
-	put_page(p);
+	put_page(page);
 	if (freeit && !(pfn == my_zero_pfn(0) && page_count(p) == 1))
-		put_page(p);
+		put_page(page);
 
 	return 0;
 }
