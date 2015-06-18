@@ -320,6 +320,11 @@ void zcomp_destroy(struct zcomp *comp)
 	kfree(comp);
 }
 
+bool zcomp_available_algorithm(const char *comp)
+{
+	return find_backend(comp) != NULL;
+}
+
 /*
  * search available compressors for requested algorithm.
  * allocate new zcomp and initialize it. return compressing
