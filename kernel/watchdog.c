@@ -909,7 +909,7 @@ int proc_watchdog_cpumask(struct ctl_table *table, int write,
 		cpumask_and(&watchdog_cpumask, &watchdog_cpumask,
 			    cpu_possible_mask);
 
-		if (watchdog_enabled && watchdog_thresh) {
+		if (watchdog_running) {
 			/*
 			 * Failure would be due to being unable to allocate
 			 * a temporary cpumask, so we are likely not in a
