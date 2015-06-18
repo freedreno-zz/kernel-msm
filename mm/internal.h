@@ -387,6 +387,20 @@ static inline void mminit_verify_zonelist(void)
 }
 #endif /* CONFIG_DEBUG_MEMORY_INIT */
 
+/*
+ * Deferred struct page initialisation requires some early init functions that
+ * are removed before kswapd is up and running. The feature depends on memory
+ * hotplug so put the data and code required by deferred initialisation into
+ * the __meminit section where they are preserved.
+ */
+#ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
+#define __defermem_init __meminit
+#define __defer_init    __meminit
+#else
+#define __defermem_init
+#define __defer_init __init
+#endif
+
 /* mminit_validate_memmodel_limits is independent of CONFIG_DEBUG_MEMORY_INIT */
 #if defined(CONFIG_SPARSEMEM)
 extern void mminit_validate_memmodel_limits(unsigned long *start_pfn,
