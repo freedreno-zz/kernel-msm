@@ -950,7 +950,15 @@ static inline bool __meminit early_pfn_in_nid(unsigned long pfn, int node)
 {
 	return meminit_pfn_in_nid(pfn, node, &early_pfnnid_cache);
 }
+
+#else
+
+static inline bool __meminit early_pfn_in_nid(unsigned long pfn, int node)
+{
+	return true;
+}
 #endif
+
 
 #ifdef CONFIG_CMA
 /* Free whole pageblock and set its migration type to MIGRATE_CMA. */
