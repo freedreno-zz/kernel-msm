@@ -53,10 +53,12 @@
  *   modifications to the memory scanning parameters including the scan_thread
  *   pointer
  *
- * Locks and mutexes should only be acquired/nested in the following order:
+ * Locks and mutexes are acquired/nested in the following order:
  *
- *   scan_mutex -> object->lock -> other_object->lock (SINGLE_DEPTH_NESTING)
- *				-> kmemleak_lock
+ *   scan_mutex [-> object->lock] -> kmemleak_lock -> other_object->lock (SINGLE_DEPTH_NESTING)
+ *
+ * No kmemleak_lock and object->lock nesting is allowed outside scan_mutex
+ * regions.
  *
  * The kmemleak_object structures have a use_count incremented or decremented
  * using the get_object()/put_object() functions. When the use_count becomes
@@ -490,8 +492,7 @@ static struct kmemleak_object *find_and_get_object(unsigned long ptr, int alias)
 
 	rcu_read_lock();
 	read_lock_irqsave(&kmemleak_lock, flags);
-	if (ptr >= min_addr && ptr < max_addr)
-		object = lookup_object(ptr, alias);
+	object = lookup_object(ptr, alias);
 	read_unlock_irqrestore(&kmemleak_lock, flags);
 
 	/* check whether the object is still available */
@@ -1175,14 +1176,19 @@ static void scan_block(void *_start, void *_end,
 	unsigned long *ptr;
 	unsigned long *start = PTR_ALIGN(_start, BYTES_PER_POINTER);
 	unsigned long *end = _end - (BYTES_PER_POINTER - 1);
+	unsigned long klflags;
 
+	read_lock_irqsave(&kmemleak_lock, klflags);
 	for (ptr = start; ptr < end; ptr++) {
 		struct kmemleak_object *object;
 		unsigned long flags;
 		unsigned long pointer;
 
-		if (allow_resched)
+		if (allow_resched && need_resched()) {
+			read_unlock_irqrestore(&kmemleak_lock, klflags);
 			cond_resched();
+			read_lock_irqsave(&kmemleak_lock, klflags);
+		}
 		if (scan_should_stop())
 			break;
 
@@ -1195,14 +1201,21 @@ static void scan_block(void *_start, void *_end,
 		pointer = *ptr;
 		kasan_enable_current();
 
-		object = find_and_get_object(pointer, 1);
+		if (pointer < min_addr || pointer >= max_addr)
+			continue;
+
+		/*
+		 * No need for get_object() here since we hold kmemleak_lock.
+		 * object->use_count cannot be dropped to 0 while the object
+		 * is still present in object_tree_root and object_list
+		 * (with updates protected by kmemleak_lock).
+		 */
+		object = lookup_object(pointer, 1);
 		if (!object)
 			continue;
-		if (object == scanned) {
+		if (object == scanned)
 			/* self referenced, ignore */
-			put_object(object);
 			continue;
-		}
 
 		/*
 		 * Avoid the lockdep recursive warning on object->lock being
@@ -1214,7 +1227,6 @@ static void scan_block(void *_start, void *_end,
 		if (!color_white(object)) {
 			/* non-orphan, ignored or new */
 			spin_unlock_irqrestore(&object->lock, flags);
-			put_object(object);
 			continue;
 		}
 
@@ -1226,14 +1238,16 @@ static void scan_block(void *_start, void *_end,
 		 */
 		object->count++;
 		if (color_gray(object)) {
+			/* put_object() called when removing from gray_list */
+			WARN_ON(!get_object(object));
 			list_add_tail(&object->gray_list, &gray_list);
 			spin_unlock_irqrestore(&object->lock, flags);
 			continue;
 		}
 
 		spin_unlock_irqrestore(&object->lock, flags);
-		put_object(object);
 	}
+	read_unlock_irqrestore(&kmemleak_lock, klflags);
 }
 
 /*
