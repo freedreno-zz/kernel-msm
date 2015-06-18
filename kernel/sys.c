@@ -1902,15 +1902,14 @@ out:
 }
 #endif /* CONFIG_CHECKPOINT_RESTORE */
 
-static int prctl_set_auxv(struct mm_struct *mm, unsigned long addr, unsigned long len)
+static int prctl_set_auxv(struct mm_struct *mm, unsigned long addr,
+			  unsigned long len)
 {
 	/*
-	 * This doesn't move auxiliary vector itself
-	 * since it's pinned to mm_struct, but allow
-	 * to fill vector with new values. It's up
-	 * to a caller to provide sane values here
-	 * otherwise user space tools which use this
-	 * vector might be unhappy.
+	 * This doesn't move the auxiliary vector itself since it's pinned to
+	 * mm_struct, but it permits filling the vector with new values.  It's
+	 * up to the caller to provide sane values here, otherwise userspace
+	 * tools which use this vector might be unhappy.
 	 */
 	unsigned long user_auxv[AT_VECTOR_SIZE];
 
