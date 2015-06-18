@@ -18,6 +18,7 @@ config X86_64
 	select X86_DEV_DMA_OPS
 	select ARCH_USE_CMPXCHG_LOCKREF
 	select HAVE_LIVEPATCH
+	select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
 
 ### Arch settings
 config X86
