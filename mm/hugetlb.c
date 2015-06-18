@@ -1594,8 +1594,10 @@ static struct page *alloc_huge_page(struct vm_area_struct *vma,
 		 * the reservation count added in hugetlb_reserve_pages
 		 * no longer applies.
 		 */
-		hugepage_subpool_put_pages(spool, 1);
-		hugetlb_acct_memory(h, -1);
+		long rsv_adjust;
+
+		rsv_adjust = hugepage_subpool_put_pages(spool, 1);
+		hugetlb_acct_memory(h, -rsv_adjust);
 	}
 	return page;
 
@@ -3725,8 +3727,11 @@ int hugetlb_reserve_pages(struct inode *inode,
 			 * the subpool and reserve counts modified above
 			 * based on the difference.
 			 */
-			hugepage_subpool_put_pages(spool, chg - add);
-			hugetlb_acct_memory(h, -(chg - ret));
+			long rsv_adjust;
+
+			rsv_adjust = hugepage_subpool_put_pages(spool,
+								chg - add);
+			hugetlb_acct_memory(h, -rsv_adjust);
 		}
 	}
 	return 0;
