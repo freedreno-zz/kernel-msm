@@ -1076,6 +1076,25 @@ void __defer_init __free_pages_bootmem(struct page *page, unsigned long pfn,
 }
 
 #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
+static void __defermem_init deferred_free_range(struct page *page,
+					unsigned long pfn, int nr_pages)
+{
+	int i;
+
+	if (!page)
+		return;
+
+	/* Free a large naturally-aligned chunk if possible */
+	if (nr_pages == MAX_ORDER_NR_PAGES &&
+	    (pfn & (MAX_ORDER_NR_PAGES-1)) == 0) {
+		__free_pages_boot_core(page, pfn, MAX_ORDER-1);
+		return;
+	}
+
+	for (i = 0; i < nr_pages; i++, page++, pfn++)
+		__free_pages_boot_core(page, pfn, 0);
+}
+
 /* Initialise remaining memory on a node */
 void __defermem_init deferred_init_memmap(int nid)
 {
@@ -1106,6 +1125,9 @@ void __defermem_init deferred_init_memmap(int nid)
 	for_each_mem_pfn_range(i, nid, &walk_start, &walk_end, NULL) {
 		unsigned long pfn, end_pfn;
 		struct page *page = NULL;
+		struct page *free_base_page = NULL;
+		unsigned long free_base_pfn = 0;
+		int nr_to_free = 0;
 
 		end_pfn = min(walk_end, zone_end_pfn(zone));
 		pfn = first_init_pfn;
@@ -1116,7 +1138,7 @@ void __defermem_init deferred_init_memmap(int nid)
 
 		for (; pfn < end_pfn; pfn++) {
 			if (!pfn_valid_within(pfn))
-				continue;
+				goto free_range;
 
 			/*
 			 * Ensure pfn_valid is checked every
@@ -1125,32 +1147,53 @@ void __defermem_init deferred_init_memmap(int nid)
 			if ((pfn & (MAX_ORDER_NR_PAGES - 1)) == 0) {
 				if (!pfn_valid(pfn)) {
 					page = NULL;
-					continue;
+					goto free_range;
 				}
 			}
 
 			if (!meminit_pfn_in_nid(pfn, nid, &nid_init_state)) {
 				page = NULL;
-				continue;
+				goto free_range;
 			}
 
 			/* Minimise pfn page lookups and scheduler checks */
 			if (page && (pfn & (MAX_ORDER_NR_PAGES - 1)) != 0) {
 				page++;
 			} else {
+				nr_pages += nr_to_free;
+				deferred_free_range(free_base_page,
+						free_base_pfn, nr_to_free);
+				free_base_page = NULL;
+				free_base_pfn = nr_to_free = 0;
+
 				page = pfn_to_page(pfn);
 				cond_resched();
 			}
 
 			if (page->flags) {
 				VM_BUG_ON(page_zone(page) != zone);
-				continue;
+				goto free_range;
 			}
 
 			__init_single_page(page, pfn, zid, nid);
-			__free_pages_boot_core(page, pfn, 0);
-			nr_pages++;
+			if (!free_base_page) {
+				free_base_page = page;
+				free_base_pfn = pfn;
+				nr_to_free = 0;
+			}
+			nr_to_free++;
+
+			/* Where possible, batch up pages for a single free */
+			continue;
+free_range:
+			/* Free the current block of pages to allocator */
+			nr_pages += nr_to_free;
+			deferred_free_range(free_base_page, free_base_pfn,
+								nr_to_free);
+			free_base_page = NULL;
+			free_base_pfn = nr_to_free = 0;
 		}
+
 		first_init_pfn = max(end_pfn, first_init_pfn);
 	}
 
