@@ -325,7 +325,7 @@ success:
 			  dirty_accountable, 0);
 
 	/*
-	 * Private VM_LOCKED VMA become writable: trigger COW to avoid major
+	 * Private VM_LOCKED VMA becoming writable: trigger COW to avoid major
 	 * fault on access.
 	 */
 	if ((oldflags & (VM_WRITE | VM_SHARED | VM_LOCKED)) == VM_LOCKED &&
