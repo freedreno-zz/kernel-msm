@@ -65,7 +65,7 @@ static struct kmem_cache *radix_tree_node_cachep;
  */
 struct radix_tree_preload {
 	int nr;
-	/* nodes->private_data points to next prealocated node */
+	/* nodes->private_data points to next preallocated node */
 	struct radix_tree_node *nodes;
 };
 static DEFINE_PER_CPU(struct radix_tree_preload, radix_tree_preloads) = { 0, };
@@ -270,8 +270,9 @@ static int __radix_tree_preload(gfp_t gfp_mask)
 			node->private_data = rtp->nodes;
 			rtp->nodes = node;
 			rtp->nr++;
-		} else
+		} else {
 			kmem_cache_free(radix_tree_node_cachep, node);
+		}
 	}
 	ret = 0;
 out:
