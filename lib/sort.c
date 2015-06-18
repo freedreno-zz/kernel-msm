@@ -15,6 +15,13 @@ static void u32_swap(void *a, void *b, int size)
 	*(u32 *)b = t;
 }
 
+static void u64_swap(void *a, void *b, int size)
+{
+	u64 t = *(u64 *)a;
+	*(u64 *)a = *(u64 *)b;
+	*(u64 *)b = t;
+}
+
 static void generic_swap(void *a, void *b, int size)
 {
 	char t;
@@ -50,8 +57,18 @@ void sort(void *base, size_t num, size_t size,
 	/* pre-scale counters for performance */
 	int i = (num/2 - 1) * size, n = num * size, c, r;
 
-	if (!swap_func)
-		swap_func = (size == 4 ? u32_swap : generic_swap);
+	if (!swap_func) {
+		switch (size) {
+		case 4:
+			swap_func = u32_swap;
+			break;
+		case 8:
+			swap_func = u64_swap;
+			break;
+		default:
+			swap_func = generic_swap;
+		}
+	}
 
 	/* heapify */
 	for ( ; i >= 0; i -= size) {
