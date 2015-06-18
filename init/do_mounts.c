@@ -533,7 +533,8 @@ void __init mount_root(void)
 	}
 #endif
 #ifdef CONFIG_BLOCK
-	create_dev("/dev/root", ROOT_DEV);
+	if (create_dev("/dev/root", ROOT_DEV) < 0)
+		pr_err("Failed to create %s device !\n", "/dev/root");
 	mount_block_root("/dev/root", root_mountflags);
 #endif
 }
