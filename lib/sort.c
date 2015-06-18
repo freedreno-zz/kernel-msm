@@ -58,6 +58,7 @@ void sort(void *base, size_t num, size_t size,
 	int i = (num/2 - 1) * size, n = num * size, c, r;
 
 	if (!swap_func) {
+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
 		switch (size) {
 		case 4:
 			swap_func = u32_swap;
@@ -65,9 +66,22 @@ void sort(void *base, size_t num, size_t size,
 		case 8:
 			swap_func = u64_swap;
 			break;
-		default:
-			swap_func = generic_swap;
 		}
+#else
+		switch (size) {
+		case 4:
+			if (((unsigned long)base & 3) == 0)
+				swap_func = u32_swap;
+			break;
+		case 8:
+			if (((unsigned long)base & 7) == 0)
+				swap_func = u64_swap;
+			break;
+		}
+#endif /* CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS */
+
+		if (!swap_func)
+			swap_func = generic_swap;
 	}
 
 	/* heapify */
