@@ -1219,6 +1219,8 @@ void drm_vblank_off(struct drm_device *dev, int crtc)
 	vblank_disable_and_save(dev, crtc);
 	wake_up(&vblank->queue);
 
+	WARN_ON(vblank->inmodeset);
+
 	/*
 	 * Prevent subsequent drm_vblank_get() from re-enabling
 	 * the vblank interrupt by bumping the refcount.
@@ -1318,6 +1320,8 @@ void drm_vblank_on(struct drm_device *dev, int crtc)
 		return;
 
 	spin_lock_irqsave(&dev->vbl_lock, irqflags);
+	WARN_ON(!vblank->inmodeset);
+
 	/* Drop our private "prevent drm_vblank_get" refcount */
 	if (vblank->inmodeset) {
 		atomic_dec(&vblank->refcount);
