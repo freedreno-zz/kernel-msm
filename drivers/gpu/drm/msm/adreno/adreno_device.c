@@ -19,6 +19,10 @@
 
 #include "adreno_gpu.h"
 
+#if defined(CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
+#  include <mach/kgsl.h>
+#endif
+
 #define ANY_ID 0xff
 
 bool hang_debug = false;
