@@ -19,7 +19,7 @@
 
 #include "adreno_gpu.h"
 
-#if defined(DOWNSTREAM_CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
+#if defined(CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
 #  include <mach/kgsl.h>
 #endif
 
@@ -248,7 +248,7 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 			config.rev = ADRENO_REV(3, 0, 5, 0);
 
 	}
-#  ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
+#  ifdef CONFIG_MSM_BUS_SCALING
 	config.bus_scale_table = pdata->bus_scale_table;
 #  endif
 #endif
