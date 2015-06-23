@@ -490,7 +490,8 @@ static int rcar_i2c_master_xfer(struct i2c_adapter *adap,
 	struct rcar_i2c_priv *priv = i2c_get_adapdata(adap);
 	struct device *dev = rcar_i2c_priv_to_dev(priv);
 	unsigned long flags;
-	int i, ret, timeout;
+	int i, ret;
+	long timeout;
 
 	pm_runtime_get_sync(dev);
 
@@ -532,7 +533,7 @@ static int rcar_i2c_master_xfer(struct i2c_adapter *adap,
 
 		timeout = wait_event_timeout(priv->wait,
 					     rcar_i2c_flags_has(priv, ID_DONE),
-					     5 * HZ);
+					     adap->timeout);
 		if (!timeout) {
 			ret = -ETIMEDOUT;
 			break;
