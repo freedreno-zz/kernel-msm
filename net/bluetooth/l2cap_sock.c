@@ -1092,7 +1092,6 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 {
 	struct sock *sk = sock->sk;
 	struct l2cap_chan *chan;
-	struct l2cap_conn *conn;
 	int err = 0;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
@@ -1113,12 +1112,8 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 	chan = l2cap_pi(sk)->chan;
 	/* prevent chan structure from being freed whilst unlocked */
 	l2cap_chan_hold(chan);
-	conn = chan->conn;
 
 	BT_DBG("chan %p state %s", chan, state_to_string(chan->state));
-
-	if (conn)
-		mutex_lock(&conn->chan_lock);
 
 	l2cap_chan_lock(chan);
 
@@ -1137,9 +1132,6 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 					 sk->sk_lingertime);
 
 	l2cap_chan_unlock(chan);
-
-	if (conn)
-		mutex_unlock(&conn->chan_lock);
 
 	l2cap_chan_put(chan);
 	sock_put(sk);
