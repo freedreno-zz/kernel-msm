@@ -1350,19 +1350,36 @@ static irqreturn_t dsi_host_irq(int irq, void *ptr)
 static int dsi_host_init_panel_gpios(struct msm_dsi_host *msm_host,
 			struct device *panel_device)
 {
-	msm_host->disp_en_gpio = devm_gpiod_get_optional(panel_device,
-							 "disp-enable",
-							 GPIOD_OUT_LOW);
+	int ret;
+
+	msm_host->disp_en_gpio = devm_gpiod_get(panel_device,
+						"disp-enable");
 	if (IS_ERR(msm_host->disp_en_gpio)) {
 		DBG("cannot get disp-enable-gpios %ld",
 				PTR_ERR(msm_host->disp_en_gpio));
-		return PTR_ERR(msm_host->disp_en_gpio);
+		msm_host->disp_en_gpio = NULL;
+	}
+	if (msm_host->disp_en_gpio) {
+		ret = gpiod_direction_output(msm_host->disp_en_gpio, 0);
+		if (ret) {
+			pr_err("cannot set dir to disp-en-gpios %d\n", ret);
+			return ret;
+		}
 	}
 
-	msm_host->te_gpio = devm_gpiod_get(panel_device, "disp-te", GPIOD_IN);
+	msm_host->te_gpio = devm_gpiod_get(panel_device, "disp-te");
 	if (IS_ERR(msm_host->te_gpio)) {
 		DBG("cannot get disp-te-gpios %ld", PTR_ERR(msm_host->te_gpio));
-		return PTR_ERR(msm_host->te_gpio);
+		msm_host->te_gpio = NULL;
+	}
+
+	if (msm_host->te_gpio) {
+		ret = gpiod_direction_input(msm_host->te_gpio);
+		if (ret) {
+			pr_err("%s: cannot set dir to disp-te-gpios, %d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
 
 	return 0;
