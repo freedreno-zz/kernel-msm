@@ -1115,23 +1115,21 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 
 	BT_DBG("chan %p state %s", chan, state_to_string(chan->state));
 
-	l2cap_chan_lock(chan);
-
 	if (chan->mode == L2CAP_MODE_ERTM &&
 	    chan->unacked_frames > 0 &&
 	    chan->state == BT_CONNECTED)
 		err = __l2cap_wait_ack(sk, chan);
 
+	l2cap_chan_lock(chan);
 	release_sock(sk);
 	l2cap_chan_close(chan, 0);
 	lock_sock(sk);
+	l2cap_chan_unlock(chan);
 
 	if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
 	    !(current->flags & PF_EXITING))
 		err = bt_sock_wait_state(sk, BT_CLOSED,
 					 sk->sk_lingertime);
-
-	l2cap_chan_unlock(chan);
 
 	l2cap_chan_put(chan);
 	sock_put(sk);
