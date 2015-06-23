@@ -1063,6 +1063,8 @@ static int __l2cap_wait_ack(struct sock *sk, struct l2cap_chan *chan)
 	add_wait_queue(sk_sleep(sk), &wait);
 	set_current_state(TASK_INTERRUPTIBLE);
 	do {
+		BT_DBG("Waiting for %d ACKs", chan->unacked_frames);
+
 		if (!timeo)
 			timeo = HZ/5;
 
@@ -1139,6 +1141,8 @@ shutdown_already:
 		err = -sk->sk_err;
 
 	release_sock(sk);
+
+	BT_DBG("err: %d", err);
 
 	return err;
 }
