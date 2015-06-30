@@ -1,6 +1,6 @@
 #include "qcom-msm8960.dtsi"
 
-#include <dt-bindings/pinctrl/qcom,pm8xxx-gpio.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/input/input.h>
 
 / {
@@ -517,8 +517,8 @@
 			bias-pull-up;
 			input-enable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			drive-strength = <PMIC_GPIO_STRENGTH_NO>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		volume-keys {
@@ -528,8 +528,8 @@
 			bias-pull-up;
 			input-enable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			drive-strength = <PMIC_GPIO_STRENGTH_NO>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		kypd-drv2 {
@@ -539,9 +539,9 @@
 			bias-disable;
 			drive-push-pull;
 			output-low;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_HIGH>;
+			drive-strength = <PMIC_GPIO_STRENGTH_HIGH>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		right-spkr-en {
@@ -551,9 +551,9 @@
 			bias-disable;
 			drive-push-pull;
 			output-low;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_MED>;
+			drive-strength = <PMIC_GPIO_STRENGTH_MED>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		rf-id-en {
@@ -563,9 +563,9 @@
 			bias-disable;
 			drive-push-pull;
 			output-low;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_HIGH>;
+			drive-strength = <PMIC_GPIO_STRENGTH_HIGH>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		sdcard-detect {
@@ -576,9 +576,9 @@
 
 			bias-disable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
+			drive-strength = <PMIC_GPIO_STRENGTH_NO>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		wcd9310-reset-n {
@@ -588,9 +588,9 @@
 			drive-push-pull;
 			bias-disable;
 			output-high;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_MED>;
+			drive-strength = <PMIC_GPIO_STRENGTH_MED>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		sim-detect {
@@ -601,9 +601,9 @@
 
 			bias-pull-up;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
+			drive-strength = <PMIC_GPIO_STRENGTH_NO>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		plug-detect {
@@ -614,9 +614,9 @@
 
 			bias-disable;
 			drive-push-pull;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_NO>;
+			drive-strength = <PMIC_GPIO_STRENGTH_NO>;
 
-			power-source = <PM8XXX_GPIO_VIN_S4>;
+			power-source = <PM8921_GPIO_S4>;
 		};
 
 		otg-ovp-cntl {
@@ -626,8 +626,8 @@
 			output-high;
 			drive-push-pull;
 
-			drive-strength = <PM8XXX_GPIO_STRENGTH_LOW>;
-			power-source = <PM8XXX_GPIO_VIN_VPH>;
+			drive-strength = <PMIC_GPIO_STRENGTH_LOW>;
+			power-source = <PM8921_GPIO_VPH>;
 		};
 
 		lcd-reset {
@@ -637,8 +637,8 @@
 			output-low;
 			drive-push-pull;
 			bias-disable;
-			power-source = <PM8XXX_GPIO_VIN_S4>;
-			drive-strength = <PM8XXX_GPIO_STRENGTH_LOW>;
+			power-source = <PM8921_GPIO_S4>;
+			drive-strength = <PMIC_GPIO_STRENGTH_LOW>;
 		};
 
 		nc {

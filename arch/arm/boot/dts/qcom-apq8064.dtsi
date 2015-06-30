@@ -452,11 +452,6 @@
 			#reset-cells = <1>;
 		};
 
-		l2cc: clock-controller@2011000 {
-			compatible	= "syscon";
-			reg		= <0x2011000 0x1000>;
-		};
-
 		rpm@108000 {
 			compatible	= "qcom,rpm-apq8064";
 			reg		= <0x108000 0x1000>;
@@ -679,6 +674,11 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&sdc4_gpios>;
 			};
+		};
+
+		tcsr: syscon@1a400000 {
+			compatible = "qcom,tcsr-apq8064", "syscon";
+			reg = <0x1a400000 0x100>;
 		};
 
 		sfpb_mutex: hwlock@fd484000 {
