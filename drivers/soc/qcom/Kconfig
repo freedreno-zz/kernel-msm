@@ -13,6 +13,8 @@ config QCOM_GSBI
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
+	select QCOM_SCM
+	select ARM_CPU_SUSPEND
 	help
 	  QCOM Platform specific power driver to manage cores and L2 low power
 	  modes. It interface with various system drivers to put the cores in

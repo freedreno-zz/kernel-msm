@@ -1,0 +1,237 @@
+fixes
+	mediatek/soc
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-soc
+	<no branch> (885dbd154b2f2ee305cec6fd0a162e1a77ae2b06)
+		git://git.infradead.org/linux-mvebu tags/mvebu-fixes-4.1-3
+	<no branch> (fe931229c61c04e0a7906c4ebef9623a4538a5ab)
+		https://github.com/krzk/linux tags/samsung-fixes-4.1-4
+	<no branch> (692ef3ee36833b6098a352c079d3cea8fc6ed3ef)
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-arm64-fixes
+
+next/cleanup
+	patch
+		arm64: dts: kill skeleton.dtsi
+		ARM: ux500: get rid of static maps
+	tegra/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-cleanup
+	ux500/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-stericsson tags/ux500-cleanup-v4.2
+	omap/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/clean
+	at91/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/abelloni/linux tags/at91-cleanup
+	rmk/for-arm-soc
+		git://ftp.arm.linux.org.uk/~rmk/linux-arm for-arm-soc
+	imx/cleanup
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-cleanup-4.2
+
+next/soc
+	patch
+		ARM: UniPhier: add basic support for UniPhier architecture
+		MAINTAINERS: add myself as ARM/UniPhier maintainer
+	sunxi/core
+		https://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux tags/sunxi-core-for-4.2
+	socfpga/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_updates_for_v4.2
+	tegra/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-soc
+	rpi/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-soc-for-armsoc-v4.2
+	pxa/soc
+		https://github.com/rjarzmik/linux tags/pxa-for-4.2
+	patch
+		ARM: Add STM32 family machine
+		ARM: lpc18xx: add basic support for NXP LPC18xx/43xx SoCs
+		ARM: zx: add basic support for ZTE ZX296702
+		ARM: zx: add low level debug support for zx296702
+		ARM: zx: enable SMP and hotplug for zx296702
+		MAINTAINERS: add entry for ARM ZTE architecture
+		MAINTAINERS: Add entry for STM32 MCUs
+		MAINTAINERS: Add entry for NXP LPC18xx/43xx MCUs
+		ARM: lpc18xx: define low-level debug symbol for LPC18xx/43xx
+		ARM: uniphier: only select TWD for SMP
+	zynq/soc
+		https://github.com/Xilinx/linux-xlnx tags/zynq-soc-for-4.2
+	bcm/maintainers
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/maintainers
+	depends/irq-for-arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip irq/for-arm
+	patch
+		ARM: unify MMU/!MMU addruart calls
+		ARM: introduce ARM_SINGLE_ARMV7M for ARMv7-M platforms
+		ARM: vf610: enable Cortex-M4 configuration on Vybrid SoC
+	broadcom/soc
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/soc-take2
+	omap/sparseirq
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/omap1-v2
+	patch
+		ARM: zx: fix building with CONFIG_THUMB2_KERNEL
+		ARM: use ARM_SINGLE_ARMV7M for ARMv7-M platforms
+	renesas/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-soc-for-v4.2
+	bcm/soc
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/soc-part2
+	patch
+		ARM: Kconfig: Select clocksource in STM32 entry
+
+next/dt
+	patch
+		ARM: digicolor: enable CX92755 on-chip RTC device
+		ARM: digicolor: add i2c master controller support
+	sti/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-dt-for-v4.2-1
+	patch
+		ARM: dts: UniPhier: add support for UniPhier SoCs and boards
+	hisi/hip04-dt
+		git://github.com/hisilicon/linux-hisi tags/hip04-dt-for-4.2
+	at91/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt
+	socfpga/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_for_v4.2
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux tags/sunxi-dt-for-4.2
+	ux500/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-stericsson tags/ux500-v4.2-dt
+	rockchip/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v4.2-rockchip-dts1
+	socfpga/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_for_v4.2_part_2
+	tegra/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-dt
+	broadcom/dts
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/dts
+	pxa/dt
+		https://github.com/rjarzmik/linux tags/pxa-dt-4.2
+	renesas/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-dt-for-v4.2
+	patch
+		ARM: ux500: add SCU and WD to device tree
+	rpi/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/rpi/linux-rpi tags/rpi-dt-for-armsoc-v4.2
+	sti/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-dt-for-v4.2-2
+	mvebu/dt
+		git://git.infradead.org/linux-mvebu tags/mvebu-dt-4.2
+	patch
+		ARM: dts: Add ARM System timer as clocksource in armv7m
+		ARM: dts: Add base DT for NXP LPC18xx
+		ARM: dts: Add DT for Embedded Artists LPC4357 Developers Kit
+		ARM: dts: Add DT for Hitex LPC4350 Evaluation Board
+	at91/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt2
+	berlin/dt
+		git://git.infradead.org/users/hesselba/linux-berlin tags/berlin-dt-4.2-1
+	patch
+		ARM: dts: add support for Vybrid running on Cortex-M4
+	rockchip/dts
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v4.2-rockchip-dts2
+	at91/dt3
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-dt3
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v4.2/dt-pt1
+	qcom/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-dt-for-4.2
+	mediatek/dts
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-dts
+	zynq/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynq-dt-for-4.2
+	renesas/dt2
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-dt2-for-v4.2
+	qcom/arm64
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-arm64-for-4.2
+	junu/dt2
+		git://linux-arm.org/linux-ld for-upstream/juno-dts
+		contains juno/dt
+	mvebu/dt2
+		git://git.infradead.org/linux-mvebu tags/mvebu-dt-4.2-2
+	bcm/dts-fixes
+		http://github.com/broadcom/stblinux tags/arm-soc/for-4.2/dts-fixes
+	mediatek/arm64-2
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-arm64
+	ux500/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-stericsson tags/dt-for-armsoc
+
+next/defconfig
+	patch
+		ARM: multi_v7_defconfig: enable Conexant Digicolor platform
+	sti/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/mcoquelin/sti tags/sti-defconfig-for-v4.2-1
+	patch
+		ARM: multi_v7_defconfig: enable UniPhier SoC family
+	hisi/hip04-config
+		git://github.com/hisilicon/linux-hisi tags/hip04-config-for-4.2
+	patch
+		ARM: multi_v7_defconfig: Replace USB_RCAR_GEN2_PHY by PHY_RCAR_GEN2
+		ARM: multi_v7_defconfig: enable asm and NEON accelerated crypto modules
+		ARM: ux500: add PERF_EVENTS to defconfig
+		ARM: ux500: enable CoreSight in defconfig
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-defconfig
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig-for-v4.2
+	patch
+		ARM: lpc18xx: add kernel config
+		ARM: zx: Add basic defconfig support for ZX296702
+		ARM: configs: Add STM32 defconfig
+		ARM: xz: do not try to use a ramdisk in defconfig
+		ARM: stm32: do not try to use a ramdisk in defconfig
+	at91/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/nferre/linux-at91 tags/at91-defconfig
+	patch
+		ARM: vf610m4: add defconfig for Linux on Vybrids Cortex-M4
+		ARM: add ARM_SINGLE_ARMV7M in ARMv7-M defconfigs
+		ARM: multi_v7_defconfig: Enable support for Samsung S3C64XX SPI
+		ARM: multi_v7_defconfig: Enable max77802 regulator, rtc and clock drivers
+		ARM: multi_v7_defconfig: Enable Exynos USB PHY drivers support
+		ARM: multi_v7_defconfig: Enable support for missing ChromeOS EC drivers
+		ARM: multi_v7_defconfig: Enable Samsung PWM support
+		ARM: multi_v7_defconfig: Enable Samsung S3C SoC RTC
+		ARM: multi_v7_defconfig: Enable options for Exynos display support
+		ARM: multi_v7_defconfig: Enable GPIO-based I2C arbitration support
+		ARM: multi_v7_defconfig: Enable Cypress APA I2C Trackpad support
+		ARM: multi_v7_defconfig: Enable CPU idle for exynos SoCs
+		ARM: multi_v7_defconfig: Enable PMIC and MUIC drivers for exynos
+		ARM: multi_v7_defconfig: Enable TMU for exynos SoCs
+		ARM: multi_v7_defconfig: Enable OHCI on exynos SoCs
+	qcom/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-defconfig-for-4.2
+	patch
+		ARM: multi_v7_defconfig: Make sound support modular
+		ARM: multi_v7_defconfig: Make media support modular
+		ARM: lpc18xx: remove DEBUG_LL_UART_8250 from defconfig
+	renesas/defconfig2
+		git://git.kernel.org/pub/scm/linux/kernel/git/horms/renesas tags/renesas-defconfig2-for-v4.2
+	imx/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-4.2
+
+next/drivers
+	drivers/simple-mfd
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/simple-mfd
+	drivers/ccn
+		git://git.linaro.org/people/pawel.moll/linux tags/ccn/updates-for-4.2
+	tegra/memory
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-memory
+	tegra/ramcode
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-ramcode
+	tegra/emc
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-4.2-emc
+	patch
+		bus: arm-ccn: Use hrtimer_start() again
+	berlin/simplemfd
+		git://git.infradead.org/users/hesselba/linux-berlin tags/berlin-simple-mfd-4.2-1
+	mediatek/soc
+		https://github.com/mbgg/linux-mediatek tags/v4.1-next-soc
+	patch
+		arm-cci: Do not enable CCI-400 PMU by default
+		arm-cci: Cleanup PMU driver code
+		arm-cci: Abstract out the PMU counter details
+		arm-cci: Abstract handling for CCI events
+		arm-cci: Sanitise CCI400 PMU driver specific code
+		arm-cci: Add CCI-500 PMU support
+		arm-cci: Add aliases for PMU events
+	qcom/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/galak/linux-qcom tags/qcom-soc-for-4.2-1
+	mvebu/drivers
+		git://git.infradead.org/linux-mvebu tags/mvebu-drivers-4.2
+	patch
+		drivers: soc: sunxi: Introduce SoC driver to map SRAMs
