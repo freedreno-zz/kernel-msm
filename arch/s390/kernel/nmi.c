@@ -21,6 +21,7 @@
 #include <asm/nmi.h>
 #include <asm/crw.h>
 #include <asm/switch_to.h>
+#include <asm/fpu-internal.h>
 
 struct mcck_struct {
 	int kill_task;
@@ -148,7 +149,7 @@ static int notrace s390_revalidate_registers(struct mci *mci)
 		"	ld	15,120(%0)\n"
 		: : "a" (fpt_save_area));
 	/* Revalidate vector registers */
-	if (MACHINE_HAS_VX && current->thread.vxrs) {
+	if (MACHINE_HAS_VX && is_vx_task(current)) {
 		if (!mci->vr) {
 			/*
 			 * Vector registers can't be restored and therefore
@@ -156,8 +157,10 @@ static int notrace s390_revalidate_registers(struct mci *mci)
 			 */
 			kill_task = 1;
 		}
-		restore_vx_regs((__vector128 *)
-				S390_lowcore.vector_save_area_addr);
+		memcpy(current->thread.fpu.vxrs,
+		       (void *)S390_lowcore.vector_save_area_addr,
+		       __NUM_VXRS * sizeof(__vector128));
+		set_cpu_flag(CIF_FPU);
 	}
 	/* Revalidate access registers */
 	asm volatile(
