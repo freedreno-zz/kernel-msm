@@ -105,6 +105,29 @@ static inline int kmem_cache_sanity_check(const char *name, size_t size)
 }
 #endif
 
+void __kmem_cache_free_bulk(struct kmem_cache *s, size_t nr, void **p)
+{
+	size_t i;
+
+	for (i = 0; i < nr; i++)
+		kmem_cache_free(s, p[i]);
+}
+
+bool __kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t nr,
+								void **p)
+{
+	size_t i;
+
+	for (i = 0; i < nr; i++) {
+		void *x = p[i] = kmem_cache_alloc(s, flags);
+		if (!x) {
+			__kmem_cache_free_bulk(s, i, p);
+			return false;
+		}
+	}
+	return true;
+}
+
 #ifdef CONFIG_MEMCG_KMEM
 void slab_init_memcg_params(struct kmem_cache *s)
 {
@@ -875,9 +898,13 @@ void __init create_kmalloc_caches(unsigned long flags)
 			new_kmalloc_cache(i, flags);
 
 		/*
-		 * Caches that are not of the two-to-the-power-of size.
-		 * These have to be created immediately after the
-		 * earlier power of two caches
+		 * "i == 2" is the "kmalloc-192" case which is the last special
+		 * case for initialization and it's the point to jump to
+		 * allocate the minimize size of the object. In slab allocator,
+		 * the KMALLOC_SHIFT_LOW = 5. So, it needs to skip 2^3 and 2^4
+		 * and go straight to allocate 2^5. If the ARCH_DMA_MINALIGN is
+		 * defined, it may be larger than 2^5 and here is also the
+		 * trick to skip the empty gap.
 		 */
 		if (KMALLOC_MIN_SIZE <= 32 && !kmalloc_caches[1] && i == 6)
 			new_kmalloc_cache(1, flags);
