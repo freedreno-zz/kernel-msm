@@ -56,6 +56,7 @@ struct ieee802154_local {
 	struct hrtimer ifs_timer;
 
 	bool started;
+	bool suspended;
 
 	struct tasklet_struct tasklet;
 	struct sk_buff_head skb_queue;
@@ -93,8 +94,6 @@ struct ieee802154_sub_if_data {
 
 	struct mac802154_llsec sec;
 };
-
-#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
 
 /* utility functions/constants */
 extern const void *const mac802154_wpan_phy_privid; /*  for wpan_phy privid */
@@ -167,6 +166,8 @@ void mac802154_get_table(struct net_device *dev,
 			 struct ieee802154_llsec_table **t);
 void mac802154_unlock_table(struct net_device *dev);
 
+int mac802154_wpan_update_llsec(struct net_device *dev);
+
 /* interface handling */
 int ieee802154_iface_init(void);
 void ieee802154_iface_exit(void);
@@ -176,5 +177,6 @@ ieee802154_if_add(struct ieee802154_local *local, const char *name,
 		  unsigned char name_assign_type, enum nl802154_iftype type,
 		  __le64 extended_addr);
 void ieee802154_remove_interfaces(struct ieee802154_local *local);
+void ieee802154_stop_device(struct ieee802154_local *local);
 
 #endif /* __IEEE802154_I_H */
