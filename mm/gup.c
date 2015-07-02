@@ -8,6 +8,7 @@
 #include <linux/rmap.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/vmalloc.h>
 
 #include <linux/sched.h>
 #include <linux/rwsem.h>
