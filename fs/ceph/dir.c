@@ -205,7 +205,7 @@ static int __dcache_readdir(struct file *file,  struct dir_context *ctx,
 		di = ceph_dentry(dentry);
 		spin_lock(&dentry->d_lock);
 		if (di->lease_shared_gen == shared_gen &&
-		    d_really_is_positive(dentry) &&
+		    simple_positive(dentry) &&
 		    ceph_snap(d_inode(dentry)) != CEPH_SNAPDIR &&
 		    ceph_ino(d_inode(dentry)) != CEPH_INO_CEPH &&
 		    fpos_cmp(ctx->pos, di->offset) <= 0) {
