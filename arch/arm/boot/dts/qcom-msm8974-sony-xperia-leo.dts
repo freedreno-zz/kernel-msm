@@ -181,6 +181,12 @@
 		};
 	};
 
+	lcd_dcdc_en: regulator-gpio {
+		compatible = "regulator-fixed";
+		gpio = <&pm8941_gpios 20 0>;
+		regulator-name = "lcd_dcdc_en";
+	};
+
 	vreg_boost_bypass: vreg-boost-bypass {
 		compatible = "regulator-fixed";
 
@@ -287,3 +293,5 @@
 		};
 	};
 };
+
+#include "qcom-msm8974-mdss.dtsi"

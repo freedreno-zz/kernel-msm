@@ -288,6 +288,8 @@ static const struct dsi_config *dsi_get_config(struct msm_dsi_host *msm_host)
 		goto fail;
 	}
 
+	DBG("dsi version: v%u.%08x", major, minor);
+
 	for (i = 0; i < ARRAY_SIZE(dsi_cfgs); i++) {
 		cfg = dsi_cfgs + i;
 		if ((cfg->major == major) && (cfg->minor == minor))
