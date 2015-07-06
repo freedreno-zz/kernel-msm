@@ -2620,6 +2620,7 @@ struct sense_info {
 	u8 asc;
 	u8 ascq;
 	bool add_sector_info;
+	bool desc_format;
 };
 
 static const struct sense_info sense_info_table[] = {
@@ -2703,18 +2704,21 @@ static const struct sense_info sense_info_table[] = {
 		.asc = 0x10,
 		.ascq = 0x01, /* LOGICAL BLOCK GUARD CHECK FAILED */
 		.add_sector_info = true,
+		.desc_format = true,
 	},
 	[TCM_LOGICAL_BLOCK_APP_TAG_CHECK_FAILED] = {
 		.key = ILLEGAL_REQUEST,
 		.asc = 0x10,
 		.ascq = 0x02, /* LOGICAL BLOCK APPLICATION TAG CHECK FAILED */
 		.add_sector_info = true,
+		.desc_format = true,
 	},
 	[TCM_LOGICAL_BLOCK_REF_TAG_CHECK_FAILED] = {
 		.key = ILLEGAL_REQUEST,
 		.asc = 0x10,
 		.ascq = 0x03, /* LOGICAL BLOCK REFERENCE TAG CHECK FAILED */
 		.add_sector_info = true,
+		.desc_format = true,
 	},
 	[TCM_LOGICAL_UNIT_COMMUNICATION_FAILURE] = {
 		/*
@@ -2753,7 +2757,7 @@ static void translate_sense_reason(struct se_cmd *cmd, sense_reason_t reason)
 		ascq = si->ascq;
 	}
 
-	scsi_build_sense_buffer(0, buffer, si->key, asc, ascq);
+	scsi_build_sense_buffer(si->desc_format, buffer, si->key, asc, ascq);
 	if (si->add_sector_info)
 		scsi_set_sense_information(buffer, cmd->bad_sector);
 }
