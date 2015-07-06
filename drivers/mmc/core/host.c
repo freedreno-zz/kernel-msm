@@ -475,6 +475,10 @@ int mmc_of_parse(struct mmc_host *host)
 			host->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
 	}
 
+	/* Parse regulator load requests */
+	of_property_read_u32(np, "vmmc-load", &host->supply.vmmc_load);
+	of_property_read_u32(np, "vqmmc-load", &host->supply.vqmmc_load);
+
 	/* Parse Write Protection */
 	ro_cap_invert = of_property_read_bool(np, "wp-inverted");
 
