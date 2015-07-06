@@ -498,7 +498,8 @@ dtb-$(CONFIG_ARCH_QCOM) += \
 	sony-blue-mint.dtb \
 	sony-lagan-cdb.dtb \
 	sony-rhine-cdb.dtb \
-	qcom-msm8974-sony-xperia-honami.dtb
+	qcom-msm8974-sony-xperia-honami.dtb \
+	qcom-msm8974-sony-xperia-leo.dtb
 dtb-$(CONFIG_ARCH_REALVIEW) += \
 	arm-realview-pb1176.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += \
