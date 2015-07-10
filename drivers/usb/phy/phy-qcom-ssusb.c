@@ -384,13 +384,13 @@ static int qcom_dwc3_ss_probe(struct platform_device *pdev)
 
 	phy->vddcx = devm_regulator_get(phy->dev, "vddcx");
 	if (IS_ERR(phy->vddcx)) {
-		dev_dbg(phy->dev, "cannot get vddcx\n");
+		dev_err(phy->dev, "cannot get vddcx\n");
 		return  PTR_ERR(phy->vddcx);
 	}
 
 	phy->v1p8 = devm_regulator_get(phy->dev, "v1p8");
 	if (IS_ERR(phy->v1p8)) {
-		dev_dbg(phy->dev, "cannot get v1p8\n");
+		dev_err(phy->dev, "cannot get v1p8\n");
 		return  PTR_ERR(phy->v1p8);
 	}
 
@@ -402,7 +402,7 @@ static int qcom_dwc3_ss_probe(struct platform_device *pdev)
 
 	phy->ref_clk = devm_clk_get(phy->dev, "ref");
 	if (IS_ERR(phy->ref_clk)) {
-		dev_dbg(phy->dev, "cannot get ref clock handle\n");
+		dev_err(phy->dev, "cannot get ref clock handle\n");
 		return PTR_ERR(phy->ref_clk);
 	}
 
@@ -412,13 +412,15 @@ static int qcom_dwc3_ss_probe(struct platform_device *pdev)
 
 	phy->base		= base;
 	phy->phy.dev		= phy->dev;
-	phy->phy.label		= "qcom-dwc3-ssphy";
+	phy->phy.label		= "qcom-dwc3-ss-usb-phy";
 	phy->phy.init		= qcom_dwc3_ss_phy_init;
 	phy->phy.shutdown       = qcom_dwc3_ss_phy_shutdown;
 	phy->phy.set_suspend	= qcom_dwc3_ss_set_suspend;
 	phy->phy.type		= USB_PHY_TYPE_USB3;
 
 	ret = usb_add_phy_dev(&phy->phy);
+
+	dev_info(phy->dev, "driver initialized");
 	return ret;
 }
 
@@ -433,7 +435,7 @@ static int qcom_dwc3_ss_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id qcom_dwc3_ss_id_table[] = {
-	{ .compatible = "qcom,dwc3-ssphy" },
+	{ .compatible = "qcom,dwc3-ss-usb-phy" },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, qcom_dwc3_ss_id_table);
@@ -442,7 +444,7 @@ static struct platform_driver qcom_dwc3_ss_driver = {
 	.probe		= qcom_dwc3_ss_probe,
 	.remove		= qcom_dwc3_ss_remove,
 	.driver		= {
-		.name	= "qcom-dwc3-ssphy",
+		.name	= "qcom-dwc3-ss-usb-phy",
 		.owner	= THIS_MODULE,
 		.of_match_table = qcom_dwc3_ss_id_table,
 	},
@@ -450,6 +452,6 @@ static struct platform_driver qcom_dwc3_ss_driver = {
 
 module_platform_driver(qcom_dwc3_ss_driver);
 
-MODULE_ALIAS("platform:qcom-dwc3-ssphy");
+MODULE_ALIAS("platform:qcom-dwc3-ss-usb-phy");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 QCOM SSPHY driver");

@@ -252,22 +252,21 @@ static int qcom_dwc3_hs_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(phy->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
-
 	phy->vddcx = devm_regulator_get(phy->dev, "vddcx");
 	if (IS_ERR(phy->vddcx)) {
-		dev_dbg(phy->dev, "cannot get vddcx\n");
+		dev_err(phy->dev, "cannot get vddcx\n");
 		return  PTR_ERR(phy->vddcx);
 	}
 
 	phy->v3p3 = devm_regulator_get(phy->dev, "v3p3");
 	if (IS_ERR(phy->v3p3)) {
-		dev_dbg(phy->dev, "cannot get v3p3\n");
+		dev_err(phy->dev, "cannot get v3p3\n");
 		return PTR_ERR(phy->v3p3);
 	}
 
 	phy->v1p8 = devm_regulator_get(phy->dev, "v1p8");
 	if (IS_ERR(phy->v1p8)) {
-		dev_dbg(phy->dev, "cannot get v1p8\n");
+		dev_err(phy->dev, "cannot get v1p8\n");
 		return PTR_ERR(phy->v1p8);
 	}
 
@@ -277,7 +276,7 @@ static int qcom_dwc3_hs_probe(struct platform_device *pdev)
 
 	phy->utmi_clk = devm_clk_get(phy->dev, "utmi");
 	if (IS_ERR(phy->utmi_clk)) {
-		dev_dbg(phy->dev, "cannot get UTMI handle\n");
+		dev_err(phy->dev, "cannot get UTMI handle\n");
 		return PTR_ERR(phy->utmi_clk);
 	}
 
@@ -294,7 +293,7 @@ static int qcom_dwc3_hs_probe(struct platform_device *pdev)
 
 	phy->base		= base;
 	phy->phy.dev		= phy->dev;
-	phy->phy.label		= "qcom-dwc3-hsphy";
+	phy->phy.label		= "qcom-dwc3-hs-usb-phy";
 	phy->phy.init		= qcom_dwc3_hs_phy_init;
 	phy->phy.notify_connect	= qcom_dwc3_hs_notify_connect;
 	phy->phy.notify_disconnect = qcom_dwc3_hs_notify_disconnect;
@@ -303,6 +302,8 @@ static int qcom_dwc3_hs_probe(struct platform_device *pdev)
 	phy->phy.type		= USB_PHY_TYPE_USB2;
 
 	usb_add_phy_dev(&phy->phy);
+
+	dev_info(phy->dev, "driver initialized");
 	return 0;
 }
 
@@ -317,7 +318,7 @@ static int qcom_dwc3_hs_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id qcom_dwc3_hs_id_table[] = {
-	{ .compatible = "qcom,dwc3-hsphy" },
+	{ .compatible = "qcom,dwc3-hs-usb-phy" },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, qcom_dwc3_hs_id_table);
@@ -326,7 +327,7 @@ static struct platform_driver qcom_dwc3_hs_driver = {
 	.probe		= qcom_dwc3_hs_probe,
 	.remove		= qcom_dwc3_hs_remove,
 	.driver		= {
-		.name	= "qcom-dwc3-hsphy",
+		.name	= "qcom-dwc3-hs-usb-phy",
 		.owner	= THIS_MODULE,
 		.of_match_table = qcom_dwc3_hs_id_table,
 	},
@@ -334,6 +335,6 @@ static struct platform_driver qcom_dwc3_hs_driver = {
 
 module_platform_driver(qcom_dwc3_hs_driver);
 
-MODULE_ALIAS("platform:qcom-dwc3-hsphy");
+MODULE_ALIAS("platform:qcom-dwc3-hs-usb-phy");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 QCOM HSPHY driver");
