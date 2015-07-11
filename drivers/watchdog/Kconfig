@@ -497,6 +497,7 @@ config ST_LPC_WATCHDOG
 	depends on ARCH_STI
 	depends on OF
 	select WATCHDOG_CORE
+	select MFD_ST_LPC
 	help
 	  Say Y here to include STMicroelectronics Low Power Controller
 	  (LPC) based Watchdog timer support.

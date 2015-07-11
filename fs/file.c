@@ -147,13 +147,6 @@ static int expand_fdtable(struct files_struct *files, int nr)
 
 	spin_unlock(&files->file_lock);
 	new_fdt = alloc_fdtable(nr);
-
-	/* make sure all __fd_install() have seen resize_in_progress
-	 * or have finished their rcu_read_lock_sched() section.
-	 */
-	if (atomic_read(&files->count) > 1)
-		synchronize_sched();
-
 	spin_lock(&files->file_lock);
 	if (!new_fdt)
 		return -ENOMEM;
@@ -165,14 +158,21 @@ static int expand_fdtable(struct files_struct *files, int nr)
 		__free_fdtable(new_fdt);
 		return -EMFILE;
 	}
+	/*
+	 * Check again since another task may have expanded the fd table while
+	 * we dropped the lock
+	 */
 	cur_fdt = files_fdtable(files);
-	BUG_ON(nr < cur_fdt->max_fds);
-	copy_fdtable(new_fdt, cur_fdt);
-	rcu_assign_pointer(files->fdt, new_fdt);
-	if (cur_fdt != &files->fdtab)
-		call_rcu(&cur_fdt->rcu, free_fdtable_rcu);
-	/* coupled with smp_rmb() in __fd_install() */
-	smp_wmb();
+	if (nr >= cur_fdt->max_fds) {
+		/* Continue as planned */
+		copy_fdtable(new_fdt, cur_fdt);
+		rcu_assign_pointer(files->fdt, new_fdt);
+		if (cur_fdt != &files->fdtab)
+			call_rcu(&cur_fdt->rcu, free_fdtable_rcu);
+	} else {
+		/* Somebody else expanded, so undo our attempt */
+		__free_fdtable(new_fdt);
+	}
 	return 1;
 }
 
@@ -185,38 +185,21 @@ static int expand_fdtable(struct files_struct *files, int nr)
  * The files->file_lock should be held on entry, and will be held on exit.
  */
 static int expand_files(struct files_struct *files, int nr)
-	__releases(files->file_lock)
-	__acquires(files->file_lock)
 {
 	struct fdtable *fdt;
-	int expanded = 0;
 
-repeat:
 	fdt = files_fdtable(files);
 
 	/* Do we need to expand? */
 	if (nr < fdt->max_fds)
-		return expanded;
+		return 0;
 
 	/* Can we expand? */
 	if (nr >= sysctl_nr_open)
 		return -EMFILE;
 
-	if (unlikely(files->resize_in_progress)) {
-		spin_unlock(&files->file_lock);
-		expanded = 1;
-		wait_event(files->resize_wait, !files->resize_in_progress);
-		spin_lock(&files->file_lock);
-		goto repeat;
-	}
-
 	/* All good, so we try */
-	files->resize_in_progress = true;
-	expanded = expand_fdtable(files, nr);
-	files->resize_in_progress = false;
-
-	wake_up_all(&files->resize_wait);
-	return expanded;
+	return expand_fdtable(files, nr);
 }
 
 static inline void __set_close_on_exec(int fd, struct fdtable *fdt)
@@ -273,8 +256,6 @@ struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
 	atomic_set(&newf->count, 1);
 
 	spin_lock_init(&newf->file_lock);
-	newf->resize_in_progress = false;
-	init_waitqueue_head(&newf->resize_wait);
 	newf->next_fd = 0;
 	new_fdt = &newf->fdtab;
 	new_fdt->max_fds = NR_OPEN_DEFAULT;
@@ -572,7 +553,6 @@ void __fd_install(struct files_struct *files, unsigned int fd,
 		struct file *file)
 {
 	struct fdtable *fdt;
-
 	might_sleep();
 	rcu_read_lock_sched();
 
@@ -664,17 +644,11 @@ static struct file *__fget(unsigned int fd, fmode_t mask)
 	struct file *file;
 
 	rcu_read_lock();
-loop:
 	file = fcheck_files(files, fd);
 	if (file) {
-		/* File object ref couldn't be taken.
-		 * dup2() atomicity guarantee is the reason
-		 * we loop to catch the new file (or NULL pointer)
-		 */
-		if (file->f_mode & mask)
+		/* File object ref couldn't be taken */
+		if ((file->f_mode & mask) || !get_file_rcu(file))
 			file = NULL;
-		else if (!get_file_rcu(file))
-			goto loop;
 	}
 	rcu_read_unlock();
 

@@ -24,8 +24,13 @@
 int main(void)
 {
 	DEFINE(__THREAD_info, offsetof(struct task_struct, stack));
+	DEFINE(__THREAD_fpu, offsetof(struct task_struct, thread.fpu));
 	DEFINE(__THREAD_ksp, offsetof(struct task_struct, thread.ksp));
 	DEFINE(__THREAD_mm_segment, offsetof(struct task_struct, thread.mm_segment));
+	BLANK();
+	DEFINE(__FPU_fpc, offsetof(struct fpu, fpc));
+	DEFINE(__FPU_flags, offsetof(struct fpu, flags));
+	DEFINE(__FPU_regs, offsetof(struct fpu, regs));
 	BLANK();
 	DEFINE(__TASK_pid, offsetof(struct task_struct, pid));
 	BLANK();

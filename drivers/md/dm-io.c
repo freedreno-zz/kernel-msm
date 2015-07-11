@@ -62,9 +62,14 @@ struct dm_io_client *dm_io_client_create(void)
 	if (!client->bios)
 		goto bad;
 
+	if (bioset_integrity_create(client->bios, min_ios))
+		goto bad;
+
 	return client;
 
    bad:
+	if (client->bios)
+		bioset_free(client->bios);
 	if (client->pool)
 		mempool_destroy(client->pool);
 	kfree(client);

@@ -174,6 +174,7 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 	int i, count = 0;
 	struct extcon_dev *edev = dev_get_drvdata(dev);
 
+#if 0
 	if (edev->print_state) {
 		int ret = edev->print_state(edev, buf);
 
@@ -181,6 +182,7 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 			return ret;
 		/* Use default if failed */
 	}
+#endif
 
 	if (edev->max_supported == 0)
 		return sprintf(buf, "%u\n", edev->state);

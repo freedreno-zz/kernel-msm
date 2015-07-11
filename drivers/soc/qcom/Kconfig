@@ -13,11 +13,12 @@ config QCOM_GSBI
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
+	select QCOM_SCM
+	select ARM_CPU_SUSPEND
 	help
 	  QCOM Platform specific power driver to manage cores and L2 low power
 	  modes. It interface with various system drivers to put the cores in
 	  low power modes.
-
 config QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on QCOM_SMEM
@@ -33,3 +34,15 @@ config QCOM_SMEM
 	  Say y here to enable support for the Qualcomm Shared Memory Manager.
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
+
+config QCOM_IPCRTR_STUB
+	tristate "Qualcomm IPCRTR stub driver"
+	depends on QCOM_SMD
+	help
+	  Stub driver to bring the IPCRTR channel up.
+
+config QCOM_WCNSS_CTRL
+	tristate "Qualcomm WCNSS control driver"
+	depends on QCOM_SMD
+	help
+	  Test driver for the WCNSS_CTRL smd channel
