@@ -1,6 +1,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "qcom-msm8974.dtsi"
 #include "qcom-pm8841.dtsi"
 #include "qcom-pm8941.dtsi"
@@ -198,6 +199,20 @@
 		pinctrl-0 = <&boost_bypass_en>;
 	};
 
+	vreg_wlan: vreg-wlan {
+		compatible = "regulator-fixed";
+
+		regulator-name = "wl-reg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+		gpio = <&pm8941_gpios 18 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8941_wl_reg_on>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -233,7 +248,7 @@
 
 &soc {
 	pinctrl@fd510000 {
-		sdhc1_active: sdhc1-active {
+		sdhci1_pin_a: sdhc1-active {
 			clk {
 				pins = "sdc1_clk";
 				drive-strength = <16>;
@@ -242,6 +257,32 @@
 
 			cmd-data {
 				pins = "sdc1_cmd", "sdc1_data";
+				drive-strength = <10>;
+				bias-pull-up;
+			};
+		};
+
+		sdcc3_pin_a: sdhc3-active {
+			clk {
+				pins = "gpio40";
+				function = "sdc3";
+
+				drive-strength = <10>;
+				bias-disable;
+			};
+
+			cmd {
+				pins = "gpio39";
+				function = "sdc3";
+
+				drive-strength = <10>;
+				bias-pull-up;
+			};
+
+			data {
+				pins = "gpio35", "gpio36", "gpio37", "gpio38";
+				function = "sdc3";
+
 				drive-strength = <10>;
 				bias-pull-up;
 			};
@@ -262,7 +303,38 @@
 		vqmmc-supply = <&pm8941_s3>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&sdhc1_active>;
+		pinctrl-0 = <&sdhci1_pin_a>;
+	};
+
+	amba {
+		compatible = "arm,amba-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sdcc@f9864900 {
+			status = "ok";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			max-frequency	= <100000000>;
+			non-removable;
+			vmmc-supply = <&vreg_wlan>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdcc3_pin_a>;
+
+			brcmf: bcrmf@1 {
+				compatible = "brcm,bcm4329-fmac";
+				reg = <1>;
+
+				brcm,drive-strength = <10>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&wl_sleep_clk_pin_a>;
+			};
+		};
 	};
 };
 
@@ -281,6 +353,26 @@
 					pins = "gpio2", "gpio3", "gpio4", "gpio5";
 					function = "normal";
 					bias-pull-up;
+					power-source = <PM8941_GPIO_S3>;
+				};
+			};
+
+			wl_sleep_clk_pin_a: wl-sleep-clk {
+				active {
+					pins = "gpio17";
+					function = "func2";
+
+					output-high;
+					power-source = <PM8941_GPIO_S3>;
+				};
+			};
+
+			pm8941_wl_reg_on: wl-reg-on {
+				state {
+					pins = "gpio18";
+					function = "normal";
+
+					bias-disable;
 					power-source = <PM8941_GPIO_S3>;
 				};
 			};
