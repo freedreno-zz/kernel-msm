@@ -1,0 +1,25 @@
+AU Optronics Corporation 1080x1920 DSI panel
+
+This panel supports both video and command mode (although currently only video
+mode is implemented in the driver.
+
+Required properties:
+- compatible: should be "auo,novatek-1080p-vid"
+
+Optional properties:
+- power-supply: phandle of the regulator that provides the supply voltage
+- reset-gpio: phandle of gpio for reset line
+- backlight: phandle of the backlight device attached to the panel
+
+Example:
+
+	dsi@54300000 {
+		panel: panel@0 {
+			compatible = "auo,novatek-1080p-vid";
+			reg = <0>;
+
+			power-supply = <...>;
+			reset-gpio = <...>;
+			backlight = <...>;
+		};
+	};
