@@ -309,7 +309,7 @@
 
 	lpass-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <429>, <443>;
+		qcom,smem = <443>, <429>;
 
 		interrupts = <0 158 1>;
 
@@ -337,7 +337,7 @@
 
 	modem-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <428>, <435>;
+		qcom,smem = <435>, <428>;
 
 		interrupts = <0 27 1>;
 		qcom,ipc = <&apcs 8 14>;
@@ -364,7 +364,7 @@
 
 	wcnss-smp2p {
 		compatible = "qcom,smp2p";
-		qcom,smem = <431>, <451>;
+		qcom,smem = <451>, <431>;
 
 		interrupts = <0 143 1>;
 
