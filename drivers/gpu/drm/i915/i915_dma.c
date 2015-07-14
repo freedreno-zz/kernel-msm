@@ -163,6 +163,13 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		if (!value)
 			return -ENODEV;
 		break;
+	case I915_PARAM_HAS_GPU_RESET:
+		value = i915.enable_hangcheck &&
+			intel_has_gpu_reset(dev);
+		break;
+	case I915_PARAM_HAS_RESOURCE_STREAMER:
+		value = HAS_RESOURCE_STREAMER(dev);
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return -EINVAL;
@@ -933,8 +940,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out_mtrrfree;
 	}
 
-	dev_priv->dp_wq = alloc_ordered_workqueue("i915-dp", 0);
-	if (dev_priv->dp_wq == NULL) {
+	dev_priv->hotplug.dp_wq = alloc_ordered_workqueue("i915-dp", 0);
+	if (dev_priv->hotplug.dp_wq == NULL) {
 		DRM_ERROR("Failed to create our dp workqueue.\n");
 		ret = -ENOMEM;
 		goto out_freewq;
@@ -1029,7 +1036,7 @@ out_gem_unload:
 	pm_qos_remove_request(&dev_priv->pm_qos);
 	destroy_workqueue(dev_priv->gpu_error.hangcheck_wq);
 out_freedpwq:
-	destroy_workqueue(dev_priv->dp_wq);
+	destroy_workqueue(dev_priv->hotplug.dp_wq);
 out_freewq:
 	destroy_workqueue(dev_priv->wq);
 out_mtrrfree:
@@ -1116,6 +1123,7 @@ int i915_driver_unload(struct drm_device *dev)
 	i915_gem_cleanup_ringbuffer(dev);
 	i915_gem_context_fini(dev);
 	mutex_unlock(&dev->struct_mutex);
+	intel_fbc_cleanup_cfb(dev_priv);
 	i915_gem_cleanup_stolen(dev);
 
 	intel_csr_ucode_fini(dev);
@@ -1123,7 +1131,7 @@ int i915_driver_unload(struct drm_device *dev)
 	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
 
-	destroy_workqueue(dev_priv->dp_wq);
+	destroy_workqueue(dev_priv->hotplug.dp_wq);
 	destroy_workqueue(dev_priv->wq);
 	destroy_workqueue(dev_priv->gpu_error.hangcheck_wq);
 	pm_qos_remove_request(&dev_priv->pm_qos);

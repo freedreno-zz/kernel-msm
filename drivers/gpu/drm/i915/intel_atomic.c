@@ -54,6 +54,8 @@ int intel_atomic_check(struct drm_device *dev,
 	int i;
 	bool not_nuclear = false;
 
+	to_intel_atomic_state(state)->cdclk = to_i915(dev)->cdclk_freq;
+
 	/*
 	 * FIXME:  At the moment, we only support "nuclear pageflip" on a
 	 * single CRTC.  Cross-crtc updates will be added later.
@@ -96,12 +98,14 @@ int intel_atomic_check(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	ret = drm_atomic_helper_check_planes(dev, state);
-	if (ret)
-		return ret;
+	if (crtc_state &&
+	    crtc_state->quirks & PIPE_CONFIG_QUIRK_INITIAL_PLANES) {
+		ret = drm_atomic_add_affected_planes(state, &nuclear_crtc->base);
+		if (ret)
+			return ret;
+	}
 
-	/* FIXME: move to crtc atomic check function once it is ready */
-	ret = intel_atomic_setup_scalers(dev, nuclear_crtc, crtc_state);
+	ret = drm_atomic_helper_check_planes(dev, state);
 	if (ret)
 		return ret;
 
@@ -129,6 +133,8 @@ int intel_atomic_commit(struct drm_device *dev,
 			struct drm_atomic_state *state,
 			bool async)
 {
+	struct drm_crtc_state *crtc_state;
+	struct drm_crtc *crtc;
 	int ret;
 	int i;
 
@@ -142,48 +148,16 @@ int intel_atomic_commit(struct drm_device *dev,
 		return ret;
 
 	/* Point of no return */
+	drm_atomic_helper_swap_state(dev, state);
 
-	/*
-	 * FIXME:  The proper sequence here will eventually be:
-	 *
-	 * drm_atomic_helper_swap_state(dev, state)
-	 * drm_atomic_helper_commit_modeset_disables(dev, state);
-	 * drm_atomic_helper_commit_planes(dev, state);
-	 * drm_atomic_helper_commit_modeset_enables(dev, state);
-	 * drm_atomic_helper_wait_for_vblanks(dev, state);
-	 * drm_atomic_helper_cleanup_planes(dev, state);
-	 * drm_atomic_state_free(state);
-	 *
-	 * once we have full atomic modeset.  For now, just manually update
-	 * plane states to avoid clobbering good states with dummy states
-	 * while nuclear pageflipping.
-	 */
-	for (i = 0; i < dev->mode_config.num_total_plane; i++) {
-		struct drm_plane *plane = state->planes[i];
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		to_intel_crtc(crtc)->config = to_intel_crtc_state(crtc->state);
 
-		if (!plane)
-			continue;
-
-		plane->state->state = state;
-		swap(state->plane_states[i], plane->state);
-		plane->state->state = NULL;
+		drm_atomic_helper_commit_planes_on_crtc(crtc_state);
 	}
 
-	/* swap crtc_scaler_state */
-	for (i = 0; i < dev->mode_config.num_crtc; i++) {
-		struct drm_crtc *crtc = state->crtcs[i];
-		if (!crtc) {
-			continue;
-		}
+	/* FIXME: This function should eventually call __intel_set_mode when needed */
 
-		to_intel_crtc(crtc)->config->scaler_state =
-			to_intel_crtc_state(state->crtc_states[i])->scaler_state;
-
-		if (INTEL_INFO(dev)->gen >= 9)
-			skl_detach_scalers(to_intel_crtc(crtc));
-	}
-
-	drm_atomic_helper_commit_planes(dev, state);
 	drm_atomic_helper_wait_for_vblanks(dev, state);
 	drm_atomic_helper_cleanup_planes(dev, state);
 	drm_atomic_state_free(state);
@@ -336,15 +310,22 @@ int intel_atomic_setup_scalers(struct drm_device *dev,
 	/* walkthrough scaler_users bits and start assigning scalers */
 	for (i = 0; i < sizeof(scaler_state->scaler_users) * 8; i++) {
 		int *scaler_id;
+		const char *name;
+		int idx;
 
 		/* skip if scaler not required */
 		if (!(scaler_state->scaler_users & (1 << i)))
 			continue;
 
 		if (i == SKL_CRTC_INDEX) {
+			name = "CRTC";
+			idx = intel_crtc->base.base.id;
+
 			/* panel fitter case: assign as a crtc scaler */
 			scaler_id = &scaler_state->scaler_id;
 		} else {
+			name = "PLANE";
+
 			if (!drm_state)
 				continue;
 
@@ -365,9 +346,19 @@ int intel_atomic_setup_scalers(struct drm_device *dev,
 						plane->base.id);
 					return PTR_ERR(state);
 				}
+
+				/*
+				 * the plane is added after plane checks are run,
+				 * but since this plane is unchanged just do the
+				 * minimum required validation.
+				 */
+				if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+					intel_crtc->atomic.wait_for_flips = true;
+				crtc_state->base.planes_changed = true;
 			}
 
 			intel_plane = to_intel_plane(plane);
+			idx = plane->base.id;
 
 			/* plane on different crtc cannot be a scaler user of this crtc */
 			if (WARN_ON(intel_plane->pipe != intel_crtc->pipe)) {
@@ -383,23 +374,16 @@ int intel_atomic_setup_scalers(struct drm_device *dev,
 			for (j = 0; j < intel_crtc->num_scalers; j++) {
 				if (!scaler_state->scalers[j].in_use) {
 					scaler_state->scalers[j].in_use = 1;
-					*scaler_id = scaler_state->scalers[j].id;
+					*scaler_id = j;
 					DRM_DEBUG_KMS("Attached scaler id %u.%u to %s:%d\n",
-						intel_crtc->pipe,
-						i == SKL_CRTC_INDEX ? scaler_state->scaler_id :
-							plane_state->scaler_id,
-						i == SKL_CRTC_INDEX ? "CRTC" : "PLANE",
-						i == SKL_CRTC_INDEX ?  intel_crtc->base.base.id :
-						plane->base.id);
+						intel_crtc->pipe, *scaler_id, name, idx);
 					break;
 				}
 			}
 		}
 
 		if (WARN_ON(*scaler_id < 0)) {
-			DRM_DEBUG_KMS("Cannot find scaler for %s:%d\n",
-				i == SKL_CRTC_INDEX ? "CRTC" : "PLANE",
-				i == SKL_CRTC_INDEX ? intel_crtc->base.base.id:plane->base.id);
+			DRM_DEBUG_KMS("Cannot find scaler for %s:%d\n", name, idx);
 			continue;
 		}
 
@@ -420,4 +404,55 @@ int intel_atomic_setup_scalers(struct drm_device *dev,
 	}
 
 	return 0;
+}
+
+static void
+intel_atomic_duplicate_dpll_state(struct drm_i915_private *dev_priv,
+				  struct intel_shared_dpll_config *shared_dpll)
+{
+	enum intel_dpll_id i;
+
+	/* Copy shared dpll state */
+	for (i = 0; i < dev_priv->num_shared_dpll; i++) {
+		struct intel_shared_dpll *pll = &dev_priv->shared_dplls[i];
+
+		shared_dpll[i] = pll->config;
+	}
+}
+
+struct intel_shared_dpll_config *
+intel_atomic_get_shared_dpll_state(struct drm_atomic_state *s)
+{
+	struct intel_atomic_state *state = to_intel_atomic_state(s);
+
+	WARN_ON(!drm_modeset_is_locked(&s->dev->mode_config.connection_mutex));
+
+	if (!state->dpll_set) {
+		state->dpll_set = true;
+
+		intel_atomic_duplicate_dpll_state(to_i915(s->dev),
+						  state->shared_dpll);
+	}
+
+	return state->shared_dpll;
+}
+
+struct drm_atomic_state *
+intel_atomic_state_alloc(struct drm_device *dev)
+{
+	struct intel_atomic_state *state = kzalloc(sizeof(*state), GFP_KERNEL);
+
+	if (!state || drm_atomic_state_init(dev, &state->base) < 0) {
+		kfree(state);
+		return NULL;
+	}
+
+	return &state->base;
+}
+
+void intel_atomic_state_clear(struct drm_atomic_state *s)
+{
+	struct intel_atomic_state *state = to_intel_atomic_state(s);
+	drm_atomic_state_default_clear(&state->base);
+	state->dpll_set = false;
 }

@@ -63,8 +63,7 @@ static int intel_fbdev_set_par(struct fb_info *info)
 		 * now until we solve this for real.
 		 */
 		mutex_lock(&fb_helper->dev->struct_mutex);
-		ret = i915_gem_object_set_to_gtt_domain(ifbdev->fb->obj,
-							true);
+		intel_fb_obj_invalidate(ifbdev->fb->obj, ORIGIN_GTT);
 		mutex_unlock(&fb_helper->dev->struct_mutex);
 	}
 
@@ -89,7 +88,7 @@ static int intel_fbdev_blank(int blank, struct fb_info *info)
 		 * now until we solve this for real.
 		 */
 		mutex_lock(&fb_helper->dev->struct_mutex);
-		intel_fb_obj_invalidate(ifbdev->fb->obj, NULL, ORIGIN_GTT);
+		intel_fb_obj_invalidate(ifbdev->fb->obj, ORIGIN_GTT);
 		mutex_unlock(&fb_helper->dev->struct_mutex);
 	}
 
@@ -115,7 +114,7 @@ static int intel_fbdev_pan_display(struct fb_var_screeninfo *var,
 		 * now until we solve this for real.
 		 */
 		mutex_lock(&fb_helper->dev->struct_mutex);
-		intel_fb_obj_invalidate(ifbdev->fb->obj, NULL, ORIGIN_GTT);
+		intel_fb_obj_invalidate(ifbdev->fb->obj, ORIGIN_GTT);
 		mutex_unlock(&fb_helper->dev->struct_mutex);
 	}
 
@@ -177,7 +176,7 @@ static int intelfb_alloc(struct drm_fb_helper *helper,
 	}
 
 	/* Flush everything out, we'll be doing GTT only from now on */
-	ret = intel_pin_and_fence_fb_obj(NULL, fb, NULL, NULL);
+	ret = intel_pin_and_fence_fb_obj(NULL, fb, NULL, NULL, NULL);
 	if (ret) {
 		DRM_ERROR("failed to pin obj: %d\n", ret);
 		goto out_fb;
@@ -825,11 +824,20 @@ void intel_fbdev_restore_mode(struct drm_device *dev)
 {
 	int ret;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_fbdev *ifbdev = dev_priv->fbdev;
+	struct drm_fb_helper *fb_helper;
 
-	if (!dev_priv->fbdev)
+	if (!ifbdev)
 		return;
 
-	ret = drm_fb_helper_restore_fbdev_mode_unlocked(&dev_priv->fbdev->helper);
-	if (ret)
+	fb_helper = &ifbdev->helper;
+
+	ret = drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper);
+	if (ret) {
 		DRM_DEBUG("failed to restore crtc mode\n");
+	} else {
+		mutex_lock(&fb_helper->dev->struct_mutex);
+		intel_fb_obj_invalidate(ifbdev->fb->obj, ORIGIN_GTT);
+		mutex_unlock(&fb_helper->dev->struct_mutex);
+	}
 }
