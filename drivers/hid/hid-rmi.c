@@ -33,9 +33,20 @@
 #define RMI_READ_DATA_PENDING		1
 #define RMI_STARTED			2
 
+#define RMI_SLEEP_NORMAL		0x0
+#define RMI_SLEEP_DEEP_SLEEP		0x1
+
 /* device flags */
 #define RMI_DEVICE			BIT(0)
 #define RMI_DEVICE_HAS_PHYS_BUTTONS	BIT(1)
+
+/*
+ * retrieve the ctrl registers
+ * the ctrl register has a size of 20 but a fw bug split it into 16 + 4,
+ * and there is no way to know if the first 20 bytes are here or not.
+ * We use only the first 12 bytes, so get only them.
+ */
+#define RMI_F11_CTRL_REG_COUNT		12
 
 enum rmi_mode_type {
 	RMI_MODE_OFF			= 0,
@@ -113,6 +124,8 @@ struct rmi_data {
 	unsigned int max_y;
 	unsigned int x_size_mm;
 	unsigned int y_size_mm;
+	bool read_f11_ctrl_regs;
+	u8 f11_ctrl_regs[RMI_F11_CTRL_REG_COUNT];
 
 	unsigned int gpio_led_count;
 	unsigned int button_count;
@@ -126,6 +139,8 @@ struct rmi_data {
 
 	unsigned long device_flags;
 	unsigned long firmware_id;
+
+	u8 f01_ctrl0;
 };
 
 #define RMI_PAGE(addr) (((addr) >> 8) & 0xff)
@@ -532,9 +547,72 @@ static int rmi_event(struct hid_device *hdev, struct hid_field *field,
 }
 
 #ifdef CONFIG_PM
+static int rmi_set_sleep_mode(struct hid_device *hdev, int sleep_mode)
+{
+	struct rmi_data *data = hid_get_drvdata(hdev);
+	int ret;
+	u8 f01_ctrl0;
+
+	f01_ctrl0 = (data->f01_ctrl0 & ~0x3) | sleep_mode;
+
+	ret = rmi_write(hdev, data->f01.control_base_addr,
+			&f01_ctrl0);
+	if (ret) {
+		hid_err(hdev, "can not write sleep mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int rmi_suspend(struct hid_device *hdev, pm_message_t message)
+{
+	struct rmi_data *data = hid_get_drvdata(hdev);
+	int ret;
+	u8 buf[RMI_F11_CTRL_REG_COUNT];
+
+	ret = rmi_read_block(hdev, data->f11.control_base_addr, buf,
+				RMI_F11_CTRL_REG_COUNT);
+	if (ret)
+		hid_warn(hdev, "can not read F11 control registers\n");
+	else
+		memcpy(data->f11_ctrl_regs, buf, RMI_F11_CTRL_REG_COUNT);
+
+
+	if (!device_may_wakeup(hdev->dev.parent))
+		return rmi_set_sleep_mode(hdev, RMI_SLEEP_DEEP_SLEEP);
+
+	return 0;
+}
+
 static int rmi_post_reset(struct hid_device *hdev)
 {
-	return rmi_set_mode(hdev, RMI_MODE_ATTN_REPORTS);
+	struct rmi_data *data = hid_get_drvdata(hdev);
+	int ret;
+
+	ret = rmi_set_mode(hdev, RMI_MODE_ATTN_REPORTS);
+	if (ret) {
+		hid_err(hdev, "can not set rmi mode\n");
+		return ret;
+	}
+
+	if (data->read_f11_ctrl_regs) {
+		ret = rmi_write_block(hdev, data->f11.control_base_addr,
+				data->f11_ctrl_regs, RMI_F11_CTRL_REG_COUNT);
+		if (ret)
+			hid_warn(hdev,
+				"can not write F11 control registers after reset\n");
+	}
+
+	if (!device_may_wakeup(hdev->dev.parent)) {
+		ret = rmi_set_sleep_mode(hdev, RMI_SLEEP_NORMAL);
+		if (ret) {
+			hid_err(hdev, "can not write sleep mode\n");
+			return ret;
+		}
+	}
+
+	return ret;
 }
 
 static int rmi_post_resume(struct hid_device *hdev)
@@ -732,6 +810,12 @@ static int rmi_populate_f01(struct hid_device *hdev)
 		data->firmware_id += info[2] * 65536;
 	}
 
+	ret = rmi_read(hdev, data->f01.control_base_addr, &data->f01_ctrl0);
+
+	if (ret) {
+		hid_err(hdev, "can not read f01 ctrl0\n");
+		return ret;
+	}
 	return 0;
 }
 
@@ -904,24 +988,23 @@ static int rmi_populate_f11(struct hid_device *hdev)
 	if (has_data40)
 		data->f11.report_size += data->max_fingers * 2;
 
-	/*
-	 * retrieve the ctrl registers
-	 * the ctrl register has a size of 20 but a fw bug split it into 16 + 4,
-	 * and there is no way to know if the first 20 bytes are here or not.
-	 * We use only the first 12 bytes, so get only them.
-	 */
-	ret = rmi_read_block(hdev, data->f11.control_base_addr, buf, 12);
+	ret = rmi_read_block(hdev, data->f11.control_base_addr,
+			data->f11_ctrl_regs, RMI_F11_CTRL_REG_COUNT);
 	if (ret) {
 		hid_err(hdev, "can not read ctrl block of size 11: %d.\n", ret);
 		return ret;
 	}
 
-	data->max_x = buf[6] | (buf[7] << 8);
-	data->max_y = buf[8] | (buf[9] << 8);
+	/* data->f11_ctrl_regs now contains valid register data */
+	data->read_f11_ctrl_regs = true;
+
+	data->max_x = data->f11_ctrl_regs[6] | (data->f11_ctrl_regs[7] << 8);
+	data->max_y = data->f11_ctrl_regs[8] | (data->f11_ctrl_regs[9] << 8);
 
 	if (has_dribble) {
-		buf[0] = buf[0] & ~BIT(6);
-		ret = rmi_write(hdev, data->f11.control_base_addr, buf);
+		data->f11_ctrl_regs[0] = data->f11_ctrl_regs[0] & ~BIT(6);
+		ret = rmi_write(hdev, data->f11.control_base_addr,
+				data->f11_ctrl_regs);
 		if (ret) {
 			hid_err(hdev, "can not write to control reg 0: %d.\n",
 				ret);
@@ -930,9 +1013,9 @@ static int rmi_populate_f11(struct hid_device *hdev)
 	}
 
 	if (has_palm_detect) {
-		buf[11] = buf[11] & ~BIT(0);
+		data->f11_ctrl_regs[11] = data->f11_ctrl_regs[11] & ~BIT(0);
 		ret = rmi_write(hdev, data->f11.control_base_addr + 11,
-				&buf[11]);
+				&data->f11_ctrl_regs[11]);
 		if (ret) {
 			hid_err(hdev, "can not write to control reg 11: %d.\n",
 				ret);
@@ -1273,6 +1356,7 @@ static struct hid_driver rmi_driver = {
 	.input_mapping		= rmi_input_mapping,
 	.input_configured	= rmi_input_configured,
 #ifdef CONFIG_PM
+	.suspend		= rmi_suspend,
 	.resume			= rmi_post_resume,
 	.reset_resume		= rmi_post_reset,
 #endif

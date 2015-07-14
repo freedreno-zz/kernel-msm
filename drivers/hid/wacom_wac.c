@@ -2213,6 +2213,9 @@ void wacom_setup_device_quirks(struct wacom *wacom)
 			features->x_max = 4096;
 			features->y_max = 4096;
 		}
+		else if (features->pktlen == WACOM_PKGLEN_BBTOUCH) {
+			features->device_type |= WACOM_DEVICETYPE_PAD;
+		}
 	}
 
 	/*
@@ -2220,10 +2223,10 @@ void wacom_setup_device_quirks(struct wacom *wacom)
 	 * 0, whose HID descriptor has an application usage of 0xFF0D
 	 * (i.e., WACOM_VENDORDEFINED_PEN). We route pen packets back
 	 * out through the HID_GENERIC device created for interface 1,
-	 * so rewrite this one to be of type BTN_TOOL_FINGER.
+	 * so rewrite this one to be of type WACOM_DEVICETYPE_TOUCH.
 	 */
 	if (features->type == BAMBOO_PAD)
-		features->device_type |= WACOM_DEVICETYPE_TOUCH;
+		features->device_type = WACOM_DEVICETYPE_TOUCH;
 
 	if (wacom->hdev->bus == BUS_BLUETOOTH)
 		features->quirks |= WACOM_QUIRK_BATTERY;
