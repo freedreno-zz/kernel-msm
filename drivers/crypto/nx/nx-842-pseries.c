@@ -556,7 +556,7 @@ static int nx842_OF_set_defaults(struct nx842_devdata *devdata)
  *
  * Returns:
  *  0 - Device is available
- *  -EINVAL - Device is not available
+ *  -ENODEV - Device is not available
  */
 static int nx842_OF_upd_status(struct nx842_devdata *devdata,
 					struct property *prop) {
@@ -566,9 +566,16 @@ static int nx842_OF_upd_status(struct nx842_devdata *devdata,
 	if (!strncmp(status, "okay", (size_t)prop->length)) {
 		devdata->status = AVAILABLE;
 	} else {
-		dev_info(devdata->dev, "%s: status '%s' is not 'okay'\n",
+		/*
+		 * Caller will log that the device is disabled, so only
+		 * output if there is an unexpected status.
+		 */
+		if (strncmp(status, "disabled", (size_t)prop->length)) {
+			dev_info(devdata->dev, "%s: status '%s' is not 'okay'\n",
 				__func__, status);
+		}
 		devdata->status = UNAVAILABLE;
+		ret = -ENODEV;
 	}
 
 	return ret;
@@ -1079,12 +1086,10 @@ static struct vio_driver nx842_vio_driver = {
 	.id_table = nx842_vio_driver_ids,
 };
 
-static int __init nx842_init(void)
+static int __init nx842_pseries_init(void)
 {
 	struct nx842_devdata *new_devdata;
 	int ret;
-
-	pr_info("Registering IBM Power 842 compression driver\n");
 
 	if (!of_find_compatible_node(NULL, NULL, "ibm,compression"))
 		return -ENODEV;
@@ -1115,14 +1120,13 @@ static int __init nx842_init(void)
 	return 0;
 }
 
-module_init(nx842_init);
+module_init(nx842_pseries_init);
 
-static void __exit nx842_exit(void)
+static void __exit nx842_pseries_exit(void)
 {
 	struct nx842_devdata *old_devdata;
 	unsigned long flags;
 
-	pr_info("Exiting IBM Power 842 compression driver\n");
 	nx842_platform_driver_unset(&nx842_pseries_driver);
 	spin_lock_irqsave(&devdata_mutex, flags);
 	old_devdata = rcu_dereference_check(devdata,
@@ -1136,5 +1140,5 @@ static void __exit nx842_exit(void)
 	vio_unregister_driver(&nx842_vio_driver);
 }
 
-module_exit(nx842_exit);
+module_exit(nx842_pseries_exit);
 
