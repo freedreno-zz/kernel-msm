@@ -213,6 +213,19 @@
 		pinctrl-0 = <&pm8941_wl_reg_on>;
 	};
 
+	vreg_vsp: lcd-dcdc-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_vsp";
+		regulator-min-microvolt = <5600000>;
+		regulator-max-microvolt = <5600000>;
+
+		gpio = <&pm8941_gpios 20 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcd_dcdc_en_pin_a>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -374,6 +387,18 @@
 
 					bias-disable;
 					power-source = <PM8941_GPIO_S3>;
+				};
+			};
+
+			lcd_dcdc_en_pin_a: lcd-dcdc-en-active {
+				cfg {
+					pins = "gpio20";
+					function = "normal";
+
+					bias-disable;
+					power-source = <PM8941_GPIO_S3>;
+					input-disable;
+					output-low;
 				};
 			};
 		};
