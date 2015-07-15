@@ -104,9 +104,11 @@
 		panel@0 {
 			reg = <0>;
 			compatible = "auo,novatek-1080p-vid";
-			power-supply = <&lcd_dcdc_en>;
-			disp-enable-gpios = <&msmgpio 27 0>;
+			power-supply = <&vreg_vsp>;
+			reset-gpios = <&pm8941_gpios 19 GPIO_ACTIVE_HIGH>;
 			disp-te-gpios = <&msmgpio 12 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&lcd_dcdc_reset_pin_a>;
 		};
 	};
 

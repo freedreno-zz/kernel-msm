@@ -357,6 +357,18 @@
 					output-low;
 				};
 			};
+
+			lcd_dcdc_reset_pin_a: lcd-dcdc-reset-active {
+				default {
+					pins = "gpio19";
+					function = "normal";
+
+					bias-disable;
+					power-source = <PM8941_GPIO_S3>;
+					input-disable;
+					output-high;
+				};
+			};
 		};
 	};
 };
