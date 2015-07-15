@@ -223,7 +223,7 @@
 #endif
 
 			ipcrtr {
-				compatible = "qcom,ipcrtr";
+				compatible = "qcom,ipcrouter-smd";
 				qcom,smd-channels = "IPCRTR";
 			};
 
@@ -311,6 +311,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <443>, <429>;
 
+		interrupt-parent = <&intc>;
 		interrupts = <0 158 1>;
 
 		qcom,ipc = <&apcs 8 10>;
@@ -339,6 +340,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <435>, <428>;
 
+		interrupt-parent = <&intc>;
 		interrupts = <0 27 1>;
 		qcom,ipc = <&apcs 8 14>;
 
@@ -366,6 +368,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <451>, <431>;
 
+		interrupt-parent = <&intc>;
 		interrupts = <0 143 1>;
 
 		qcom,ipc = <&apcs 8 18>;
