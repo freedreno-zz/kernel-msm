@@ -15,6 +15,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define DEBUG 1
 #include <linux/backlight.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -34,6 +35,7 @@ struct auo_panel {
 
 	struct backlight_device *backlight;
 	struct regulator *supply;
+	struct gpio_desc *reset_gpio;
 
 	bool prepared;
 	bool enabled;
@@ -274,6 +276,8 @@ static int auo_panel_unprepare(struct drm_panel *panel)
 	}
 
 	regulator_disable(auo->supply);
+	if (auo->reset_gpio)
+		gpiod_set_value(auo->reset_gpio, 0);
 
 	auo->prepared = false;
 
@@ -293,6 +297,20 @@ static int auo_panel_prepare(struct drm_panel *panel)
 	ret = regulator_enable(auo->supply);
 	if (ret < 0)
 		return ret;
+
+	msleep(150);
+
+	if (auo->reset_gpio) {
+		/* XXX reset really hard! */
+		gpiod_set_value(auo->reset_gpio, 1);
+		msleep(10);
+		gpiod_set_value(auo->reset_gpio, 0);
+		msleep(10);
+		gpiod_set_value(auo->reset_gpio, 1);
+		msleep(10);
+	}
+
+	msleep(150);
 
 	ret = auo_panel_init(auo);
 	if (ret < 0) {
@@ -315,6 +333,8 @@ static int auo_panel_prepare(struct drm_panel *panel)
 
 poweroff:
 	regulator_disable(auo->supply);
+	if (auo->reset_gpio)
+		gpiod_set_value(auo->reset_gpio, 0);
 	return ret;
 }
 
@@ -388,16 +408,26 @@ MODULE_DEVICE_TABLE(of, auo_of_match);
 
 static int auo_panel_add(struct auo_panel *auo)
 {
+	struct device *dev= &auo->dsi->dev;
 	struct device_node *np;
 	int ret;
 
 	auo->mode = &default_mode;
 
-	auo->supply = devm_regulator_get(&auo->dsi->dev, "power");
+	auo->supply = devm_regulator_get(dev, "power");
 	if (IS_ERR(auo->supply))
 		return PTR_ERR(auo->supply);
 
-	np = of_parse_phandle(auo->dsi->dev.of_node, "backlight", 0);
+	auo->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(auo->reset_gpio)) {
+		dev_err(dev, "cannot get reset-gpios %ld\n",
+			PTR_ERR(auo->reset_gpio));
+		auo->reset_gpio = NULL;
+	} else {
+		gpiod_set_value(auo->reset_gpio, 0);
+	}
+
+	np = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (np) {
 		auo->backlight = of_find_backlight_by_node(np);
 		of_node_put(np);
@@ -439,7 +469,10 @@ static int auo_panel_probe(struct mipi_dsi_device *dsi)
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_HSE;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO |
+			MIPI_DSI_MODE_VIDEO_HSE |
+			MIPI_DSI_CLOCK_NON_CONTINUOUS |
+			MIPI_DSI_MODE_EOT_PACKET;
 
 	auo = devm_kzalloc(&dsi->dev, sizeof(*auo), GFP_KERNEL);
 	if (!auo) {
@@ -463,12 +496,6 @@ static int auo_panel_remove(struct mipi_dsi_device *dsi)
 	struct auo_panel *auo = mipi_dsi_get_drvdata(dsi);
 	int ret;
 
-	/* only detach from host for the DSI-LINK2 interface */
-	if (!auo) {
-		mipi_dsi_detach(dsi);
-		return 0;
-	}
-
 	ret = auo_panel_disable(&auo->base);
 	if (ret < 0)
 		dev_err(&dsi->dev, "failed to disable panel: %d\n", ret);
@@ -486,10 +513,6 @@ static int auo_panel_remove(struct mipi_dsi_device *dsi)
 static void auo_panel_shutdown(struct mipi_dsi_device *dsi)
 {
 	struct auo_panel *auo = mipi_dsi_get_drvdata(dsi);
-
-	/* nothing to do for DSI-LINK2 */
-	if (!auo)
-		return;
 
 	auo_panel_disable(&auo->base);
 }
