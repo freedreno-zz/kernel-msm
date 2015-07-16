@@ -174,8 +174,9 @@ static int regulator_check_voltage(struct regulator_dev *rdev,
 		return -ENODEV;
 	}
 	if (!(rdev->constraints->valid_ops_mask & REGULATOR_CHANGE_VOLTAGE)) {
-		rdev_err(rdev, "operation not allowed\n");
-		return -EPERM;
+		rdev_err(rdev, "operation not allowed (1)\n");
+		return 0;
+//		return -EPERM;
 	}
 
 	if (*max_uV > rdev->constraints->max_uV)
@@ -234,8 +235,9 @@ static int regulator_check_current_limit(struct regulator_dev *rdev,
 		return -ENODEV;
 	}
 	if (!(rdev->constraints->valid_ops_mask & REGULATOR_CHANGE_CURRENT)) {
-		rdev_err(rdev, "operation not allowed\n");
-		return -EPERM;
+		rdev_err(rdev, "operation not allowed (2)\n");
+		return 0;
+//		return -EPERM;
 	}
 
 	if (*max_uA > rdev->constraints->max_uA)
@@ -271,8 +273,9 @@ static int regulator_mode_constrain(struct regulator_dev *rdev, int *mode)
 		return -ENODEV;
 	}
 	if (!(rdev->constraints->valid_ops_mask & REGULATOR_CHANGE_MODE)) {
-		rdev_err(rdev, "operation not allowed\n");
-		return -EPERM;
+		rdev_err(rdev, "operation not allowed (3)\n");
+		return 0;
+//		return -EPERM;
 	}
 
 	/* The modes are bitmasks, the most power hungry modes having
@@ -295,8 +298,9 @@ static int regulator_check_drms(struct regulator_dev *rdev)
 		return -ENODEV;
 	}
 	if (!(rdev->constraints->valid_ops_mask & REGULATOR_CHANGE_DRMS)) {
-		rdev_err(rdev, "operation not allowed\n");
-		return -EPERM;
+		rdev_err(rdev, "operation not allowed (0)\n");
+		return 0;
+//		return -EPERM;
 	}
 	return 0;
 }
