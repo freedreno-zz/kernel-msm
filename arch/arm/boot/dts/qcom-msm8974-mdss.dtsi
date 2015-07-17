@@ -87,7 +87,8 @@
 		interrupts = <4 0>;
 
 		vdda-supply = <&pm8941_l2>;
-		vdd-supply = <&pm8941_l22>;
+//		vdd-supply = <&pm8941_l22>;
+		vdd-supply = <&pm8941_lvs3>;
 		vddio-supply = <&pm8941_l12>;
 
 		clocks = <&mmcc MDSS_MDP_CLK>,
