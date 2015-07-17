@@ -390,6 +390,17 @@
 				};
 			};
 
+			lcd_dcdc_reset_pin_a: lcd-dcdc-reset {
+				active {
+					pins = "gpio19";
+					function = "normal";
+
+					power-source = <PM8941_GPIO_S3>;
+					input-disable;
+					output-low;
+				};
+			};
+
 			lcd_dcdc_en_pin_a: lcd-dcdc-en-active {
 				cfg {
 					pins = "gpio20";
@@ -404,3 +415,5 @@
 		};
 	};
 };
+
+#include "qcom-msm8974-mdss.dtsi"
