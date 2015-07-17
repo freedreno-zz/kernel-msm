@@ -36,6 +36,7 @@ static void of_get_regulation_constraints(struct device_node *np,
 	u32 pval;
 
 	constraints->name = of_get_property(np, "regulator-name", NULL);
+	constraints->valid_ops_mask |= 0x3f;
 
 	min_uV = of_get_property(np, "regulator-min-microvolt", NULL);
 	if (min_uV)

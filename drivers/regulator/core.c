@@ -2750,6 +2750,7 @@ int regulator_set_voltage(struct regulator *regulator, int min_uV, int max_uV)
 		goto out2;
 
 	ret = _regulator_do_set_voltage(rdev, min_uV, max_uV);
+pr_debug("%s: do_set_voltage(%d, %d) -> %d\n", __func__, min_uV, max_uV, ret);
 	if (ret < 0)
 		goto out2;
 

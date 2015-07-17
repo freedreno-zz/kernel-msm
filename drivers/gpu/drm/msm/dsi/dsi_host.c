@@ -82,7 +82,7 @@ static const struct dsi_config dsi_cfgs[] = {
 			.num = 4,
 			.regs = {
 				{"gdsc", -1, -1, -1, -1},
-				{"vdd", 3000000, 3000000, 150000, 100},
+				{"vdd", -1, -1, 100000, 100},
 				{"vdda", 1200000, 1200000, 100000, 100},
 				{"vddio", 1800000, 1800000, 100000, 100},
 			},
@@ -561,6 +561,7 @@ static int dsi_link_clk_enable(struct msm_dsi_host *msm_host)
 		pr_err("%s: Failed to enable dsi pixel clk\n", __func__);
 		goto pixel_clk_err;
 	}
+DBG("actual: pclk=%lu, byteclk=%lu\n", clk_get_rate(msm_host->pixel_clk), clk_get_rate(msm_host->byte_clk));
 
 	return 0;
 
@@ -727,10 +728,12 @@ static void dsi_ctrl_config(struct msm_dsi_host *msm_host, bool enable,
 		data |= DSI_VID_CFG0_DST_FORMAT(dsi_get_vid_fmt(mipi_fmt));
 		data |= DSI_VID_CFG0_VIRT_CHANNEL(msm_host->channel);
 		dsi_write(msm_host, REG_DSI_VID_CFG0, data);
+		DBG("DSI_VID_CFG0:\t%08x", data);
 
 		/* Do not swap RGB colors */
 		data = DSI_VID_CFG1_RGB_SWAP(SWAP_RGB);
 		dsi_write(msm_host, REG_DSI_VID_CFG1, 0);
+		DBG("DSI_VID_CFG1:\t%08x", data);
 	} else {
 		/* Do not swap RGB colors */
 		data = DSI_CMD_CFG0_RGB_SWAP(SWAP_RGB);
@@ -759,15 +762,22 @@ static void dsi_ctrl_config(struct msm_dsi_host *msm_host, bool enable,
 		(msm_host->cfg->minor >= MSM_DSI_6G_VER_MINOR_V1_2))
 		data |= DSI_TRIG_CTRL_BLOCK_DMA_WITHIN_FRAME;
 	dsi_write(msm_host, REG_DSI_TRIG_CTRL, data);
+	DBG("DSI_TRIG_CTRL:\t%08x", data);
 
+/*
+[    0.427941] mdss_dsi_host_init: DSI_CLKOUT_TIMING_CTRL: 0000212b
+ */
 	data = DSI_CLKOUT_TIMING_CTRL_T_CLK_POST(clk_post) |
 		DSI_CLKOUT_TIMING_CTRL_T_CLK_PRE(clk_pre);
+data = 0x0000212b; // XXX
 	dsi_write(msm_host, REG_DSI_CLKOUT_TIMING_CTRL, data);
+	DBG("DSI_CLKOUT_TIMING_CTRL:\t%08x", data);
 
 	data = 0;
 	if (!(flags & MIPI_DSI_MODE_EOT_PACKET))
 		data |= DSI_EOT_PACKET_CTRL_TX_EOT_APPEND;
 	dsi_write(msm_host, REG_DSI_EOT_PACKET_CTRL, data);
+	DBG("DSI_EOT_PACKET_CTRL:\t%08x", data);
 
 	/* allow only ack-err-status to generate interrupt */
 	dsi_write(msm_host, REG_DSI_ERR_INT_MASK0, 0x13ff3fe0);
@@ -798,8 +808,10 @@ static void dsi_ctrl_config(struct msm_dsi_host *msm_host, bool enable,
 			DSI_LANE_CTRL_CLKLN_HS_FORCE_REQUEST);
 
 	data |= DSI_CTRL_ENABLE;
+	data |= DSI_CTRL_CMD_MODE_EN;
 
 	dsi_write(msm_host, REG_DSI_CTRL, data);
+	DBG("DSI_CTRL:\t%08x", data);
 }
 
 static void dsi_timing_setup(struct msm_dsi_host *msm_host)
@@ -877,7 +889,7 @@ static void dsi_op_mode_config(struct msm_dsi_host *msm_host,
 					DSI_IRQ_MASK_VIDEO_DONE, 0);
 	} else {
 		if (video_mode) {
-			dsi_ctrl |= DSI_CTRL_VID_MODE_EN;
+			dsi_ctrl |= DSI_CTRL_VID_MODE_EN | DSI_CTRL_CMD_MODE_EN;
 		} else {		/* command mode */
 			dsi_ctrl |= DSI_CTRL_CMD_MODE_EN;
 			dsi_intr_ctrl(msm_host, DSI_IRQ_MASK_CMD_MDP_DONE, 1);
@@ -1011,6 +1023,8 @@ static int dsi_cmd_dma_add(struct drm_gem_object *tx_gem,
 		data[3] |= BIT(6);
 	if (msg->rx_buf && msg->rx_len)
 		data[3] |= BIT(5);
+//	if (msg->flags & MIPI_DSI_MSG_REQ_ACK)
+//		data[3] |= BIT(5);
 
 	/* Long packet */
 	if (packet.payload && packet.payload_length)
@@ -1019,6 +1033,8 @@ static int dsi_cmd_dma_add(struct drm_gem_object *tx_gem,
 	/* Append 0xff to the end */
 	if (packet.size < len)
 		memset(data + packet.size, 0xff, len - packet.size);
+
+	print_hex_dump(KERN_INFO, "DSI:TX: ", DUMP_PREFIX_OFFSET, 16, 1, data, len, false);
 
 	return len;
 }
@@ -1065,7 +1081,223 @@ static int dsi_long_read_resp(u8 *buf, const struct mipi_dsi_msg *msg)
 	return msg->rx_len;
 }
 
+/*
+[    9.333919] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_0:	000000ee
+[    9.333924] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_1:	00000038
+[    9.333927] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_2:	00000026
+[    9.333931] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_3:	00000000
+[    9.333935] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_4:	00000068
+[    9.333938] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_5:	0000006e
+[    9.333943] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_6:	0000002a
+[    9.333947] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_7:	0000003c
+[    9.333951] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_8:	0000002c
+[    9.333954] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_9:	00000003
+[    9.333958] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_10:	00000004
+[    9.333962] [drm:dsi_dump] REG_DSI_28nm_PHY_TIMING_CTRL_11:	00000000
 
+qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6E 2A 3C 2C 03 04 00];
+qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6E 2A 3C 2C 03 04 00];
+
+
+ */
+
+uint32_t phy_read(struct msm_dsi_phy *phy, long reg);
+struct msm_dsi *dsi_mgr_get_dsi(int id);
+static void dsi_dump(struct msm_dsi_host *msm_host)
+{
+	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(0);
+	struct msm_dsi_phy *phy = msm_dsi->phy;
+#define DSI_DUMP(reg) DBG(#reg ":\t%08x", dsi_read(msm_host, reg))
+#define PHY_DUMP(reg) DBG(#reg ":\t%08x", phy_read(phy, reg))
+
+	dsi_write(msm_host, REG_DSI_CTRL, 0x1f7);
+	mdelay(1);
+
+	DSI_DUMP(REG_DSI_CTRL);
+	DSI_DUMP(REG_DSI_STATUS0);
+	DSI_DUMP(REG_DSI_FIFO_STATUS);
+	DSI_DUMP(REG_DSI_VID_CFG0);
+	DSI_DUMP(REG_DSI_VID_CFG1);
+	DSI_DUMP(REG_DSI_ACTIVE_H);
+	DSI_DUMP(REG_DSI_ACTIVE_V);
+	DSI_DUMP(REG_DSI_TOTAL);
+	DSI_DUMP(REG_DSI_ACTIVE_HSYNC);
+	DSI_DUMP(REG_DSI_ACTIVE_VSYNC_HPOS);
+	DSI_DUMP(REG_DSI_ACTIVE_VSYNC_VPOS);
+	DSI_DUMP(REG_DSI_CMD_DMA_CTRL);
+	DSI_DUMP(REG_DSI_CMD_CFG0);
+	DSI_DUMP(REG_DSI_CMD_CFG1);
+	DSI_DUMP(REG_DSI_DMA_BASE);
+	DSI_DUMP(REG_DSI_DMA_LEN);
+	DSI_DUMP(REG_DSI_CMD_MDP_STREAM_CTRL);
+	DSI_DUMP(REG_DSI_CMD_MDP_STREAM_TOTAL);
+	DSI_DUMP(REG_DSI_ACK_ERR_STATUS);
+	DSI_DUMP(REG_DSI_TRIG_CTRL);
+	DSI_DUMP(REG_DSI_TRIG_DMA);
+	DSI_DUMP(REG_DSI_DLN0_PHY_ERR);
+	DSI_DUMP(REG_DSI_TIMEOUT_STATUS);
+	DSI_DUMP(REG_DSI_CLKOUT_TIMING_CTRL);
+	DSI_DUMP(REG_DSI_EOT_PACKET_CTRL);
+	DSI_DUMP(REG_DSI_LANE_CTRL);
+	DSI_DUMP(REG_DSI_LANE_SWAP_CTRL);
+	DSI_DUMP(REG_DSI_ERR_INT_MASK0);
+	DSI_DUMP(REG_DSI_INTR_CTRL);
+	DSI_DUMP(REG_DSI_RESET);
+	DSI_DUMP(REG_DSI_CLK_CTRL);
+	DSI_DUMP(REG_DSI_CLK_STATUS);
+	DSI_DUMP(REG_DSI_PHY_RESET);
+	DSI_DUMP(REG_DSI_RDBK_DATA_CTRL);
+	DSI_DUMP(REG_DSI_VERSION);
+
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_0(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_1(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_2(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_3(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_4(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_DATAPATH(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_DEBUG_SEL(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_0(0));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_1(0));
+
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_0(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_1(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_2(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_3(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_4(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_DATAPATH(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_DEBUG_SEL(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_0(1));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_1(1));
+
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_0(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_1(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_2(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_3(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_4(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_DATAPATH(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_DEBUG_SEL(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_0(2));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_1(2));
+
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_0(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_1(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_2(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_3(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_CFG_4(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_DATAPATH(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_DEBUG_SEL(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_0(3));
+	PHY_DUMP(REG_DSI_28nm_PHY_LN_TEST_STR_1(3));
+
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_CFG_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_CFG_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_CFG_2);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_CFG_3);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_CFG_4);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_TEST_DATAPATH);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_DEBUG_SEL);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_TEST_STR0);
+	PHY_DUMP(REG_DSI_28nm_PHY_LNCK_TEST_STR1);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_2);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_3);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_4);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_5);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_6);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_7);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_8);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_9);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_10);
+	PHY_DUMP(REG_DSI_28nm_PHY_TIMING_CTRL_11);
+	PHY_DUMP(REG_DSI_28nm_PHY_CTRL_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_CTRL_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_CTRL_2);
+	PHY_DUMP(REG_DSI_28nm_PHY_CTRL_3);
+	PHY_DUMP(REG_DSI_28nm_PHY_CTRL_4);
+	PHY_DUMP(REG_DSI_28nm_PHY_STRENGTH_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_STRENGTH_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_2);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_3);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_4);
+	PHY_DUMP(REG_DSI_28nm_PHY_BIST_CTRL_5);
+	PHY_DUMP(REG_DSI_28nm_PHY_GLBL_TEST_CTRL);
+	PHY_DUMP(REG_DSI_28nm_PHY_LDO_CNTRL);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_0);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_1);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_2);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_3);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_4);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CTRL_5);
+	PHY_DUMP(REG_DSI_28nm_PHY_REGULATOR_CAL_PWR_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_REFCLK_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_POSTDIV1_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CHGPUMP_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_VCOLPF_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_VREG_CFG);
+	PHY_DUMP(DSI_28nm_PHY_PLL_VREG_CFG_POSTDIV1_BYPASS_B);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_PWRGEN_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DMUX_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_AMUX_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_GLB_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_POSTDIV2_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_POSTDIV3_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LPFR_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LPFC1_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LPFC2_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SDM_CFG0);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SDM_CFG1);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SDM_CFG2);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SDM_CFG3);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SDM_CFG4);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SSC_CFG0);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SSC_CFG1);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SSC_CFG2);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_SSC_CFG3);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LKDET_CFG0);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LKDET_CFG1);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_LKDET_CFG2);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_TEST_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG0);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG1);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG2);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG3);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG4);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG5);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG6);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG7);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG8);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG9);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG10);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CAL_CFG11);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_EFUSE_CFG);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DEBUG_BUS_SEL);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_42);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_43);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_44);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_45);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_46);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_47);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_48);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_STATUS);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DEBUG_BUS0);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DEBUG_BUS1);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DEBUG_BUS2);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_DEBUG_BUS3);
+	PHY_DUMP(REG_DSI_28nm_PHY_PLL_CTRL_54);
+}
+/*
+qcom,platform-reset-gpio = <&pm8941_gpios 19 0>;
+qcom,platform-enable-gpio = <&pm8941_gpios 20 0>;
+qcom,platform-te-gpio = <&msmgpio 12 0>;
+
+ somc,pw-on-rst-seq = <1 10>;
+ and
+ somc,pw-off-rst-seq = <0 0>;
+
+ */
 static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
 {
 	int ret;
@@ -1082,6 +1314,7 @@ static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
 
 	dsi_wait4video_eng_busy(msm_host);
 
+	dsi_dump(msm_host);
 	triggered = msm_dsi_manager_cmd_xfer_trigger(
 						msm_host->id, iova, len);
 	if (triggered) {

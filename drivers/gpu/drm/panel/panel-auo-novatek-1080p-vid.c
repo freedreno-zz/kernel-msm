@@ -55,32 +55,33 @@ static inline struct auo_panel *to_auo_panel(struct drm_panel *panel)
 
 dsi_lp_mode
 somc,mdss-dsi-init-command:
+	                             P
+	                             A
+	  D                          Y
+	  T  L        W      D       L
+	  Y  A     A  A      L       O
+	  P  S  V  C  I      E       A
+	  E  T  C  K  T      N       D
 
-  D
-  T  L        W    D
-  Y  A     A  A    L
-  P  S  V  C  I    E
-  E  T  C  K  T    N
-
-  15 01 00 00 00   00 02   FF E0
-  15 01 00 00 00   00 02   FB 01
-  15 01 00 00 00   00 02   B5 86
-  15 01 00 00 00   00 02   B6 77
-  15 01 00 00 00   00 02   B8 AD
-  15 01 00 00 00   00 02   FF 20
-  15 01 00 00 00   00 02   FB 01
-  15 01 00 00 00   00 02   10 04            ; MIPI_DCS_ENTER_SLEEP_MODE
-  15 01 00 00 00   00 02   FF 24
-  15 01 00 00 00   00 02   FB 01
-  15 01 00 00 00   00 02   C6 00
-  15 01 00 00 00   00 02   C5 32
-  15 01 00 00 00   00 02   92 92
-  15 01 00 00 00   00 02   FF 10
-  15 01 00 00 00   00 02   35 00            ; MIPI_DCS_SET_TEAR_ON
-  39 01 00 00 00   00 03   44 03 00         ; MIPI_DCS_SET_TEAR_SCANLINE
-  39 01 00 00 00   00 04   3B 03 30 06
-  15 01 00 00 01   00 02   BB 10
-  05 01 00 00 1E   00 01   11               ; MIPI_DCS_EXIT_SLEEP_MODE
+	  15 01 00 00 00   00 02   FF E0
+	  15 01 00 00 00   00 02   FB 01
+	  15 01 00 00 00   00 02   B5 86
+	  15 01 00 00 00   00 02   B6 77
+	  15 01 00 00 00   00 02   B8 AD
+	  15 01 00 00 00   00 02   FF 20
+	  15 01 00 00 00   00 02   FB 01
+	  15 01 00 00 00   00 02   10 04        ; MIPI_DCS_ENTER_SLEEP_MODE
+	  15 01 00 00 00   00 02   FF 24
+	  15 01 00 00 00   00 02   FB 01
+	  15 01 00 00 00   00 02   C6 00
+	  15 01 00 00 00   00 02   C5 32
+	  15 01 00 00 00   00 02   92 92
+	  15 01 00 00 00   00 02   FF 10
+	  15 01 00 00 00   00 02   35 00        ; MIPI_DCS_SET_TEAR_ON
+	  39 01 00 00 00   00 03   44 03 00     ; MIPI_DCS_SET_TEAR_SCANLINE
+	  39 01 00 00 00   00 04   3B 03 30 06
+	  15 01 00 00 01   00 02   BB 10
+	  05 01 00 00 1E   00 01   11           ; MIPI_DCS_EXIT_SLEEP_MODE
  */
 static int auo_panel_init(struct auo_panel *auo)
 {
@@ -89,10 +90,16 @@ static int auo_panel_init(struct auo_panel *auo)
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
+	//DSI:TX: 00000000: b0 04 23 80
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xb0, 0x04 }, 2);
+	if (ret)
+		return ret;
+
 	ret = mipi_dsi_dcs_write(dsi, 0xff, (u8[]){ 0xe0 }, 1);
 	if (ret)
 		return ret;
 
+	// DSI:TX: 00000000: ff e0 15 80
 	ret = mipi_dsi_dcs_write(dsi, 0xfb, (u8[]){ 0x01 }, 1);
 	if (ret)
 		return ret;
@@ -284,6 +291,10 @@ static int auo_panel_unprepare(struct drm_panel *panel)
 	return 0;
 }
 
+/*
+
+ */
+
 static int auo_panel_prepare(struct drm_panel *panel)
 {
 	struct auo_panel *auo = to_auo_panel(panel);
@@ -293,12 +304,19 @@ static int auo_panel_prepare(struct drm_panel *panel)
 		return 0;
 
 	dev_dbg(panel->dev, "prepare\n");
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
 
 	ret = regulator_enable(auo->supply);
 	if (ret < 0)
 		return ret;
 
 	msleep(150);
+
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
 
 	if (auo->reset_gpio) {
 		/* XXX reset really hard! */
@@ -309,6 +327,10 @@ static int auo_panel_prepare(struct drm_panel *panel)
 		gpiod_set_value(auo->reset_gpio, 1);
 		msleep(10);
 	}
+
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
+	dev_dbg(panel->dev, "#########################################################\n");
 
 	msleep(150);
 
@@ -472,6 +494,7 @@ static int auo_panel_probe(struct mipi_dsi_device *dsi)
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO |
 			MIPI_DSI_MODE_VIDEO_HSE |
 			MIPI_DSI_CLOCK_NON_CONTINUOUS |
+MIPI_DSI_MODE_LPM |
 			MIPI_DSI_MODE_EOT_PACKET;
 
 	auo = devm_kzalloc(&dsi->dev, sizeof(*auo), GFP_KERNEL);

@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#define DEBUG
 #include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -334,6 +335,45 @@ static int pmic_gpio_config_get(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static const char *pnames[] = {
+#define NAME(n) [n] = #n
+		NAME(PIN_CONFIG_DRIVE_PUSH_PULL),
+		NAME(PIN_CONFIG_DRIVE_OPEN_DRAIN),
+		NAME(PIN_CONFIG_DRIVE_OPEN_SOURCE),
+		NAME(PIN_CONFIG_BIAS_DISABLE),
+		NAME(PIN_CONFIG_BIAS_PULL_UP),
+		NAME(PIN_CONFIG_BIAS_PULL_DOWN),
+		NAME(PIN_CONFIG_BIAS_HIGH_IMPEDANCE),
+		NAME(PIN_CONFIG_POWER_SOURCE),
+		NAME(PIN_CONFIG_INPUT_ENABLE),
+		NAME(PIN_CONFIG_OUTPUT),
+		NAME(PMIC_GPIO_CONF_PULL_UP),
+		NAME(PMIC_GPIO_CONF_STRENGTH),
+};
+
+static void dump_pad(struct pmic_gpio_pad *pad)
+{
+	static const char *const biases[] = {
+		"pull-up 30uA", "pull-up 1.5uA", "pull-up 31.5uA",
+		"pull-up 1.5uA + 30uA boost", "pull-down 10uA", "no pull"
+	};
+	static const char *const buffer_types[] = {
+		"push-pull", "open-drain", "open-source"
+	};
+	static const char *const strengths[] = {
+		"no", "high", "medium", "low"
+	};
+
+	printk(" %-4s", pad->output_enabled ? "out" : "in");
+	printk(" fxn=%-7s", pmic_gpio_functions[pad->function]);
+	printk(" vin-%d", pad->power_source);
+	printk(" bias=%-27s", biases[pad->pullup]);
+	printk(" buffer_type=%-10s", buffer_types[pad->buffer_type]);
+	printk(" %-4s", pad->out_value ? "high" : "low");
+	printk(" strength=%-7s", strengths[pad->strength]);
+	printk("\n");
+}
+
 static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 				unsigned long *configs, unsigned nconfs)
 {
@@ -348,6 +388,8 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 	for (i = 0; i < nconfs; i++) {
 		param = pinconf_to_config_param(configs[i]);
 		arg = pinconf_to_config_argument(configs[i]);
+
+pr_debug("%s: configs[%d]=%lu, param=%u (%s), arg=%u (%x)\n", __func__, i, configs[i], param, pnames[param], arg, arg);
 
 		switch (param) {
 		case PIN_CONFIG_DRIVE_PUSH_PULL:
@@ -388,6 +430,7 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 		case PIN_CONFIG_OUTPUT:
 			pad->output_enabled = true;
+pr_debug("  %d -> %d\n", pad->out_value, arg);
 			pad->out_value = arg;
 			break;
 		case PMIC_GPIO_CONF_PULL_UP:
@@ -404,6 +447,8 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			return -EINVAL;
 		}
 	}
+pr_debug("gpio%d: ", pin + PMIC_GPIO_PHYSICAL_OFFSET);
+dump_pad(pad);
 
 	val = pad->power_source << PMIC_GPIO_REG_VIN_SHIFT;
 

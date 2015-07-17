@@ -146,7 +146,7 @@ static int dsi_pll_28nm_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 rem;
 	int i;
 
-	VERB("rate=%lu, parent's=%lu", rate, parent_rate);
+	DBG("rate=%lu, parent's=%lu", rate, parent_rate);
 
 	/* Force postdiv2 to be div-4 */
 	pll_write(base + REG_DSI_28nm_PHY_PLL_POSTDIV2_CFG, 3);

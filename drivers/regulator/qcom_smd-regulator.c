@@ -172,6 +172,7 @@ static int rpm_reg_set_voltage(struct regulator_dev *rdev,
 	req.value = min_uV;
 
 	ret = rpm_reg_write_active(vreg, &req, sizeof(req));
+printk(KERN_ERR"### rpm_reg_set_voltage(%d,%d) -> %d\n", min_uV, max_uV, ret);
 	if (!ret)
 		vreg->uV = min_uV;
 

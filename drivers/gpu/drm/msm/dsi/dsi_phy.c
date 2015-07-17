@@ -69,6 +69,11 @@ struct msm_dsi_phy {
 	struct msm_dsi_pll *pll;
 };
 
+uint32_t phy_read(struct msm_dsi_phy *phy, long reg)
+{
+	return msm_readl(phy->base + reg);
+}
+
 static int dsi_phy_regulator_init(struct msm_dsi_phy *phy)
 {
 	struct regulator_bulk_data *s = phy->supplies;
@@ -203,6 +208,7 @@ static void dsi_dphy_timing_calc_clk_zero(struct dsi_dphy_timing *timing,
 	/* adjust */
 	temp = (timing->hs_rqst + timing->clk_prepare + clk_z) & 0x7;
 	timing->clk_zero = clk_z + 8 - temp;
+timing->clk_zero = 0xe6;
 }
 
 static int dsi_dphy_timing_calc(struct dsi_dphy_timing *timing,
@@ -368,22 +374,23 @@ static int dsi_28nm_phy_enable(struct msm_dsi_phy *phy, int src_pll_id,
 
 	for (i = 0; i < 4; i++) {
 		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_0(i), 0);
-		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_1(i), 0);
-		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_2(i), 0);
+		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_1(i), 0xc2);
+		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_2(i), 0xef);
 		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_3(i), 0);
 		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_TEST_DATAPATH(i), 0);
 		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_DEBUG_SEL(i), 0);
 		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_TEST_STR_0(i), 0x1);
-		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_TEST_STR_1(i), 0x97);
+		dsi_phy_write(base + REG_DSI_28nm_PHY_LN_TEST_STR_1(i), 0xff);
 	}
 	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(0), 0);
-	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(1), 0x5);
-	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(2), 0xa);
-	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(3), 0xf);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(1), 0);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(2), 0);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LN_CFG_4(3), 0);
 
-	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_CFG_1, 0xc0);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_CFG_1, 0x02);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_CFG_2, 0x45);
 	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_TEST_STR0, 0x1);
-	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_TEST_STR1, 0xbb);
+	dsi_phy_write(base + REG_DSI_28nm_PHY_LNCK_TEST_STR1, 0x97);
 
 	dsi_phy_write(base + REG_DSI_28nm_PHY_CTRL_0, 0x5f);
 
