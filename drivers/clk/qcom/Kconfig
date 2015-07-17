@@ -39,6 +39,11 @@ config IPQ_LCC_806X
 	  Say Y if you want to use audio devices such as i2s, pcm,
 	  S/PDIF, etc.
 
+config QCOM_GDSC
+	bool
+	select PM_GENERIC_DOMAINS if PM
+	depends on COMMON_CLK_QCOM
+
 config MSM_GCC_8660
 	tristate "MSM8660 Global Clock Controller"
 	depends on COMMON_CLK_QCOM
@@ -83,6 +88,7 @@ config MSM_MMCC_8960
 
 config MSM_GCC_8974
 	tristate "MSM8974 Global Clock Controller"
+	select QCOM_GDSC
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the global clock controller on msm8974 devices.
@@ -92,6 +98,7 @@ config MSM_GCC_8974
 config MSM_MMCC_8974
 	tristate "MSM8974 Multimedia Clock Controller"
 	select MSM_GCC_8974
+	select QCOM_GDSC
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the multimedia clock controller on msm8974 devices.
