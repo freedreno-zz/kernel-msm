@@ -300,6 +300,14 @@
 				bias-pull-up;
 			};
 		};
+
+		vsync_pin_a: vsync {
+			pins = "gpio12";
+			function = "mdp_vsync";
+
+			bias-pull-down;
+			drive-strength = <2>;
+		};
 	};
 
 	serial@f991e000 {

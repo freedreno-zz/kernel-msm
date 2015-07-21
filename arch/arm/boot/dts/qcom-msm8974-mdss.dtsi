@@ -94,21 +94,24 @@
 			<&mmcc MDSS_PCLK0_CLK>,
 			<&mmcc MDSS_ESC0_CLK>,
 			<&mmcc BYTE0_CLK_SRC>,
-			<&mmcc PCLK0_CLK_SRC>;
+			<&mmcc PCLK0_CLK_SRC>,
+			<&mmcc MMSS_S0_AXI_CLK>,
+			<&mmcc MMSS_MMSSNOC_AXI_CLK>;
 		clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
 			"core_mmss_clk", "byte_clk", "pixel_clk",
-			"core_clk", "byte_clk_src", "pixel_clk_src";
+			"core_clk", "byte_clk_src", "pixel_clk_src", "s0_axi_clk", "mmssnoc_clk";
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
 		// XXX this should be in device specific dts file..
 		panel@0 {
 			reg = <0>;
-			compatible = "auo,novatek-1080p-vid";
+			compatible = "sharp,novatek-1080p-vid";
 			power-supply = <&vreg_vsp>;
 			reset-gpios = <&pm8941_gpios 19 GPIO_ACTIVE_HIGH>;
+			backlight = <&pm8941_wled>;
 			disp-te-gpios = <&msmgpio 12 0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&lcd_dcdc_reset_pin_a>;
+			pinctrl-0 = <&lcd_dcdc_reset_pin_a>, <&vsync_pin_a>;
 		};
 	};
 
