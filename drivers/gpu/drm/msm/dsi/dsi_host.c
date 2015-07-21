@@ -372,6 +372,21 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
 		goto exit;
 	}
 
+	struct clk *s0_clk;
+	struct clk *mmssnoc_clk;
+
+#if 1
+	mmssnoc_clk = devm_clk_get(dev, "mmssnoc_clk");
+	clk_set_rate(mmssnoc_clk, 100000000);
+	clk_prepare_enable(mmssnoc_clk);
+#endif
+
+#if 1
+	s0_clk = devm_clk_get(dev, "s0_axi_clk");
+	clk_set_rate(s0_clk, 100000000);
+	clk_prepare_enable(s0_clk);
+#endif
+
 exit:
 	return ret;
 }
