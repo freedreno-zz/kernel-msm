@@ -406,6 +406,7 @@ static int pm8941_wled_probe(struct platform_device *pdev)
 	props.type = BACKLIGHT_RAW;
 	props.brightness = val;
 	props.max_brightness = PM8941_WLED_REG_VAL_MAX;
+	props.brightness = 2000;
 	bl = devm_backlight_device_register(&pdev->dev, wled->name,
 					    &pdev->dev, wled,
 					    &pm8941_wled_ops, &props);
