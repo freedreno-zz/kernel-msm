@@ -99,7 +99,12 @@
 			<&mmcc MDSS_PCLK0_CLK>,
 			<&mmcc MDSS_ESC0_CLK>,
 			<&mmcc BYTE0_CLK_SRC>,
-			<&mmcc PCLK0_CLK_SRC>;
+			<&mmcc PCLK0_CLK_SRC>,
+			// NOTE: s0_axi_clk/mmssnoc_clk are temporary until we have
+			// bus-scaling.  But the default state isn't sufficient to
+			// clk out bits on dsi..
+			<&mmcc MMSS_S0_AXI_CLK>,
+			<&mmcc MMSS_MMSSNOC_AXI_CLK>;
 		clock-names = "mdp_core_clk",
 			"iface_clk",
 			"bus_clk",
@@ -108,7 +113,9 @@
 			"pixel_clk",
 			"core_clk",
 			"byte_clk_src",
-			"pixel_clk_src";
+			"pixel_clk_src",
+			"s0_axi_clk",
+			"mmssnoc_clk";
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
 		// XXX this should be in device specific dts file..
