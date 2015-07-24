@@ -3,6 +3,7 @@
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "qcom-msm8974.dtsi"
+#include "qcom-msm8974-mdss.dtsi"
 #include "qcom-pm8841.dtsi"
 #include "qcom-pm8941.dtsi"
 
@@ -351,6 +352,21 @@
 	};
 };
 
+&mdss_dsi0 {
+	vdd-supply = <&pm8941_lvs3>;
+
+	panel@0 {
+		reg = <0>;
+		compatible = "auo,novatek-1080p-vid";
+		backlight = <&backlight>;
+		power-supply = <&vreg_vsp>;
+		reset-gpios = <&pm8941_gpios 19 GPIO_ACTIVE_HIGH>;
+		disp-te-gpios = <&msmgpio 12 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcd_dcdc_reset_pin_a>;
+	};
+};
+
 &spmi_bus {
 	pm8941@0 {
 		gpios@c000 {
@@ -418,4 +434,3 @@
 	};
 };
 
-#include "qcom-msm8974-mdss.dtsi"
