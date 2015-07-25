@@ -24,6 +24,8 @@ struct dwc3_qcom {
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
+
+	struct regulator	*gdsc_reg;
 };
 
 static int dwc3_qcom_probe(struct platform_device *pdev)
@@ -56,6 +58,18 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	if (IS_ERR(qdwc->sleep_clk)) {
 		dev_dbg(qdwc->dev, "failed to get optional sleep clock\n");
 		qdwc->sleep_clk = NULL;
+	}
+
+	qdwc->gdsc_reg = devm_regulator_get(qdwc->dev, "usb3_gdsc");
+	if (IS_ERR(qdwc->gdsc_reg)) {
+		dev_dbg(qdwc->dev, "failed to get optional GDSC regulator\n");
+		qdwc->gdsc_reg = NULL;
+	} else {
+		ret = regulator_enable(qdwc->gdsc_reg);
+		if (ret) {
+			dev_err(qdwc->dev, "failed to enable GDSC vreg\n");
+			goto err_gdsc;
+		}
 	}
 
 	ret = clk_prepare_enable(qdwc->core_clk);
@@ -91,6 +105,9 @@ err_sleep:
 err_iface:
 	clk_disable_unprepare(qdwc->core_clk);
 err_core:
+	if (qdwc->gdsc_reg != NULL)
+		regulator_disable(qdwc->gdsc_reg);
+err_gdsc:
 	return ret;
 }
 
