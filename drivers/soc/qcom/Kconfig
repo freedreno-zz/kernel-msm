@@ -39,3 +39,10 @@ config QCOM_WCNSS_CTRL
 	depends on QCOM_SMD
 	help
 	  Test driver for the WCNSS_CTRL smd channel
+
+config QCOM_SENSORS_SSC
+	tristate "Qualcomm SSC Sensors"
+	help
+	  Say y here to enable support for SSC Sensors on Qualcomm SoC.
+	  This driver is used for exercising sensors use case,
+	  time syncing with ADSP clock.

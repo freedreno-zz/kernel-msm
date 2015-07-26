@@ -87,8 +87,7 @@
 		interrupts = <4 0>;
 
 		vdda-supply = <&pm8941_l2>;
-//		vdd-supply = <&pm8941_l22>;
-		vdd-supply = <&pm8941_lvs3>;
+		vdd-supply = <&pm8941_l22>;
 		vddio-supply = <&pm8941_l12>;
 
 		clocks = <&mmcc MDSS_MDP_CLK>,
@@ -118,17 +117,6 @@
 			"mmssnoc_clk";
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
-		// XXX this should be in device specific dts file..
-		panel@0 {
-			reg = <0>;
-			compatible = "auo,novatek-1080p-vid";
-			backlight = <&backlight>;
-			power-supply = <&vreg_vsp>;
-			reset-gpios = <&pm8941_gpios 19 GPIO_ACTIVE_HIGH>;
-			disp-te-gpios = <&msmgpio 12 0>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&lcd_dcdc_reset_pin_a>;
-		};
 	};
 
 	mdss_dsi_phy0: qcom,mdss_dsi_phy@fd922a00 {

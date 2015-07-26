@@ -11,19 +11,24 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 
 struct dwc3_qcom {
 	struct device		*dev;
 
+	struct clk		*xo_clk;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
+
+	struct regulator	*gdsc_reg;
 };
 
 static int dwc3_qcom_probe(struct platform_device *pdev)
@@ -39,6 +44,12 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, qdwc);
 
 	qdwc->dev = &pdev->dev;
+
+	qdwc->xo_clk = devm_clk_get(qdwc->dev, "xo");
+	if (IS_ERR(qdwc->xo_clk)) {
+		dev_err(qdwc->dev, "failed to get TCXO (xo) clock\n");
+		return PTR_ERR(qdwc->xo_clk);
+	}
 
 	qdwc->core_clk = devm_clk_get(qdwc->dev, "core");
 	if (IS_ERR(qdwc->core_clk)) {
@@ -56,6 +67,25 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	if (IS_ERR(qdwc->sleep_clk)) {
 		dev_dbg(qdwc->dev, "failed to get optional sleep clock\n");
 		qdwc->sleep_clk = NULL;
+	}
+
+	qdwc->gdsc_reg = devm_regulator_get(qdwc->dev, "usb3_gdsc");
+	if (IS_ERR(qdwc->gdsc_reg)) {
+		dev_dbg(qdwc->dev, "failed to get optional GDSC regulator\n");
+		qdwc->gdsc_reg = NULL;
+	} else {
+		ret = regulator_enable(qdwc->gdsc_reg);
+		if (ret) {
+			dev_err(qdwc->dev, "failed to enable GDSC vreg\n");
+			goto err_gdsc;
+		}
+	}
+
+	clk_set_rate(qdwc->xo_clk, 19200000);
+	ret = clk_prepare_enable(qdwc->xo_clk);
+	if (ret) {
+		dev_err(qdwc->dev, "failed to enable TCXO (xo) clock\n");
+		goto err_tcxo;
 	}
 
 	ret = clk_prepare_enable(qdwc->core_clk);
@@ -91,6 +121,11 @@ err_sleep:
 err_iface:
 	clk_disable_unprepare(qdwc->core_clk);
 err_core:
+	clk_disable_unprepare(qdwc->xo_clk);
+err_tcxo:
+	if (qdwc->gdsc_reg != NULL)
+		regulator_disable(qdwc->gdsc_reg);
+err_gdsc:
 	return ret;
 }
 
