@@ -275,6 +275,20 @@
 			};
 		};
 
+		sdhci2_pin_a: sdhc2-active {
+			clk {
+				pins = "sdc2_clk";
+				drive-strength = <6>;
+				bias-disable;
+			};
+
+			cmd-data {
+				pins = "sdc2_cmd", "sdc2_data";
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+
 		sdcc3_pin_a: sdhc3-active {
 			clk {
 				pins = "gpio40";
@@ -301,6 +315,14 @@
 			};
 		};
 
+		sdhci2_cd_pin_a: sdhci2-cd-pin-active {
+			pins = "gpio62";
+			function = "gpio";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
 		vsync_pin_a: vsync {
 			pins = "gpio12";
 			function = "mdp_vsync";
@@ -325,6 +347,20 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&sdhci1_pin_a>;
+	};
+
+	sdhci@f98a4900 {
+		status = "ok";
+
+		bus-width = <4>;
+
+		vmmc-supply = <&pm8941_l21>;
+		vqmmc-supply = <&pm8941_l13>;
+
+		cd-gpios = <&msmgpio 62 GPIO_ACTIVE_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&sdhci2_pin_a>, <&sdhci2_cd_pin_a>;
 	};
 
 	amba {
