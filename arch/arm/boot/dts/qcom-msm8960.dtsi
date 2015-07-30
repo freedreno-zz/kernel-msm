@@ -7,8 +7,6 @@
 #include <dt-bindings/mfd/qcom-rpm.h>
 #include <dt-bindings/soc/qcom,gsbi.h>
 
-#include <dt-bindings/mfd/qcom-rpm.h>
-
 / {
 	model = "Qualcomm MSM8960";
 	compatible = "qcom,msm8960";
@@ -122,6 +120,49 @@
 
 			regulators {
 				compatible = "qcom,rpm-pm8921-regulators";
+				
+				/* Buck SMPS */
+				pm8921_s1: s1 { };
+				pm8921_s2: s2 {};
+				pm8921_s3: s3 {};
+				pm8921_s4: s4 {};
+				pm8921_s7: s7 {};
+				pm8921_s8: s8 {};
+
+				/* PMOS LDO */
+				pm8921_l1: l1 {};
+				pm8921_l2: l2 {};
+				pm8921_l3: l3 {};
+				pm8921_l4: l4 {};
+				pm8921_l5: l5 {};
+				pm8921_l6: l6 {};
+				pm8921_l7: l7 {};
+				pm8921_l8: l8 {};
+				pm8921_l9: l9 {};
+				pm8921_l10: l10 {};
+				pm8921_l11: l11 {};
+				pm8921_l12: l12 {};
+				pm8921_l14: l14 {};
+				pm8921_l15: l15 {};
+				pm8921_l16: l16 {};
+				pm8921_l17: l17 {};
+				pm8921_l18: l18 {};
+				pm8921_l21: l21 {};
+				pm8921_l22: l22 {};
+				pm8921_l23: l23 {};
+				pm8921_l24: l24 {};
+				pm8921_l25: l25 {};
+
+				/* Low Voltage Switch */
+				pm8921_lvs1: lvs1 {};
+				pm8921_lvs2: lvs2 {};
+				pm8921_lvs3: lvs3 {};
+				pm8921_lvs4: lvs4 {};
+				pm8921_lvs5: lvs5 {};
+				pm8921_lvs6: lvs6 {};
+				pm8921_lvs7: lvs7 {};
+
+				pm8921_ncp: ncp {};
 			};
 		};
 
@@ -279,237 +320,6 @@
 				no-1-8-v;
 				vmmc-supply = <&pm8921_l6>;
 				vqmmc-supply = <&pm8921_l7>;
-			};
-		};
-
-		rpm {
-			compatible = "qcom,rpm-msm8960";
-			reg = <0x108000 0x1000 0x2011008 0x4>;
-
-			interrupts = <0 19 0>, <0 21 0>, <0 22 0>;
-			interrupt-names = "ack", "err", "wakeup";
-
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			pm8921-s1 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS1>;
-			};
-
-			pm8921-s2 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS2>;
-			};
-
-			pm8921-s3 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS3>;
-			};
-
-			pm8921-s4 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS4>;
-			};
-
-			pm8921-s5 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS5>;
-			};
-
-			pm8921-s6 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS6>;
-			};
-
-			pm8921-s7 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS7>;
-			};
-
-			pm8921-s8 {
-				compatible = "qcom,rpm-pm8921-smps";
-				reg = <QCOM_RPM_PM8921_SMPS8>;
-			};
-
-			pm8921-l1 {
-				comptible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_LDO1>;
-			};
-
-			pm8921-2 {
-				comptible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_LDO2>;
-			};
-
-			pm8921-l3 {
-				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO3>;
-			};
-
-			pm8921-l4 {
-				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO4>;
-			};
-
-			pm8921_l5: pm8921-l5 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO5>;
-			};
-
-			pm8921_l6: pm8921-l6 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO6>;
-			};
-
-			pm8921_l7: pm8921-l7 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO7>;
-			};
-
-			pm8921-l8 {
-				comptible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO8>;
-			};
-
-			pm8921-l9 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO9>;
-			};
-
-			pm8921-l10 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO10>;
-			};
-
-			pm8921-l11 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO11>;
-			};
-
-			pm8921-l12 {
-				compatible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_LDO12>;
-			};
-
-			pm8921-l14 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO14>;
-			};
-
-			pm8921-l15 {
-				compatible = "qcom-rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO15>;
-			};
-
-			pm8921_l16: pm8921-l16 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO16>;
-			};
-
-			pm8921-l17 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO17>;
-			};
-
-			pm8921-l18 {
-				compatible = "qcom,rpm-pm8921-nldo";
-				reg = <QCOM_RPM_PM8921_LDO18>;
-			};
-
-			pm8921-l21 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO21>;
-			};
-
-			pm8921-l22 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO22>;
-			};
-
-			pm8921-l23 {
-				compatible = "qcom,rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO23>;
-			};
-
-			pm8921-l24 {
-				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_LDO24>;
-			};
-
-			pm8921-l25 {
-				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_LDO25>;
-			};
-
-			pm8921-l26 {
-				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_LDO26>;
-			};
-
-			pm8921-l27 {
-				compatible = "qcom,rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_LDO27>;
-			};
-
-			pm8921-l28 {
-				compatible = "qcom-rpm-pm8921-nldo1200";
-				reg = <QCOM_RPM_PM8921_LDO28>;
-			};
-
-			pm8921-l29 {
-				compatible = "qcom-rpm-pm8921-pldo";
-				reg = <QCOM_RPM_PM8921_LDO29>;
-			};
-
-			pm8921-lvs1 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS1>;
-			};
-
-			pm8921-lvs2 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS2>;
-			};
-
-			pm8921-lvs3 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS3>;
-			};
-
-			pm8921-lvs4 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS4>;
-			};
-
-			pm8921-lvs5 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS5>;
-			};
-
-			pm8921-lvs6 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS6>;
-			};
-
-			pm8921-lvs7 {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_PM8921_LVS7>;
-			};
-
-			pm8921-usb {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_USB_OTG_SWITCH>;
-			};
-
-			pm8921-hdmi {
-				compatible = "qcom,rpm-pm8921-switch";
-				reg = <QCOM_RPM_HDMI_SWITCH>;
-			};
-
-			pm8921-ncp {
-				compatible = "qcom,rpm-pm8921-ncp";
-				reg = <QCOM_RPM_PM8921_NCP>;
 			};
 		};
 

@@ -262,244 +262,249 @@
 			};
 		};
 
-		rpm {
-			pm8921_s1: pm8921-s1 {
-				regulator-min-microvolt = <1225000>;
-				regulator-max-microvolt = <1225000>;
-				regulator-always-on;
+		rpm@108000 {
+			regulators {
+				vin_lvs1_3_6-supply = <&pm8921_s4>;
+				vin_lvs2-supply = <&pm8921_s4>;
+				vin_lvs4_5_7-supply = <&pm8921_s4>;
+				vdd_ncp-supply = <&pm8921_l6>;
+				vdd_l1_l2_l12_l18-supply = <&pm8921_s4>;
+				vdd_l21_l23_l29-supply = <&pm8921_s8>;
+				vdd_l24-supply = <&pm8921_s1>;
+				vdd_l25-supply = <&pm8921_s1>;
+				vdd_l27-supply = <&pm8921_s7>;
+				vdd_l28-supply = <&pm8921_s7>;
 
-				bias-pull-down;
+				pm8921-s1 {
+					regulator-min-microvolt = <1225000>;
+					regulator-max-microvolt = <1225000>;
+					regulator-always-on;
 
-				qcom,switch-mode-frequency = <3200000>;
-			};
+					bias-pull-down;
 
-			pm8921-s2 {
-				regulator-min-microvolt = <1300000>;
-				regulator-max-microvolt = <1300000>;
+					qcom,switch-mode-frequency = <3200000>;
+				};
 
-				bias-pull-down;
+				pm8921-s2 {
+					regulator-min-microvolt = <1300000>;
+					regulator-max-microvolt = <1300000>;
 
-				qcom,switch-mode-frequency = <1600000>;
-			};
+					bias-pull-down;
 
-			pm8921-s3 {
-				regulator-min-microvolt = <500000>;
-				regulator-max-microvolt = <1150000>;
+					qcom,switch-mode-frequency = <1600000>;
+				};
 
-				bias-pull-down;
+				pm8921-s3 {
+					regulator-min-microvolt = <500000>;
+					regulator-max-microvolt = <1150000>;
 
-				qcom,switch-mode-frequency = <4800000>;
-			};
+					bias-pull-down;
 
-			pm8921_s4: pm8921-s4 {
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
+					qcom,switch-mode-frequency = <4800000>;
+				};
 
-				bias-pull-down;
+				pm8921-s4 {
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
 
-				qcom,switch-mode-frequency = <1600000>;
-			};
+					bias-pull-down;
 
-			pm8921-s7 {
-				regulator-min-microvolt = <1150000>;
-				regulator-max-microvolt = <1150000>;
+					qcom,switch-mode-frequency = <1600000>;
+				};
 
-				bias-pull-down;
+				pm8921-s7 {
+					regulator-min-microvolt = <1150000>;
+					regulator-max-microvolt = <1150000>;
 
-				qcom,switch-mode-frequency = <3200000>;
-			};
+					bias-pull-down;
 
-			pm8921_s8: pm8921-s8 {
-				regulator-min-microvolt = <2050000>;
-				regulator-max-microvolt = <2050000>;
+					qcom,switch-mode-frequency = <3200000>;
+				};
 
-				bias-pull-down;
+				pm8921-s8 {
+					regulator-min-microvolt = <2050000>;
+					regulator-max-microvolt = <2050000>;
 
-				qcom,switch-mode-frequency = <1600000>;
-			};
+					bias-pull-down;
 
-			pm8921-l1 {
-				vin-supply = <&pm8921_s4>;
+					qcom,switch-mode-frequency = <1600000>;
+				};
 
-				regulator-min-microvolt=<1050000>;
-				regulator-max-microvolt = <1050000>;
-				regulator-always-on;
+				pm8921-l1 {
+					vin-supply = <&pm8921_s4>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1050000>;
+					regulator-max-microvolt = <1050000>;
+					regulator-always-on;
 
-			pm8921-l2 {
-				vin-supply = <&pm8921_s4>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1200000>;
-				regulator-max-microvolt = <1200000>;
+				pm8921-l2 {
+					vin-supply = <&pm8921_s4>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1200000>;
+					regulator-max-microvolt = <1200000>;
 
-			pm8921-l3 {
-				regulator-min-microvolt=<3075000>;
-				regulator-max-microvolt = <3075000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l3 {
+					regulator-min-microvolt=<3075000>;
+					regulator-max-microvolt = <3075000>;
 
-			pm8921-l4 {
-				regulator-min-microvolt=<1800000>;
-				regulator-max-microvolt = <1800000>;
-				regulator-always-on;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l4 {
+					regulator-min-microvolt=<1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 
-			pm8921-l5 {
-				regulator-min-microvolt=<2950000>;
-				regulator-max-microvolt = <2950000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l5 {
+					regulator-min-microvolt=<2950000>;
+					regulator-max-microvolt = <2950000>;
 
-			pm8921-l6 {
-				regulator-min-microvolt=<2950000>;
-				regulator-max-microvolt = <2950000>;
-				regulator-always-on;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l6 {
+					regulator-min-microvolt=<2950000>;
+					regulator-max-microvolt = <2950000>;
+					regulator-always-on;
 
-			pm8921-l7 {
-				regulator-min-microvolt=<1850000>;
-				regulator-max-microvolt = <2950000>;
-				regulator-always-on;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l7 {
+					regulator-min-microvolt=<1850000>;
+					regulator-max-microvolt = <2950000>;
+					regulator-always-on;
 
-			pm8921-l8 {
-				regulator-min-microvolt=<2800000>;
-				regulator-max-microvolt = <3000000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l8 {
+					regulator-min-microvolt=<2800000>;
+					regulator-max-microvolt = <3000000>;
 
-			pm8921-l9 {
-				regulator-min-microvolt=<2850000>;
-				regulator-max-microvolt = <2850000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l9 {
+					regulator-min-microvolt=<2850000>;
+					regulator-max-microvolt = <2850000>;
 
-			pm8921-l10 {
-				regulator-min-microvolt=<3000000>;
-				regulator-max-microvolt = <3000000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l10 {
+					regulator-min-microvolt=<3000000>;
+					regulator-max-microvolt = <3000000>;
 
-			pm8921-l11 {
-				regulator-min-microvolt=<2600000>;
-				regulator-max-microvolt = <3000000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l11 {
+					regulator-min-microvolt=<2600000>;
+					regulator-max-microvolt = <3000000>;
 
-			pm8921-l12 {
-				vin-supply = <&pm8921_s4>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1200000>;
-				regulator-max-microvolt = <1200000>;
+				pm8921-l12 {
+					vin-supply = <&pm8921_s4>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1200000>;
+					regulator-max-microvolt = <1200000>;
 
-			pm8921-l14 {
-				regulator-min-microvolt=<1800000>;
-				regulator-max-microvolt = <1800000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l14 {
+					regulator-min-microvolt=<1800000>;
+					regulator-max-microvolt = <1800000>;
 
-			pm8921-l15 {
-				regulator-min-microvolt=<1800000>;
-				regulator-max-microvolt = <2950000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l15 {
+					regulator-min-microvolt=<1800000>;
+					regulator-max-microvolt = <2950000>;
 
-			pm8921-l16 {
-				regulator-min-microvolt=<3050000>;
-				regulator-max-microvolt = <3050000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l16 {
+					regulator-min-microvolt=<3050000>;
+					regulator-max-microvolt = <3050000>;
 
-			pm8921-l17 {
-				regulator-min-microvolt=<1800000>;
-				regulator-max-microvolt = <3000000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l17 {
+					regulator-min-microvolt=<1800000>;
+					regulator-max-microvolt = <3000000>;
 
-			pm8921-l18 {
-				vin-supply = <&pm8921_s4>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1200000>;
-				regulator-max-microvolt = <1200000>;
+				pm8921-l18 {
+					vin-supply = <&pm8921_s4>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1200000>;
+					regulator-max-microvolt = <1200000>;
 
-			pm8921-l21 {
-				vin-supply = <&pm8921_s8>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1900000>;
-				regulator-max-microvolt = <1900000>;
+				pm8921-l21 {
+					vin-supply = <&pm8921_s8>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1900000>;
+					regulator-max-microvolt = <1900000>;
 
-			pm8921-l22 {
-				regulator-min-microvolt=<2750000>;
-				regulator-max-microvolt = <2750000>;
+					bias-pull-down;
+				};
 
-				bias-pull-down;
-			};
+				pm8921-l22 {
+					regulator-min-microvolt=<2750000>;
+					regulator-max-microvolt = <2750000>;
 
-			pm8921-l23 {
-				vin-supply = <&pm8921_s8>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1800000>;
-				regulator-max-microvolt = <1800000>;
-				regulator-always-on;
+				pm8921-l23 {
+					vin-supply = <&pm8921_s8>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 
-			pm8921-l24 {
-				vin-supply = <&pm8921_s1>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=< 750000>;
-				regulator-max-microvolt = <1150000>;
+				pm8921-l24 {
+					vin-supply = <&pm8921_s1>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=< 750000>;
+					regulator-max-microvolt = <1150000>;
 
-			pm8921-l25 {
-				vin-supply = <&pm8921_s1>;
+					bias-pull-down;
+				};
 
-				regulator-min-microvolt=<1250000>;
-				regulator-max-microvolt = <1250000>;
-				regulator-always-on;
+				pm8921-l25 {
+					vin-supply = <&pm8921_s1>;
 
-				bias-pull-down;
-			};
+					regulator-min-microvolt=<1250000>;
+					regulator-max-microvolt = <1250000>;
+					regulator-always-on;
 
-			pm8921-l26 {
-				status = "disabled";
-			};
-
-			pm8921-l27 {
-				status = "disabled";
+					bias-pull-down;
+				};
 			};
 		};
 	};
