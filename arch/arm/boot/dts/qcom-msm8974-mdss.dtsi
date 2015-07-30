@@ -112,6 +112,18 @@
 			disp-te-gpios = <&msmgpio 12 0>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&lcd_dcdc_reset_pin_a>, <&vsync_pin_a>;
+
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&dsi0_out>;
+				};
+			};
+		};
+
+		port {
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
 		};
 	};
 
