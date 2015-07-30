@@ -458,6 +458,12 @@
 			};
 		};
 	};
+
+	pm8941@1 {
+		wled@d800 {
+			default-brightness-level = <2000>;
+		};
+	};
 };
 
 #include "qcom-msm8974-mdss.dtsi"
