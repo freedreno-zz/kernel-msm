@@ -12,6 +12,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/jiffies.h>
@@ -21,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
 #include <linux/slab.h>
+#include "common.h"
 #include "gdsc.h"
 
 #define PWR_ON_MASK		BIT(31)
@@ -148,6 +150,9 @@ static int gdsc_enable(struct generic_pm_domain *domain)
 	if (sc->pwrsts == PWRSTS_ON)
 		return gdsc_deassert_reset(sc);
 
+	if (sc->clk)
+		clk_prepare_enable(sc->clk);
+
 	ret = gdsc_toggle_logic(sc, true);
 	if (ret)
 		return ret;
@@ -169,6 +174,7 @@ static int gdsc_enable(struct generic_pm_domain *domain)
 
 static int gdsc_disable(struct generic_pm_domain *domain)
 {
+	int ret;
 	struct gdsc *sc = domain_to_gdsc(domain);
 
 	if (sc->pwrsts == PWRSTS_ON)
@@ -177,7 +183,12 @@ static int gdsc_disable(struct generic_pm_domain *domain)
 	if (sc->pwrsts & PWRSTS_OFF)
 		gdsc_clear_mem_on(sc);
 
-	return gdsc_toggle_logic(sc, false);
+	ret = gdsc_toggle_logic(sc, false);
+
+	if (sc->clk)
+		clk_disable_unprepare(sc->clk);
+
+	return ret;
 }
 
 static int gdsc_init(struct gdsc *sc)
@@ -204,6 +215,9 @@ static int gdsc_init(struct gdsc *sc)
 		if (ret)
 			return ret;
 	}
+	
+	if (sc->clk_hw)
+		sc->clk = qcom_clk_hw_get_clk(sc->clk_hw);
 
 	reg = sc->gds_hw_ctrl ? sc->gds_hw_ctrl : sc->gdscr;
 	on = gdsc_is_enabled(sc, reg);
@@ -224,6 +238,7 @@ static int gdsc_init(struct gdsc *sc)
 
 	sc->pd.power_off = gdsc_disable;
 	sc->pd.power_on = gdsc_enable;
+
 	pm_genpd_init(&sc->pd, NULL, !on);
 
 	return 0;

@@ -58,6 +58,12 @@ int qcom_find_src_index(struct clk_hw *hw, const struct parent_map *map, u8 src)
 }
 EXPORT_SYMBOL_GPL(qcom_find_src_index);
 
+struct clk *qcom_clk_hw_get_clk(struct clk_hw *hw)
+{
+	return clk_hw_get_clk(hw);
+}
+EXPORT_SYMBOL_GPL(qcom_clk_hw_get_clk);
+
 struct regmap *
 qcom_cc_map(struct platform_device *pdev, const struct qcom_cc_desc *desc)
 {

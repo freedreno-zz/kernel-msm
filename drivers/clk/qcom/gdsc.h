@@ -32,6 +32,8 @@ struct reset_controller_dev;
  * @resets: ids of resets associated with this gdsc
  * @reset_count: number of @resets
  * @rcdev: reset controller
+ * @clk_hw: clk_hw pointer for the dependent clock
+ * @clk: clk pointer for the dependent clock
  */
 struct gdsc {
 	struct generic_pm_domain	pd;
@@ -53,6 +55,8 @@ struct gdsc {
 	struct reset_controller_dev	*rcdev;
 	unsigned int			*resets;
 	unsigned int			reset_count;
+	struct clk_hw			*clk_hw;
+	struct clk			*clk;
 };
 
 struct gdsc_desc {
