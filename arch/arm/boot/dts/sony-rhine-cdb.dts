@@ -762,7 +762,7 @@
 	};
 
 	pm8941@1 {
-		pm8xxx-wled@d800 {
+		wled@d800 {
 			compatible = "qcom,pm8941-wled";
 			reg = <0xd800>;
 			label = "backlight";
