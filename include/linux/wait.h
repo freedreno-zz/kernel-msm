@@ -173,6 +173,14 @@ wait_queue_head_t *bit_waitqueue(void *, int);
 #define wake_up_interruptible_sync_poll(x, m)				\
 	__wake_up_sync_key((x), TASK_INTERRUPTIBLE, 1, (void *) (m))
 
+#define ___wait_cond_timeout(condition)					\
+({									\
+	bool __cond = (condition);					\
+	if (__cond && !__ret)						\
+		__ret = 1;						\
+	__cond || !__ret;						\
+})
+
 #define __wait_event(wq, condition) 					\
 do {									\
 	DEFINE_WAIT(__wait);						\
@@ -242,7 +250,7 @@ do {									\
 #define wait_event_timeout(wq, condition, timeout)			\
 ({									\
 	long __ret = timeout;						\
-	if (!(condition)) 						\
+	if (!___wait_cond_timeout(condition))				\
 		__wait_event_timeout(wq, condition, __ret);		\
 	__ret;								\
 })
@@ -331,7 +339,7 @@ do {									\
 #define wait_event_interruptible_timeout(wq, condition, timeout)	\
 ({									\
 	long __ret = timeout;						\
-	if (!(condition))						\
+	if (!___wait_cond_timeout(condition))				\
 		__wait_event_interruptible_timeout(wq, condition, __ret); \
 	__ret;								\
 })
