@@ -181,6 +181,8 @@
 						regulator-min-microvolt = <2950000>;
 						regulator-max-microvolt = <2950000>;
 						regulator-boot-on;
+
+						regulator-allow-set-load;
 					};
 
 					l21 {
