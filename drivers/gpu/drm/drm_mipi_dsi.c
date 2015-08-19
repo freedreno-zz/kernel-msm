@@ -862,6 +862,53 @@ int mipi_dsi_dcs_set_pixel_format(struct mipi_dsi_device *dsi, u8 format)
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_pixel_format);
 
+/**
+ * mipi_dsi_raw_short_write() - Sends a data-less short DSI packet
+ * @dsi: DSI peripheral device
+ * @type: Data Type of packet to send
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+static ssize_t mipi_dsi_raw_short_write(struct mipi_dsi_device *dsi, u8 type)
+{
+	u8 dummy[2] = { 0, 0 };
+	struct mipi_dsi_msg msg = {
+		.channel = dsi->channel,
+		.tx_buf = dummy,
+		.tx_len = sizeof(dummy),
+		.type = type
+	};
+
+	if (mipi_dsi_packet_format_is_short(type))
+		return mipi_dsi_device_transfer(dsi, &msg);
+	else
+		return -1;
+}
+
+/**
+ * mipi_dsi_turn_on_peripheral() - Sends Turn On Peripheral DSI command
+ * @dsi: DSI peripheral device
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+ssize_t mipi_dsi_turn_on_peripheral(struct mipi_dsi_device *dsi)
+{
+	return mipi_dsi_raw_short_write(dsi, MIPI_DSI_TURN_ON_PERIPHERAL);
+}
+EXPORT_SYMBOL(mipi_dsi_turn_on_peripheral);
+
+/**
+ * mipi_dsi_shutdown_peripheral() - Sends Shutdown Peripheral DSI command
+ * @dsi: DSI peripheral device
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+ssize_t mipi_dsi_shutdown_peripheral(struct mipi_dsi_device *dsi)
+{
+	return mipi_dsi_raw_short_write(dsi, MIPI_DSI_SHUTDOWN_PERIPHERAL);
+}
+EXPORT_SYMBOL(mipi_dsi_shutdown_peripheral);
+
 static int mipi_dsi_drv_probe(struct device *dev)
 {
 	struct mipi_dsi_driver *drv = to_mipi_dsi_driver(dev->driver);
