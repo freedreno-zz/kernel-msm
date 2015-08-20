@@ -120,11 +120,6 @@ static int segment_is_loadable(const struct elf32_phdr *p)
 	       p->p_memsz;
 }
 
-static bool segment_is_relocatable(const struct elf32_phdr *p)
-{
-	return !!(p->p_flags & BIT(27));
-}
-
 /**
  * rproc_mdt_sanity_check() - sanity check mdt firmware header
  * @rproc: the remote processor handle
@@ -234,11 +229,6 @@ static int qproc_load(struct rproc *rproc, const struct firmware *fw)
 
 		if (!segment_is_loadable(phdr))
 			continue;
-
-		if (segment_is_relocatable(phdr)) {
-			dev_err(&rproc->dev, "relocation unsupported\n");
-			return -EINVAL;
-		}
 
 		if (phdr->p_paddr < min_addr)
 			min_addr = phdr->p_paddr;
