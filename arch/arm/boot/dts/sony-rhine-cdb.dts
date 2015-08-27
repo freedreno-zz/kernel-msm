@@ -379,18 +379,13 @@
 
 		wcnss_smp2p_out: master-kernel {
 			qcom,entry-name = "master-kernel";
-			qcom,outbound;
 
 			gpio-controller;
 			#gpio-cells = <2>;
-
-			interrupt-controller;
-			#interrupt-cells = <2>;
 		};
 
 		wcnss_smp2p_slave: slave-kernel {
 			qcom,entry-name = "slave-kernel";
-			qcom,inbound;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
