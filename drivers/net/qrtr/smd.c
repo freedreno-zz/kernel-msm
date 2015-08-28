@@ -105,20 +105,19 @@ static void qcom_smd_qrtr_remove(struct qcom_smd_device *sdev)
 	dev_set_drvdata(&sdev->dev, NULL);
 }
 
-static const struct of_device_id qcom_smd_qrtr_of_match[] = {
-	{ .compatible = "qcom,ipcrouter-smd", },
-	{ }
+static const struct qcom_smd_id qcom_smd_qrtr_smd_match[] = {
+	{ "IPCRTR" },
+	{}
 };
-MODULE_DEVICE_TABLE(of, qcom_smd_qrtr_of_match);
 
 static struct qcom_smd_driver qcom_smd_qrtr_driver = {
 	.probe = qcom_smd_qrtr_probe,
 	.remove = qcom_smd_qrtr_remove,
 	.callback = qcom_smd_qrtr_callback,
+	.smd_match_table = qcom_smd_qrtr_smd_match,
 	.driver = {
 		.name = "qcom_smd_qrtr",
 		.owner = THIS_MODULE,
-		.of_match_table = qcom_smd_qrtr_of_match,
 	},
 };
 
