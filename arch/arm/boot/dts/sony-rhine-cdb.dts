@@ -226,11 +226,6 @@
 			};
 #endif
 
-			ipcrtr {
-				compatible = "qcom,ipcrouter-smd";
-				qcom,smd-channels = "IPCRTR";
-			};
-
 			wifi {
 				compatible = "qcom,wcn3680";
 				qcom,smd-channels = "WLAN_CTRL";
@@ -257,11 +252,6 @@
 
 			qcom,ipc = <&apcs 8 8>;
 			qcom,smd-edge = <1>;
-
-			ipcrtr {
-				compatible = "qcom,ipcrouter-smd";
-				qcom,smd-channels = "IPCRTR";
-			};
 		};
 	};
 
