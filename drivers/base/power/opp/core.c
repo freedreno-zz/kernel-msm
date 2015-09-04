@@ -457,6 +457,7 @@ static void _kfree_list_dev_rcu(struct rcu_head *head)
 static void _remove_list_dev(struct device_list_opp *list_dev,
 			     struct device_opp *dev_opp)
 {
+	opp_debug_unregister(list_dev, dev_opp);
 	list_del(&list_dev->node);
 	call_srcu(&dev_opp->srcu_head.srcu, &list_dev->rcu_head,
 		  _kfree_list_dev_rcu);
@@ -466,6 +467,7 @@ struct device_list_opp *_add_list_dev(const struct device *dev,
 				      struct device_opp *dev_opp)
 {
 	struct device_list_opp *list_dev;
+	int ret;
 
 	list_dev = kzalloc(sizeof(*list_dev), GFP_KERNEL);
 	if (!list_dev)
@@ -474,6 +476,12 @@ struct device_list_opp *_add_list_dev(const struct device *dev,
 	/* Initialize list-dev */
 	list_dev->dev = dev;
 	list_add_rcu(&list_dev->node, &dev_opp->dev_list);
+
+	/* Create debugfs entries for the dev_opp */
+	ret = opp_debug_register(list_dev, dev_opp);
+	if (ret)
+		dev_err(dev, "%s: Failed to register opp debugfs (%d)\n",
+			__func__, ret);
 
 	return list_dev;
 }
@@ -590,6 +598,7 @@ static void _opp_remove(struct device_opp *dev_opp,
 	 */
 	if (notify)
 		srcu_notifier_call_chain(&dev_opp->srcu_head, OPP_EVENT_REMOVE, opp);
+	opp_debug_remove_one(opp);
 	list_del_rcu(&opp->node);
 	call_srcu(&dev_opp->srcu_head.srcu, &opp->rcu_head, _kfree_opp_rcu);
 
@@ -667,6 +676,7 @@ static int _opp_add(struct device *dev, struct dev_pm_opp *new_opp,
 {
 	struct dev_pm_opp *opp;
 	struct list_head *head = &dev_opp->opp_list;
+	int ret;
 
 	/*
 	 * Insert new OPP in order of increasing frequency and discard if
@@ -696,6 +706,11 @@ static int _opp_add(struct device *dev, struct dev_pm_opp *new_opp,
 
 	new_opp->dev_opp = dev_opp;
 	list_add_rcu(&new_opp->node, head);
+
+	ret = opp_debug_create_one(new_opp, dev_opp);
+	if (ret)
+		dev_err(dev, "%s: Failed to register opp to debugfs (%d)\n",
+			__func__, ret);
 
 	return 0;
 }
