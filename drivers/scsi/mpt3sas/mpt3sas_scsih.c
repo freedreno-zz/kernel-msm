@@ -2933,7 +2933,7 @@ _scsih_block_io_device(struct MPT3SAS_ADAPTER *ioc, u16 handle)
 	struct scsi_device *sdev;
 	struct _sas_device *sas_device;
 
-	sas_device = __mpt3sas_get_sdev_by_handle(ioc, handle);
+	sas_device = mpt3sas_get_sdev_by_handle(ioc, handle);
 	if (!sas_device)
 		return;
 
