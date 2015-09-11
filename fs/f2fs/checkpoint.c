@@ -676,6 +676,9 @@ int get_valid_checkpoint(struct f2fs_sb_info *sbi)
 	if (cur_page == cp2)
 		cp_blk_no += 1 << le32_to_cpu(fsb->log_blocks_per_seg);
 
+	if (cp_blks > 2)
+		ra_meta_pages(sbi, cp_blk_no + 1, cp_blks - 1, META_CP);
+
 	for (i = 1; i < cp_blks; i++) {
 		void *sit_bitmap_ptr;
 		unsigned char *ckpt = (unsigned char *)sbi->ckpt;
