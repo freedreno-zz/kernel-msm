@@ -57,50 +57,12 @@ struct qproc {
 	const char *name;
 	struct regulator *pll;
 
-	unsigned proxy_clk_count;
-	struct clk *scm_core_clk;
-	struct clk *scm_iface_clk;
-	struct clk *scm_bus_clk;
-
-	struct clk **proxy_clks;
-
 	struct completion start_done;
 	struct completion stop_done;
 
 	unsigned crash_reason;
 	struct device_node *smd_edge_node;
 };
-
-static int qproc_scm_clk_enable(struct qproc *qproc)
-{
-	int ret;
-
-	ret = clk_prepare_enable(qproc->scm_core_clk);
-	if (ret)
-		goto bail;
-	ret = clk_prepare_enable(qproc->scm_iface_clk);
-	if (ret)
-		goto disable_core;
-	ret = clk_prepare_enable(qproc->scm_bus_clk);
-	if (ret)
-		goto disable_iface;
-
-	return 0;
-
-disable_iface:
-	clk_disable_unprepare(qproc->scm_iface_clk);
-disable_core:
-	clk_disable_unprepare(qproc->scm_core_clk);
-bail:
-	return ret;
-}
-
-static void qproc_scm_clk_disable(struct qproc *qproc)
-{
-	clk_disable_unprepare(qproc->scm_core_clk);
-	clk_disable_unprepare(qproc->scm_iface_clk);
-	clk_disable_unprepare(qproc->scm_bus_clk);
-}
 
 /**
  * struct pil_mdt - Representation of <name>.mdt file in memory
@@ -218,10 +180,6 @@ static int qproc_load(struct rproc *rproc, const struct firmware *fw)
 	int ret;
 	int i;
 
-	ret = qproc_scm_clk_enable(qproc);
-	if (ret)
-		return ret;
-
 	mdt = (struct mdt_hdr *)fw->data;
 	ehdr = &mdt->hdr;
 
@@ -270,8 +228,6 @@ static int qproc_load(struct rproc *rproc, const struct firmware *fw)
 
 	kfree(fw_name);
 
-	qproc_scm_clk_disable(qproc);
-
 	return 0;
 }
 
@@ -292,15 +248,11 @@ static int qproc_start(struct rproc *rproc)
 		return ret;
 	}
 
-	ret = qproc_scm_clk_enable(qproc);
-	if (ret)
-		goto disable_regulator;
-
 	ret = qcom_scm_pas_auth_and_reset(qproc->pas_id);
 	if (ret) {
 		dev_err(qproc->dev,
 				"failed to authenticate image and release reset\n");
-		goto unroll_clocks;
+		goto disable_regulator;
 	}
 
 	ret = wait_for_completion_timeout(&qproc->start_done, msecs_to_jiffies(10000));
@@ -308,13 +260,10 @@ static int qproc_start(struct rproc *rproc)
 		dev_err(qproc->dev, "start timed out\n");
 
 		qcom_scm_pas_shutdown(qproc->pas_id);
-		goto unroll_clocks;
+		goto disable_regulator;
 	}
 
 	return 0;
-
-unroll_clocks:
-	qproc_scm_clk_disable(qproc);
 
 disable_regulator:
 	regulator_disable(qproc->pll);
@@ -387,7 +336,6 @@ static irqreturn_t qproc_handover_interrupt(int irq, void *dev)
 {
 	struct qproc *qproc = dev;
 
-	qproc_scm_clk_disable(qproc);
 	regulator_disable(qproc->pll);
 	return IRQ_HANDLED;
 }
@@ -441,42 +389,6 @@ static int qproc_init_pas(struct qproc *qproc)
 	if (!qcom_scm_pas_supported(qproc->pas_id)) {
 		dev_err(qproc->dev, "PAS is not available for %d\n", qproc->pas_id);
 		return -EIO;
-	}
-
-	return 0;
-}
-
-static int qproc_init_clocks(struct qproc *qproc)
-{
-	long rate;
-	int ret;
-
-	qproc->scm_core_clk = devm_clk_get(qproc->dev, "scm_core_clk");
-	if (IS_ERR(qproc->scm_core_clk)) {
-		if (PTR_ERR(qproc->scm_core_clk) != -EPROBE_DEFER)
-			dev_err(qproc->dev, "failed to acquire scm_core_clk\n");
-		return PTR_ERR(qproc->scm_core_clk);
-	}
-
-	qproc->scm_iface_clk = devm_clk_get(qproc->dev, "scm_iface_clk");
-	if (IS_ERR(qproc->scm_iface_clk)) {
-		if (PTR_ERR(qproc->scm_iface_clk) != -EPROBE_DEFER)
-			dev_err(qproc->dev, "failed to acquire scm_iface_clk\n");
-		return PTR_ERR(qproc->scm_iface_clk);
-	}
-
-	qproc->scm_bus_clk = devm_clk_get(qproc->dev, "scm_bus_clk");
-	if (IS_ERR(qproc->scm_bus_clk)) {
-		if (PTR_ERR(qproc->scm_bus_clk) != -EPROBE_DEFER)
-			dev_err(qproc->dev, "failed to acquire scm_bus_clk\n");
-		return PTR_ERR(qproc->scm_bus_clk);
-	}
-
-	rate = clk_round_rate(qproc->scm_core_clk, 50000000);
-	ret = clk_set_rate(qproc->scm_core_clk, rate);
-	if (ret) {
-		dev_err(qproc->dev, "failed to set rate of scm_core_clk\n");
-		return ret;
 	}
 
 	return 0;
@@ -579,10 +491,6 @@ static int qproc_probe(struct platform_device *pdev)
 						"qcom,smd-edges", 0);
 
 	ret = qproc_init_pas(qproc);
-	if (ret)
-		goto free_rproc;
-
-	ret = qproc_init_clocks(qproc);
 	if (ret)
 		goto free_rproc;
 
