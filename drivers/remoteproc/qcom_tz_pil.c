@@ -22,7 +22,6 @@
 #include <linux/remoteproc.h>
 #include <linux/interrupt.h>
 #include <linux/memblock.h>
-#include <linux/gpio/consumer.h>
 #include <linux/of.h>
 #include <linux/elf.h>
 #include <linux/clk.h>
@@ -30,6 +29,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/qcom_scm.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/soc/qcom/smem_state.h>
 
 #include "remoteproc_internal.h"
 
@@ -51,7 +51,8 @@ struct qproc {
 	int handover_irq;
 	int stop_ack_irq;
 
-	struct gpio_desc *stop_gpio;
+	struct qcom_smem_state *state;
+	unsigned stop_bit;
 
 	const char *name;
 	struct regulator *pll;
@@ -326,13 +327,13 @@ static int qproc_stop(struct rproc *rproc)
 	struct qproc *qproc = (struct qproc *)rproc->priv;
 	int ret;
 
-	gpiod_set_value(qproc->stop_gpio, 1);
+	qcom_smem_state_update_bits(qproc->state, BIT(qproc->stop_bit), BIT(qproc->stop_bit));
 
 	ret = wait_for_completion_timeout(&qproc->stop_done, msecs_to_jiffies(1000));
 	if (ret == 0)
 		dev_err(qproc->dev, "timed out on wait\n");
 
-	gpiod_set_value(qproc->stop_gpio, 0);
+	qcom_smem_state_update_bits(qproc->state, BIT(qproc->stop_bit), 0);
 
 	ret = qcom_scm_pas_shutdown(qproc->pas_id);
 	if (ret)
@@ -614,11 +615,9 @@ static int qproc_probe(struct platform_device *pdev)
 		goto free_rproc;
 	qproc->stop_ack_irq = ret;
 
-	qproc->stop_gpio = devm_gpiod_get(&pdev->dev, "qcom,stop", GPIOD_OUT_LOW);
-	if (IS_ERR(qproc->stop_gpio)) {
-		dev_err(&pdev->dev, "failed to acquire stop gpio\n");
-		return PTR_ERR(qproc->stop_gpio);
-	}
+	qproc->state = qcom_smem_state_get(&pdev->dev, "stop", &qproc->stop_bit);
+	if (IS_ERR(qproc->state))
+		goto free_rproc;
 
 	for (i = 0; i < ARRAY_SIZE(qproc_attrs); i++) {
 		ret = device_create_file(&pdev->dev, &qproc_attrs[i]);
@@ -648,6 +647,8 @@ static int qproc_remove(struct platform_device *pdev)
 {
 	struct qproc *qproc = platform_get_drvdata(pdev);
 	int i;
+
+	qcom_smem_state_put(qproc->state);
 
 	for (i = 0; i < ARRAY_SIZE(qproc_attrs); i++)
 		device_remove_file(&pdev->dev, &qproc_attrs[i]);
