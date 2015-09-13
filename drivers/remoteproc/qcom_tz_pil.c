@@ -248,17 +248,8 @@ static int qproc_init_regulators(struct qproc *qproc)
 		return PTR_ERR(qproc->pll);
 	}
 
-	ret = of_property_read_u32(qproc->dev->of_node, "qcom,pll-uV", &uV);
-	if (ret)
-		dev_warn(qproc->dev, "failed to read qcom,pll_uV, skipping\n");
-	else
-		regulator_set_voltage(qproc->pll, uV, uV);
-
-	ret = of_property_read_u32(qproc->dev->of_node, "qcom,pll-uA", &uA);
-	if (ret)
-		dev_warn(qproc->dev, "failed to read qcom,pll_uA, skipping\n");
-	else
-		regulator_set_load(qproc->pll, uA);
+	regulator_set_voltage(qproc->pll, 1800000, 1800000);
+	regulator_set_load(qproc->pll, 18000);
 
 	return 0;
 }
@@ -403,6 +394,7 @@ static int qproc_remove(struct platform_device *pdev)
 		device_remove_file(&pdev->dev, &qproc_attrs[i]);
 
 	rproc_put(qproc->rproc);
+	rproc_del(qproc->rproc);
 
 	return 0;
 }
