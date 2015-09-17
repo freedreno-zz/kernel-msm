@@ -355,13 +355,13 @@ static void __init berlin2q_clock_setup(struct device_node *np)
 			    gd->bit_idx, 0, &lock);
 	}
 
-	/*
-	 * twdclk is derived from cpu/3
-	 * TODO: use cpupll until cpuclk is not available
-	 */
+	/* cpuclk divider is fixed to 1 */
+	clks[CLKID_CPU] =
+		clk_register_fixed_factor(NULL, "cpu", clk_names[CPUPLL],
+					  0, 1, 1);
+	/* twdclk is derived from cpu/3 */
 	clks[CLKID_TWD] =
-		clk_register_fixed_factor(NULL, "twd", clk_names[CPUPLL],
-					  0, 1, 3);
+		clk_register_fixed_factor(NULL, "twd", "cpu", 0, 1, 3);
 
 	/* check for errors on leaf clocks */
 	for (n = 0; n < MAX_CLKS; n++) {
