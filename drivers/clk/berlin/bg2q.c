@@ -45,7 +45,6 @@
 #define REG_SDIO0XIN_CLKCTL	0x0158
 #define REG_SDIO1XIN_CLKCTL	0x015c
 
-#define	MAX_CLKS 27
 static struct clk *clks[MAX_CLKS];
 static struct clk_onecell_data clk_data;
 static DEFINE_SPINLOCK(lock);
