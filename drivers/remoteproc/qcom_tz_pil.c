@@ -72,7 +72,7 @@ static int qproc_load(struct rproc *rproc, const struct firmware *fw)
 	return qcom_mdt_load(rproc, qproc->pas_id, fw);
 }
 
-const struct rproc_fw_ops qproc_fw_ops = {
+static const struct rproc_fw_ops qproc_fw_ops = {
 	.find_rsc_table = qcom_mdt_find_rsc_table,
 	.sanity_check = qcom_mdt_sanity_check,
 	.load = qproc_load,
