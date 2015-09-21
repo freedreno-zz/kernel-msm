@@ -97,4 +97,12 @@ config QCOM_TZ_PIL
 	  Say y here to support the TrustZone based Qualcomm Peripherial Image
 	  Loader.
 
+config QCOM_WCNSS_PIL
+	tristate "Qualcomm WCNSS Peripheral Image Loader"
+	depends on OF && ARCH_QCOM
+	select REMOTEPROC
+	select QCOM_MDT_LOADER
+	help
+	  Peripherial Image Loader for the various WCNSS solutions.
+
 endmenu
