@@ -48,3 +48,10 @@ config QCOM_SMD_RPM
 
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
+
+config QCOM_WCNSS_CTRL
+	tristate "Qualcomm WCNSS control driver"
+	depends on QCOM_SMD
+	help
+	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
+	  firmware to a newly booted WCNSS chip.
