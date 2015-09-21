@@ -55,7 +55,6 @@ struct wcn36xx;
 int wcn36xx_smd_open(struct wcn36xx *wcn);
 void wcn36xx_smd_close(struct wcn36xx *wcn);
 
-int wcn36xx_smd_load_nv(struct wcn36xx *wcn);
 int wcn36xx_smd_start(struct wcn36xx *wcn);
 int wcn36xx_smd_stop(struct wcn36xx *wcn);
 int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode);
