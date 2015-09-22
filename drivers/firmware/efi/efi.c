@@ -588,20 +588,53 @@ char * __init efi_md_typeattr_format(char *buf, size_t size,
 
 	attr = md->attribute;
 	if (attr & ~(EFI_MEMORY_UC | EFI_MEMORY_WC | EFI_MEMORY_WT |
-		     EFI_MEMORY_WB | EFI_MEMORY_UCE | EFI_MEMORY_WP |
-		     EFI_MEMORY_RP | EFI_MEMORY_XP | EFI_MEMORY_RUNTIME))
+		     EFI_MEMORY_WB | EFI_MEMORY_UCE | EFI_MEMORY_RO |
+		     EFI_MEMORY_WP | EFI_MEMORY_RP | EFI_MEMORY_XP |
+		     EFI_MEMORY_RUNTIME))
 		snprintf(pos, size, "|attr=0x%016llx]",
 			 (unsigned long long)attr);
 	else
-		snprintf(pos, size, "|%3s|%2s|%2s|%2s|%3s|%2s|%2s|%2s|%2s]",
+		snprintf(pos, size, "|%3s|%2s|%2s|%2s|%2s|%3s|%2s|%2s|%2s|%2s]",
 			 attr & EFI_MEMORY_RUNTIME ? "RUN" : "",
 			 attr & EFI_MEMORY_XP      ? "XP"  : "",
 			 attr & EFI_MEMORY_RP      ? "RP"  : "",
 			 attr & EFI_MEMORY_WP      ? "WP"  : "",
+			 attr & EFI_MEMORY_RO      ? "RO"  : "",
 			 attr & EFI_MEMORY_UCE     ? "UCE" : "",
 			 attr & EFI_MEMORY_WB      ? "WB"  : "",
 			 attr & EFI_MEMORY_WT      ? "WT"  : "",
 			 attr & EFI_MEMORY_WC      ? "WC"  : "",
 			 attr & EFI_MEMORY_UC      ? "UC"  : "");
 	return buf;
+}
+
+/*
+ * efi_mem_attributes - lookup memmap attributes for physical address
+ * @phys_addr: the physical address to lookup
+ *
+ * Search in the EFI memory map for the region covering
+ * @phys_addr. Returns the EFI memory attributes if the region
+ * was found in the memory map, 0 otherwise.
+ *
+ * Despite being marked __weak, most architectures should *not*
+ * override this function. It is __weak solely for the benefit
+ * of ia64 which has a funky EFI memory map that doesn't work
+ * the same way as other architectures.
+ */
+u64 __weak efi_mem_attributes(unsigned long phys_addr)
+{
+	efi_memory_desc_t *md;
+	void *p;
+
+	if (!efi_enabled(EFI_MEMMAP))
+		return 0;
+
+	for (p = memmap.map; p < memmap.map_end; p += memmap.desc_size) {
+		md = p;
+		if ((md->phys_addr <= phys_addr) &&
+		    (phys_addr < (md->phys_addr +
+		    (md->num_pages << EFI_PAGE_SHIFT))))
+			return md->attribute;
+	}
+	return 0;
 }
