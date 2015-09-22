@@ -1151,7 +1151,7 @@ static void cp_clean_rings (struct cp_private *cp)
 			desc = cp->rx_ring + i;
 			dma_unmap_single(&cp->pdev->dev,le64_to_cpu(desc->addr),
 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-			dev_kfree_skb(cp->rx_skb[i]);
+			dev_kfree_skb_any(cp->rx_skb[i]);
 		}
 	}
 
@@ -1164,7 +1164,7 @@ static void cp_clean_rings (struct cp_private *cp)
 					 le32_to_cpu(desc->opts1) & 0xffff,
 					 PCI_DMA_TODEVICE);
 			if (le32_to_cpu(desc->opts1) & LastFrag)
-				dev_kfree_skb(skb);
+				dev_kfree_skb_any(skb);
 			cp->dev->stats.tx_dropped++;
 		}
 	}
@@ -1261,6 +1261,7 @@ static void cp_tx_timeout(struct net_device *dev)
 	cp_clean_rings(cp);
 	rc = cp_init_rings(cp);
 	cp_start_hw(cp);
+	__cp_set_rx_mode(dev);
 	cp_enable_irq(cp);
 
 	netif_wake_queue(dev);

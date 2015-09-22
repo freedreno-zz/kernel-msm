@@ -25,6 +25,7 @@ struct netlink_ring {
 struct netlink_sock {
 	/* struct sock has to be the first member of netlink_sock */
 	struct sock		sk;
+	u32			rhash_portid;
 	u32			portid;
 	u32			dst_portid;
 	u32			dst_group;
@@ -57,6 +58,15 @@ struct netlink_sock {
 static inline struct netlink_sock *nlk_sk(struct sock *sk)
 {
 	return container_of(sk, struct netlink_sock, sk);
+}
+
+static inline bool netlink_skb_is_mmaped(const struct sk_buff *skb)
+{
+#ifdef CONFIG_NETLINK_MMAP
+	return NETLINK_CB(skb).flags & NETLINK_SKB_MMAPED;
+#else
+	return false;
+#endif /* CONFIG_NETLINK_MMAP */
 }
 
 struct netlink_table {
