@@ -112,7 +112,7 @@ static uint64_t get_pageflags(unsigned long addr)
 	return pfn;
 }
 
-static unsigned long get_kpageflags(unsigned long pfn)
+static uint64_t get_kpageflags(unsigned long pfn)
 {
 	uint64_t flags;
 	FILE *file;
@@ -137,39 +137,11 @@ static unsigned long get_kpageflags(unsigned long pfn)
 	return flags;
 }
 
-#define VMFLAGS "VmFlags:"
-
-static bool find_flag(FILE *file, const char *vmflag)
-{
-	char *line = NULL;
-	char *flags;
-	size_t size = 0;
-	bool ret = false;
-
-	while (getline(&line, &size, file) > 0) {
-		if (!strstr(line, VMFLAGS)) {
-			free(line);
-			line = NULL;
-			size = 0;
-			continue;
-		}
-
-		flags = line + strlen(VMFLAGS);
-		ret = (strstr(flags, vmflag) != NULL);
-		goto out;
-	}
-
-out:
-	free(line);
-	return ret;
-}
-
-static bool is_vmflag_set(unsigned long addr, const char *vmflag)
+static FILE *seek_to_smaps_entry(unsigned long addr)
 {
 	FILE *file;
 	char *line = NULL;
 	size_t size = 0;
-	bool ret = false;
 	unsigned long start, end;
 	char perms[5];
 	unsigned long offset;
@@ -188,10 +160,8 @@ static bool is_vmflag_set(unsigned long addr, const char *vmflag)
 			   &start, &end, perms, &offset, dev, &inode, path) < 6)
 			goto next;
 
-		if (start <= addr && addr < end) {
-			ret = find_flag(file, vmflag);
+		if (start <= addr && addr < end)
 			goto out;
-		}
 
 next:
 		free(line);
@@ -199,18 +169,116 @@ next:
 		size = 0;
 	}
 
+	fclose(file);
+	file = NULL;
+
 out:
 	free(line);
-	fclose(file);
+	return file;
+}
+
+#define VMFLAGS "VmFlags:"
+
+static bool is_vmflag_set(unsigned long addr, const char *vmflag)
+{
+	char *line = NULL;
+	char *flags;
+	size_t size = 0;
+	bool ret = false;
+	FILE *smaps;
+
+	smaps = seek_to_smaps_entry(addr);
+	if (!smaps) {
+		printf("Unable to parse /proc/self/smaps\n");
+		goto out;
+	}
+
+	while (getline(&line, &size, smaps) > 0) {
+		if (!strstr(line, VMFLAGS)) {
+			free(line);
+			line = NULL;
+			size = 0;
+			continue;
+		}
+
+		flags = line + strlen(VMFLAGS);
+		ret = (strstr(flags, vmflag) != NULL);
+		goto out;
+	}
+
+out:
+	free(line);
+	fclose(smaps);
+	return ret;
+}
+
+#define SIZE "Size:"
+#define RSS  "Rss:"
+#define LOCKED "lo"
+
+static bool is_vma_lock_on_fault(unsigned long addr)
+{
+	bool ret = false;
+	bool locked;
+	FILE *smaps = NULL;
+	unsigned long vma_size, vma_rss;
+	char *line = NULL;
+	char *value;
+	size_t size = 0;
+
+	locked = is_vmflag_set(addr, LOCKED);
+	if (!locked)
+		goto out;
+
+	smaps = seek_to_smaps_entry(addr);
+	if (!smaps) {
+		printf("Unable to parse /proc/self/smaps\n");
+		goto out;
+	}
+
+	while (getline(&line, &size, smaps) > 0) {
+		if (!strstr(line, SIZE)) {
+			free(line);
+			line = NULL;
+			size = 0;
+			continue;
+		}
+
+		value = line + strlen(SIZE);
+		if (sscanf(value, "%lu kB", &vma_size) < 1) {
+			printf("Unable to parse smaps entry for Size\n");
+			goto out;
+		}
+		break;
+	}
+
+	while (getline(&line, &size, smaps) > 0) {
+		if (!strstr(line, RSS)) {
+			free(line);
+			line = NULL;
+			size = 0;
+			continue;
+		}
+
+		value = line + strlen(RSS);
+		if (sscanf(value, "%lu kB", &vma_rss) < 1) {
+			printf("Unable to parse smaps entry for Rss\n");
+			goto out;
+		}
+		break;
+	}
+
+	ret = locked && (vma_rss < vma_size);
+out:
+	free(line);
+	if (smaps)
+		fclose(smaps);
 	return ret;
 }
 
 #define PRESENT_BIT     0x8000000000000000
 #define PFN_MASK        0x007FFFFFFFFFFFFF
 #define UNEVICTABLE_BIT (1UL << 18)
-
-#define LOCKED "lo"
-#define LOCKEDONFAULT "lf"
 
 static int lock_check(char *map)
 {
@@ -237,9 +305,13 @@ static int lock_check(char *map)
 		return 1;
 	}
 
-	if (!is_vmflag_set((unsigned long)map, LOCKED) ||
-	    !is_vmflag_set((unsigned long)map + page_size, LOCKED)) {
-		printf("VMA flag %s is missing\n", LOCKED);
+	if (!is_vmflag_set((unsigned long)map, LOCKED)) {
+		printf("VMA flag %s is missing on page 1\n", LOCKED);
+		return 1;
+	}
+
+	if (!is_vmflag_set((unsigned long)map + page_size, LOCKED)) {
+		printf("VMA flag %s is missing on page 2\n", LOCKED);
 		return 1;
 	}
 
@@ -261,9 +333,13 @@ static int unlock_lock_check(char *map)
 		return 1;
 	}
 
-	if (is_vmflag_set((unsigned long)map, LOCKED) ||
-	    is_vmflag_set((unsigned long)map + page_size, LOCKED)) {
-		printf("VMA flag %s is still set after unlock\n", LOCKED);
+	if (is_vmflag_set((unsigned long)map, LOCKED)) {
+		printf("VMA flag %s is present on page 1 after unlock\n", LOCKED);
+		return 1;
+	}
+
+	if (is_vmflag_set((unsigned long)map + page_size, LOCKED)) {
+		printf("VMA flag %s is present on page 2 after unlock\n", LOCKED);
 		return 1;
 	}
 
@@ -344,9 +420,13 @@ static int onfault_check(char *map)
 		return 1;
 	}
 
-	if (!is_vmflag_set((unsigned long)map, LOCKEDONFAULT) ||
-	    !is_vmflag_set((unsigned long)map + page_size, LOCKEDONFAULT)) {
-		printf("VMA flag %s is missing\n", LOCKEDONFAULT);
+	if (!is_vma_lock_on_fault((unsigned long)map)) {
+		printf("VMA is not marked for lock on fault\n");
+		return 1;
+	}
+
+	if (!is_vma_lock_on_fault((unsigned long)map + page_size)) {
+		printf("VMA is not marked for lock on fault\n");
 		return 1;
 	}
 
@@ -366,9 +446,9 @@ static int unlock_onfault_check(char *map)
 		return 1;
 	}
 
-	if (is_vmflag_set((unsigned long)map, LOCKEDONFAULT) ||
-	    is_vmflag_set((unsigned long)map + page_size, LOCKEDONFAULT)) {
-		printf("VMA flag %s is still set after unlock\n", LOCKEDONFAULT);
+	if (is_vma_lock_on_fault((unsigned long)map) ||
+	    is_vma_lock_on_fault((unsigned long)map + page_size)) {
+		printf("VMA is still lock on fault after unlock\n");
 		return 1;
 	}
 
@@ -453,9 +533,9 @@ static int test_lock_onfault_of_present()
 		goto unmap;
 	}
 
-	if (!is_vmflag_set((unsigned long)map, LOCKEDONFAULT) ||
-	    !is_vmflag_set((unsigned long)map + page_size, LOCKEDONFAULT)) {
-		printf("VMA flag %s is missing for one of the pages\n", LOCKEDONFAULT);
+	if (!is_vma_lock_on_fault((unsigned long)map) ||
+	    !is_vma_lock_on_fault((unsigned long)map + page_size)) {
+		printf("VMA with present pages is not marked lock on fault\n");
 		goto unmap;
 	}
 	ret = 0;
