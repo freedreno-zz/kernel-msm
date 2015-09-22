@@ -1692,6 +1692,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	struct net    *net = dev_net(dev);
 	bool do_cache;
 
+	res.table = 0;
+
 	/* IP on this device is disabled. */
 
 	if (!in_dev)
