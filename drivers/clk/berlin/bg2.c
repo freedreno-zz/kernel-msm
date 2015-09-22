@@ -91,7 +91,6 @@
  *
  */
 
-#define	MAX_CLKS 41
 static struct clk *clks[MAX_CLKS];
 static struct clk_onecell_data clk_data;
 static DEFINE_SPINLOCK(lock);

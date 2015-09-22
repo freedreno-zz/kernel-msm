@@ -1,16 +1,22 @@
 /*
- * Device Tree file for Sony NSZ-GS7
+ * Copyright (C) 2015 Marvell Technology Group Ltd.
  *
- * Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+ * Author: Jisheng Zhang <jszhang@marvell.com>
  *
  * This file is dual-licensed: you can use it either under the terms
- * of the GPL or the X11 license, at your option. Note that this dual
+ * of the GPLv2 or the X11 license, at your option. Note that this dual
  * licensing only applies to this file, and not this project as a
  * whole.
  *
- *  a) This file is licensed under the terms of the GNU General Public
- *     License version 2. This program is licensed "as is" without any
- *     warranty of any kind, whether express or implied.
+ *  a) This library is free software; you can redistribute it and/or
+ *     modify it under the terms of the GNU General Public License as
+ *     published by the Free Software Foundation; either version 2 of the
+ *     License, or (at your option) any later version.
+ *
+ *     This library is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
  *
  * Or, alternatively,
  *
@@ -38,37 +44,23 @@
 
 /dts-v1/;
 
-#include "berlin2.dtsi"
+#include "berlin4ct.dtsi"
 
 / {
-	model = "Sony NSZ-GS7";
-	compatible = "sony,nsz-gs7", "marvell,berlin2", "marvell,berlin";
+	model = "Marvell BG4CT STB board";
+	compatible = "marvell,berlin4ct-stb", "marvell,berlin4ct", "marvell,berlin";
 
 	chosen {
-		bootargs = "earlyprintk";
 		stdout-path = "serial0:115200n8";
 	};
 
 	memory {
 		device_type = "memory";
-		reg = <0x00000000 0x40000000>; /* 1 GB */
+		/* the first 16MB is for firmwares' usage */
+		reg = <0 0x01000000 0 0x7f000000>;
 	};
 };
 
-&ahci { status = "okay"; };
-
-&eth1 { status = "okay"; };
-
-/* Unpopulated SATA plug on solder side */
-&sata0 { status = "okay"; };
-
-&sata_phy { status = "okay"; };
-
-/* Samsung M8G2FA 8GB eMMC */
-&sdhci2 {
-	non-removable;
-	bus-width = <8>;
+&uart0 {
 	status = "okay";
 };
-
-&uart0 { status = "okay"; };

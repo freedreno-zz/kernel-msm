@@ -29,3 +29,6 @@
 #define CLKID_SMEMC		24
 #define CLKID_PCIE		25
 #define CLKID_TWD		26
+#define CLKID_CPU		27
+
+#define MAX_CLKS		28

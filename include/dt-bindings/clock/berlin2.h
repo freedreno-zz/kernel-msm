@@ -43,3 +43,5 @@
 #define CLKID_VIDEO1		38
 #define CLKID_VIDEO2		39
 #define CLKID_TWD		40
+
+#define MAX_CLKS		41
