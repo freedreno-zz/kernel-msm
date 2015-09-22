@@ -848,8 +848,7 @@ static int page_referenced_one(struct page *page, struct vm_area_struct *vma,
 
 		if (vma->vm_flags & VM_LOCKED) {
 			spin_unlock(ptl);
-			pra->vm_flags |=
-				(vma->vm_flags & (VM_LOCKED | VM_LOCKONFAULT));
+			pra->vm_flags |= VM_LOCKED;
 			return SWAP_FAIL; /* To break the loop */
 		}
 
@@ -870,8 +869,7 @@ static int page_referenced_one(struct page *page, struct vm_area_struct *vma,
 
 		if (vma->vm_flags & VM_LOCKED) {
 			pte_unmap_unlock(pte, ptl);
-			pra->vm_flags |=
-				(vma->vm_flags & (VM_LOCKED | VM_LOCKONFAULT));
+			pra->vm_flags |= VM_LOCKED;
 			return SWAP_FAIL; /* To break the loop */
 		}
 
