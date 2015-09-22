@@ -712,6 +712,7 @@ static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
 		}
 		set_apicid_to_node(physid, nid);
 		numa_set_node(cpu, nid);
+		set_cpu_numa_mem(cpu, local_memory_node(nid));
 	}
 #endif
 }
@@ -738,9 +739,10 @@ int acpi_unmap_cpu(int cpu)
 {
 #ifdef CONFIG_ACPI_NUMA
 	set_apicid_to_node(per_cpu(x86_cpu_to_apicid, cpu), NUMA_NO_NODE);
+	set_cpu_numa_mem(cpu, NUMA_NO_NODE);
 #endif
 
-	per_cpu(x86_cpu_to_apicid, cpu) = -1;
+	per_cpu(x86_cpu_to_apicid, cpu) = BAD_APICID;
 	set_cpu_present(cpu, false);
 	num_processors--;
 
