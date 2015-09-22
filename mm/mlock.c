@@ -578,8 +578,7 @@ static int apply_vma_lock_flags(unsigned long start, size_t len,
 		prev = vma;
 
 	for (nstart = start ; ; ) {
-		vm_flags_t newflags =
-			vma->vm_flags & ~(VM_LOCKED | VM_LOCKONFAULT);
+		vm_flags_t newflags = vma->vm_flags & VM_LOCKED_CLEAR_MASK;
 
 		newflags |= flags;
 
@@ -688,7 +687,7 @@ static int apply_mlockall_flags(int flags)
 	struct vm_area_struct * vma, * prev = NULL;
 	vm_flags_t to_add = 0;
 
-	current->mm->def_flags &= ~(VM_LOCKED | VM_LOCKONFAULT);
+	current->mm->def_flags &= VM_LOCKED_CLEAR_MASK;
 	if (flags & MCL_FUTURE) {
 		current->mm->def_flags |= VM_LOCKED;
 
@@ -708,7 +707,7 @@ static int apply_mlockall_flags(int flags)
 	for (vma = current->mm->mmap; vma ; vma = prev->vm_next) {
 		vm_flags_t newflags;
 
-		newflags = vma->vm_flags & ~(VM_LOCKED | VM_LOCKONFAULT);
+		newflags = vma->vm_flags & VM_LOCKED_CLEAR_MASK;
 		newflags |= to_add;
 
 		/* Ignore errors */
