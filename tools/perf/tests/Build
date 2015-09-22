@@ -33,8 +33,12 @@ perf-y += parse-no-sample-id-all.o
 perf-y += kmod-path.o
 perf-y += thread-map.o
 perf-y += llvm.o
+perf-y += topology.o
 
 perf-$(CONFIG_X86) += perf-time-to-tsc.o
+ifdef CONFIG_AUXTRACE
+perf-$(CONFIG_X86) += insn-x86.o
+endif
 
 ifeq ($(ARCH),$(filter $(ARCH),x86 arm arm64))
 perf-$(CONFIG_DWARF_UNWIND) += dwarf-unwind.o

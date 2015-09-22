@@ -40,8 +40,7 @@
 #include "color.h"
 #include "symbol.h"
 #include "thread.h"
-#include <api/fs/debugfs.h>
-#include <api/fs/tracefs.h>
+#include <api/fs/fs.h>
 #include "trace-event.h"	/* For __maybe_unused */
 #include "probe-event.h"
 #include "probe-finder.h"
@@ -72,7 +71,7 @@ static char *synthesize_perf_probe_point(struct perf_probe_point *pp);
 static struct machine *host_machine;
 
 /* Initialize symbol maps and path of vmlinux/modules */
-static int init_symbol_maps(bool user_only)
+int init_probe_symbol_maps(bool user_only)
 {
 	int ret;
 
@@ -102,7 +101,7 @@ out:
 	return ret;
 }
 
-static void exit_symbol_maps(void)
+void exit_probe_symbol_maps(void)
 {
 	if (host_machine) {
 		machine__delete(host_machine);
@@ -860,11 +859,11 @@ int show_line_range(struct line_range *lr, const char *module, bool user)
 {
 	int ret;
 
-	ret = init_symbol_maps(user);
+	ret = init_probe_symbol_maps(user);
 	if (ret < 0)
 		return ret;
 	ret = __show_line_range(lr, module, user);
-	exit_symbol_maps();
+	exit_probe_symbol_maps();
 
 	return ret;
 }
@@ -942,7 +941,7 @@ int show_available_vars(struct perf_probe_event *pevs, int npevs,
 	int i, ret = 0;
 	struct debuginfo *dinfo;
 
-	ret = init_symbol_maps(pevs->uprobes);
+	ret = init_probe_symbol_maps(pevs->uprobes);
 	if (ret < 0)
 		return ret;
 
@@ -959,7 +958,7 @@ int show_available_vars(struct perf_probe_event *pevs, int npevs,
 
 	debuginfo__delete(dinfo);
 out:
-	exit_symbol_maps();
+	exit_probe_symbol_maps();
 	return ret;
 }
 
@@ -2054,7 +2053,7 @@ static void kprobe_blacklist__delete(struct list_head *blacklist)
 static int kprobe_blacklist__load(struct list_head *blacklist)
 {
 	struct kprobe_blacklist_node *node;
-	const char *__debugfs = debugfs_find_mountpoint();
+	const char *__debugfs = debugfs__mountpoint();
 	char buf[PATH_MAX], *p;
 	FILE *fp;
 	int ret;
@@ -2180,9 +2179,9 @@ out:
 }
 
 /* Show an event */
-static int show_perf_probe_event(const char *group, const char *event,
-				 struct perf_probe_event *pev,
-				 const char *module, bool use_stdout)
+int show_perf_probe_event(const char *group, const char *event,
+			  struct perf_probe_event *pev,
+			  const char *module, bool use_stdout)
 {
 	struct strbuf buf = STRBUF_INIT;
 	int ret;
@@ -2263,7 +2262,7 @@ int show_perf_probe_events(struct strfilter *filter)
 
 	setup_pager();
 
-	ret = init_symbol_maps(false);
+	ret = init_probe_symbol_maps(false);
 	if (ret < 0)
 		return ret;
 
@@ -2279,7 +2278,7 @@ int show_perf_probe_events(struct strfilter *filter)
 		close(kp_fd);
 	if (up_fd > 0)
 		close(up_fd);
-	exit_symbol_maps();
+	exit_probe_symbol_maps();
 
 	return ret;
 }
@@ -2399,7 +2398,6 @@ static int __add_probe_trace_events(struct perf_probe_event *pev,
 {
 	int i, fd, ret;
 	struct probe_trace_event *tev = NULL;
-	const char *event = NULL, *group = NULL;
 	struct strlist *namelist;
 
 	fd = probe_file__open(PF_FL_RW | (pev->uprobes ? PF_FL_UPROBE : 0));
@@ -2415,7 +2413,6 @@ static int __add_probe_trace_events(struct perf_probe_event *pev,
 	}
 
 	ret = 0;
-	pr_info("Added new event%s\n", (ntevs > 1) ? "s:" : ":");
 	for (i = 0; i < ntevs; i++) {
 		tev = &tevs[i];
 		/* Skip if the symbol is out of .text or blacklisted */
@@ -2432,13 +2429,6 @@ static int __add_probe_trace_events(struct perf_probe_event *pev,
 		if (ret < 0)
 			break;
 
-		/* We use tev's name for showing new events */
-		show_perf_probe_event(tev->group, tev->event, pev,
-				      tev->point.module, false);
-		/* Save the last valid name */
-		event = tev->event;
-		group = tev->group;
-
 		/*
 		 * Probes after the first probe which comes from same
 		 * user input are always allowed to add suffix, because
@@ -2449,13 +2439,6 @@ static int __add_probe_trace_events(struct perf_probe_event *pev,
 	}
 	if (ret == -EINVAL && pev->uprobes)
 		warn_uprobe_event_compat(tev);
-
-	/* Note that it is possible to skip all events because of blacklist */
-	if (ret >= 0 && event) {
-		/* Show how to use the event. */
-		pr_info("\nYou can now use it in all perf tools, such as:\n\n");
-		pr_info("\tperf record -e %s:%s -aR sleep 1\n\n", group, event);
-	}
 
 	strlist__delete(namelist);
 close_out:
@@ -2759,63 +2742,71 @@ static int convert_to_probe_trace_events(struct perf_probe_event *pev,
 	return find_probe_trace_events_from_map(pev, tevs);
 }
 
-struct __event_package {
-	struct perf_probe_event		*pev;
-	struct probe_trace_event	*tevs;
-	int				ntevs;
-};
-
-int add_perf_probe_events(struct perf_probe_event *pevs, int npevs)
+int convert_perf_probe_events(struct perf_probe_event *pevs, int npevs)
 {
-	int i, j, ret;
-	struct __event_package *pkgs;
-
-	ret = 0;
-	pkgs = zalloc(sizeof(struct __event_package) * npevs);
-
-	if (pkgs == NULL)
-		return -ENOMEM;
-
-	ret = init_symbol_maps(pevs->uprobes);
-	if (ret < 0) {
-		free(pkgs);
-		return ret;
-	}
+	int i, ret;
 
 	/* Loop 1: convert all events */
 	for (i = 0; i < npevs; i++) {
-		pkgs[i].pev = &pevs[i];
 		/* Init kprobe blacklist if needed */
-		if (!pkgs[i].pev->uprobes)
+		if (!pevs[i].uprobes)
 			kprobe_blacklist__init();
 		/* Convert with or without debuginfo */
-		ret  = convert_to_probe_trace_events(pkgs[i].pev,
-						     &pkgs[i].tevs);
+		ret  = convert_to_probe_trace_events(&pevs[i], &pevs[i].tevs);
 		if (ret < 0)
-			goto end;
-		pkgs[i].ntevs = ret;
+			return ret;
+		pevs[i].ntevs = ret;
 	}
 	/* This just release blacklist only if allocated */
 	kprobe_blacklist__release();
 
+	return 0;
+}
+
+int apply_perf_probe_events(struct perf_probe_event *pevs, int npevs)
+{
+	int i, ret = 0;
+
 	/* Loop 2: add all events */
 	for (i = 0; i < npevs; i++) {
-		ret = __add_probe_trace_events(pkgs[i].pev, pkgs[i].tevs,
-					       pkgs[i].ntevs,
+		ret = __add_probe_trace_events(&pevs[i], pevs[i].tevs,
+					       pevs[i].ntevs,
 					       probe_conf.force_add);
 		if (ret < 0)
 			break;
 	}
-end:
+	return ret;
+}
+
+void cleanup_perf_probe_events(struct perf_probe_event *pevs, int npevs)
+{
+	int i, j;
+
 	/* Loop 3: cleanup and free trace events  */
 	for (i = 0; i < npevs; i++) {
-		for (j = 0; j < pkgs[i].ntevs; j++)
-			clear_probe_trace_event(&pkgs[i].tevs[j]);
-		zfree(&pkgs[i].tevs);
+		for (j = 0; j < pevs[i].ntevs; j++)
+			clear_probe_trace_event(&pevs[i].tevs[j]);
+		zfree(&pevs[i].tevs);
+		pevs[i].ntevs = 0;
+		clear_perf_probe_event(&pevs[i]);
 	}
-	free(pkgs);
-	exit_symbol_maps();
+}
 
+int add_perf_probe_events(struct perf_probe_event *pevs, int npevs)
+{
+	int ret;
+
+	ret = init_probe_symbol_maps(pevs->uprobes);
+	if (ret < 0)
+		return ret;
+
+	ret = convert_perf_probe_events(pevs, npevs);
+	if (ret == 0)
+		ret = apply_perf_probe_events(pevs, npevs);
+
+	cleanup_perf_probe_events(pevs, npevs);
+
+	exit_probe_symbol_maps();
 	return ret;
 }
 
@@ -2826,8 +2817,6 @@ int del_perf_probe_events(struct strfilter *filter)
 
 	if (!str)
 		return -EINVAL;
-
-	pr_debug("Delete filter: \'%s\'\n", str);
 
 	/* Get current event names */
 	ret = probe_file__open_both(&kfd, &ufd, PF_FL_RW);
@@ -2843,9 +2832,6 @@ int del_perf_probe_events(struct strfilter *filter)
 		ret = ret2;
 		goto error;
 	}
-	if (ret == -ENOENT && ret2 == -ENOENT)
-		pr_debug("\"%s\" does not hit any event.\n", str);
-		/* Note that this is silently ignored */
 	ret = 0;
 
 error:
@@ -2880,7 +2866,7 @@ int show_available_funcs(const char *target, struct strfilter *_filter,
 	struct map *map;
 	int ret;
 
-	ret = init_symbol_maps(user);
+	ret = init_probe_symbol_maps(user);
 	if (ret < 0)
 		return ret;
 
@@ -2910,7 +2896,7 @@ end:
 	if (user) {
 		map__put(map);
 	}
-	exit_symbol_maps();
+	exit_probe_symbol_maps();
 
 	return ret;
 }
