@@ -238,7 +238,7 @@ xpc_create_gru_mq_uv(unsigned int mq_size, int cpu, char *irq_name,
 
 	mq->mmr_blade = uv_cpu_to_blade_id(cpu);
 
-	nid = cpu_to_node(cpu);
+	nid = cpu_to_mem(cpu);
 	page = __alloc_pages_node(nid,
 				      GFP_KERNEL | __GFP_ZERO | __GFP_THISNODE,
 				      pg_order);
