@@ -1,7 +1,5 @@
 /*
- * Copyright 2014 Chen-Yu Tsai
- *
- * Chen-Yu Tsai <wens@csie.org>
+ * Copyright 2015 Hans de Goede <hdegoede@redhat.com>
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -43,32 +41,20 @@
  */
 
 /dts-v1/;
-#include "sun8i-a23.dtsi"
-#include "sun8i-q8-common.dtsi"
+#include "sun5i-a13.dtsi"
+#include "sun5i-q8-common.dtsi"
 
 / {
-	model = "Ippo Q8H Dual Core Tablet (v5)";
-	compatible = "ippo,q8h-v5", "allwinner,sun8i-a23";
+	model = "Q8 A13 Tablet";
+	compatible = "allwinner,q8-a13", "allwinner,sun5i-a13";
 };
 
-&i2c2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c2_pins_a>;
-	/* pull-ups and devices require PMIC regulator */
-	status = "failed";
-};
-
-/*
- * FIXME for now we only support host mode and rely on u-boot to have
- * turned on Vbus which is controlled by the axp223 pmic on the board.
- *
- * Once we have axp223 support we should switch to fully supporting otg.
- */
-&usb_otg {
-	dr_mode = "host";
-	status = "okay";
+&reg_ldo3 {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-name = "vcc-wifi";
 };
 
 &usbphy {
-	status = "okay";
+	usb1_vbus-supply = <&reg_ldo3>;
 };
