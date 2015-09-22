@@ -352,6 +352,7 @@ PAGEFLAG(Idle, idle, PF_ANY)
 
 static inline int PageAnon(struct page *page)
 {
+	page = compound_head(page);
 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
 }
 
@@ -364,6 +365,7 @@ static inline int PageAnon(struct page *page)
  */
 static inline int PageKsm(struct page *page)
 {
+	page = compound_head(page);
 	return ((unsigned long)page->mapping & PAGE_MAPPING_FLAGS) ==
 				(PAGE_MAPPING_ANON | PAGE_MAPPING_KSM);
 }
