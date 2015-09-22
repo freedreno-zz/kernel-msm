@@ -221,7 +221,7 @@ qmss: qmss@2a40000 {
 		#size-cells = <1>;
 		ranges;
 		pdsp0@0x2a10000 {
-			firmware = "keystone/qmss_pdsp_acc48_k2_le_1_0_0_8.fw";
+			firmware = "k2_qmss_pdsp_acc48_k2_le_1_0_0_9.bin";
 			reg = <0x2a10000 0x1000>,
 			      <0x2a0f000 0x100>,
 			      <0x2a0c000 0x3c8>,
@@ -230,3 +230,21 @@ qmss: qmss@2a40000 {
 		};
 	};
 }; /* qmss */
+
+Accumulator QMSS Channel using PDSP firmware
+============================================
+The QMSS PDSP firmware support accumulator channel that can monitor a single
+queue or multiple contiguous queues. drivers/soc/ti/knav_qmss_acc.c is the
+driver that interface with the accumulator PDSP. This configures
+accumulator channels defined in DTS (example above) to monitor 1 or 32 queues
+per channel. More description on the firmware is available in CPPI/QMSS Low
+Level Driver document (docs/CPPI_QMSS_LLD_SDS.pdf) at
+	git://git.ti.com/keystone-rtos/qmss-lld.git
+
+k2_qmss_pdsp_acc48_k2_le_1_0_0_9.bin firmware supports upto 48 accumulator
+channels. This firmware is available under firmware folder of the above repo
+under the name acc48_le.bin. To use copy the firmware image to lib/firmware
+folder of the initramfs or ubifs file system as
+k2_qmss_pdsp_acc48_k2_le_1_0_0_9.bin and boot up the kernel. User would see
+"firmware file ks2_qmss_pdsp_acc48_k2_le_1_0_0_9.bin downloaded for PDSP" in
+the boot up log if loading of firmware to PDSP is successful.

@@ -1526,6 +1526,9 @@ static int knav_queue_load_pdsp(struct knav_device *kdev,
 			pdsp->firmware, pdsp->name);
 		return ret;
 	}
+	dev_info(kdev->dev, "firmware file %s downloaded for PDSP\n",
+		 pdsp->firmware);
+
 	writel_relaxed(pdsp->id + 1, pdsp->command + 0x18);
 	/* download the firmware */
 	fwdata = (u32 *)fw->data;
