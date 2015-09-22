@@ -326,6 +326,30 @@ out:
 	kfree(out_test);
 }
 
+static __init void test_string_get_size_one(u64 size, u64 blk_size,
+					    const enum string_size_units units,
+					    const char *exp_result)
+{
+	char buf[256];
+
+	string_get_size(size, blk_size, units, buf, sizeof(buf));
+	if (!strncmp(buf, exp_result, min(sizeof(buf), strlen(exp_result))))
+		return;
+
+	pr_warn("Test 'test_string_get_size_one' failed!\n");
+	pr_warn("string_get_size(size = %llu, blk_size = %llu, units = %d\n",
+		size, blk_size, units);
+	pr_warn("expected: %s, got %s\n", exp_result, buf);
+
+}
+
+static __init void test_string_get_size(void)
+{
+	test_string_get_size_one(16384, 512, STRING_UNITS_2, "8.00 MiB");
+	test_string_get_size_one(8192, 4096, STRING_UNITS_10, "32.7 MB");
+	test_string_get_size_one(1, 512, STRING_UNITS_10, "512 B");
+}
+
 static int __init test_string_helpers_init(void)
 {
 	unsigned int i;
@@ -343,6 +367,9 @@ static int __init test_string_helpers_init(void)
 	/* With dictionary */
 	for (i = 0; i < (ESCAPE_ANY_NP | ESCAPE_HEX) + 1; i++)
 		test_string_escape("escape 1", escape1, i, TEST_STRING_2_DICT_1);
+
+	/* Test string_get_size() */
+	test_string_get_size();
 
 	return -EINVAL;
 }
