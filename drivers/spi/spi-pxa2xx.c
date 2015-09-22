@@ -922,52 +922,44 @@ static void pump_transfers(unsigned long data)
 	drv_data->read = drv_data->rx ? chip->read : null_reader;
 
 	/* Change speed and bit per word on a per transfer */
-	cr0 = chip->cr0;
-	if (transfer->speed_hz || transfer->bits_per_word) {
+	bits = transfer->bits_per_word;
+	speed = transfer->speed_hz;
 
-		bits = chip->bits_per_word;
-		speed = chip->speed_hz;
+	clk_div = pxa2xx_ssp_get_clk_div(drv_data, chip, speed);
 
-		if (transfer->speed_hz)
-			speed = transfer->speed_hz;
-
-		if (transfer->bits_per_word)
-			bits = transfer->bits_per_word;
-
-		clk_div = pxa2xx_ssp_get_clk_div(drv_data, chip, speed);
-
-		if (bits <= 8) {
-			drv_data->n_bytes = 1;
-			drv_data->read = drv_data->read != null_reader ?
-						u8_reader : null_reader;
-			drv_data->write = drv_data->write != null_writer ?
-						u8_writer : null_writer;
-		} else if (bits <= 16) {
-			drv_data->n_bytes = 2;
-			drv_data->read = drv_data->read != null_reader ?
-						u16_reader : null_reader;
-			drv_data->write = drv_data->write != null_writer ?
-						u16_writer : null_writer;
-		} else if (bits <= 32) {
-			drv_data->n_bytes = 4;
-			drv_data->read = drv_data->read != null_reader ?
-						u32_reader : null_reader;
-			drv_data->write = drv_data->write != null_writer ?
-						u32_writer : null_writer;
-		}
-		/* if bits/word is changed in dma mode, then must check the
-		 * thresholds and burst also */
-		if (chip->enable_dma) {
-			if (pxa2xx_spi_set_dma_burst_and_threshold(chip,
-							message->spi,
-							bits, &dma_burst,
-							&dma_thresh))
-				dev_warn_ratelimited(&message->spi->dev,
-						     "pump_transfers: DMA burst size reduced to match bits_per_word\n");
-		}
-
-		cr0 = pxa2xx_configure_sscr0(drv_data, clk_div, bits);
+	if (bits <= 8) {
+		drv_data->n_bytes = 1;
+		drv_data->read = drv_data->read != null_reader ?
+					u8_reader : null_reader;
+		drv_data->write = drv_data->write != null_writer ?
+					u8_writer : null_writer;
+	} else if (bits <= 16) {
+		drv_data->n_bytes = 2;
+		drv_data->read = drv_data->read != null_reader ?
+					u16_reader : null_reader;
+		drv_data->write = drv_data->write != null_writer ?
+					u16_writer : null_writer;
+	} else if (bits <= 32) {
+		drv_data->n_bytes = 4;
+		drv_data->read = drv_data->read != null_reader ?
+					u32_reader : null_reader;
+		drv_data->write = drv_data->write != null_writer ?
+					u32_writer : null_writer;
 	}
+	/*
+	 * if bits/word is changed in dma mode, then must check the
+	 * thresholds and burst also
+	 */
+	if (chip->enable_dma) {
+		if (pxa2xx_spi_set_dma_burst_and_threshold(chip,
+						message->spi,
+						bits, &dma_burst,
+						&dma_thresh))
+			dev_warn_ratelimited(&message->spi->dev,
+					     "pump_transfers: DMA burst size reduced to match bits_per_word\n");
+	}
+
+	cr0 = pxa2xx_configure_sscr0(drv_data, clk_div, bits);
 
 	message->state = RUNNING_STATE;
 
@@ -1113,6 +1105,7 @@ static int setup(struct spi_device *spi)
 	struct driver_data *drv_data = spi_master_get_devdata(spi->master);
 	unsigned int clk_div;
 	uint tx_thres, tx_hi_thres, rx_thres;
+	u32 cr0;
 
 	switch (drv_data->ssp_type) {
 	case QUARK_X1000_SSP:
@@ -1204,10 +1197,7 @@ static int setup(struct spi_device *spi)
 	}
 
 	clk_div = pxa2xx_ssp_get_clk_div(drv_data, chip, spi->max_speed_hz);
-	chip->speed_hz = spi->max_speed_hz;
 
-	chip->cr0 = pxa2xx_configure_sscr0(drv_data, clk_div,
-					   spi->bits_per_word);
 	switch (drv_data->ssp_type) {
 	case QUARK_X1000_SSP:
 		chip->threshold = (QUARK_X1000_SSCR1_RxTresh(rx_thres)
@@ -1229,15 +1219,16 @@ static int setup(struct spi_device *spi)
 		chip->cr1 |= SSCR1_LBM;
 
 	/* NOTE:  PXA25x_SSP _could_ use external clocking ... */
+	cr0 = pxa2xx_configure_sscr0(drv_data, clk_div, spi->bits_per_word);
 	if (!pxa25x_ssp_comp(drv_data))
 		dev_dbg(&spi->dev, "%ld Hz actual, %s\n",
 			drv_data->max_clk_rate
-				/ (1 + ((chip->cr0 & SSCR0_SCR(0xfff)) >> 8)),
+				/ (1 + ((cr0 & SSCR0_SCR(0xfff)) >> 8)),
 			chip->enable_dma ? "DMA" : "PIO");
 	else
 		dev_dbg(&spi->dev, "%ld Hz actual, %s\n",
 			drv_data->max_clk_rate / 2
-				/ (1 + ((chip->cr0 & SSCR0_SCR(0x0ff)) >> 8)),
+				/ (1 + ((cr0 & SSCR0_SCR(0x0ff)) >> 8)),
 			chip->enable_dma ? "DMA" : "PIO");
 
 	if (spi->bits_per_word <= 8) {
@@ -1249,13 +1240,10 @@ static int setup(struct spi_device *spi)
 		chip->read = u16_reader;
 		chip->write = u16_writer;
 	} else if (spi->bits_per_word <= 32) {
-		if (!is_quark_x1000_ssp(drv_data))
-			chip->cr0 |= SSCR0_EDSS;
 		chip->n_bytes = 4;
 		chip->read = u32_reader;
 		chip->write = u32_writer;
 	}
-	chip->bits_per_word = spi->bits_per_word;
 
 	spi_set_ctldata(spi, chip);
 

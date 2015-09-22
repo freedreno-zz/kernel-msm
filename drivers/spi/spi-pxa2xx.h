@@ -86,7 +86,6 @@ struct driver_data {
 };
 
 struct chip_data {
-	u32 cr0;
 	u32 cr1;
 	u32 dds_rate;
 	u32 psp;
@@ -98,8 +97,6 @@ struct chip_data {
 	u16 lpss_rx_threshold;
 	u16 lpss_tx_threshold;
 	u8 enable_dma;
-	u8 bits_per_word;
-	u32 speed_hz;
 	union {
 		int gpio_cs;
 		unsigned int frm;
