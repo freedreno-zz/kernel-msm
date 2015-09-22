@@ -705,6 +705,11 @@ static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
 
 	nid = acpi_get_node(handle);
 	if (nid != -1) {
+		if (try_online_node(nid)) {
+			pr_warn("failed to online node%d for CPU%d, use node%d instead.\n",
+				nid, cpu, first_node(node_online_map));
+			nid = first_node(node_online_map);
+		}
 		set_apicid_to_node(physid, nid);
 		numa_set_node(cpu, nid);
 	}
