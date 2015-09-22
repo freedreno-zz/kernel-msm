@@ -326,21 +326,30 @@ out:
 	kfree(out_test);
 }
 
-static __init void test_string_get_size_one(u64 size, u64 blk_size,
-					    const enum string_size_units units,
-					    const char *exp_result)
+#define string_get_size_maxbuf 16
+#define test_string_get_size_one(size, blk_size, units, exp_result)            \
+	do {                                                                   \
+		BUILD_BUG_ON(sizeof(exp_result) >= string_get_size_maxbuf);    \
+		__test_string_get_size((size), (blk_size), (units),            \
+				       (exp_result));                          \
+	} while (0)
+
+
+static __init void __test_string_get_size(const u64 size, const u64 blk_size,
+					  const enum string_size_units units,
+					  const char *exp_result)
 {
-	char buf[256];
+	char buf[string_get_size_maxbuf];
 
 	string_get_size(size, blk_size, units, buf, sizeof(buf));
-	if (!strncmp(buf, exp_result, min(sizeof(buf), strlen(exp_result))))
+	if (!memcmp(buf, exp_result, strlen(exp_result) + 1))
 		return;
 
+	buf[sizeof(buf) - 1] = '\0';
 	pr_warn("Test 'test_string_get_size_one' failed!\n");
 	pr_warn("string_get_size(size = %llu, blk_size = %llu, units = %d\n",
 		size, blk_size, units);
-	pr_warn("expected: %s, got %s\n", exp_result, buf);
-
+	pr_warn("expected: '%s', got '%s'\n", exp_result, buf);
 }
 
 static __init void test_string_get_size(void)
