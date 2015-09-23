@@ -76,7 +76,7 @@ static int usecs_to_scanlines(const struct drm_display_mode *mode, int usecs)
  * avoid random delays. The value written to @start_vbl_count should be
  * supplied to intel_pipe_update_end() for error checking.
  */
-void intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
+void intel_pipe_update_start(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	const struct drm_display_mode *mode = &crtc->config->base.adjusted_mode;
@@ -95,7 +95,6 @@ void intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
 	max = vblank_start - 1;
 
 	local_irq_disable();
-	*start_vbl_count = 0;
 
 	if (min <= 0 || max <= 0)
 		return;
@@ -103,7 +102,9 @@ void intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
 	if (WARN_ON(drm_crtc_vblank_get(&crtc->base)))
 		return;
 
-	trace_i915_pipe_update_start(crtc, min, max);
+	crtc->debug.min_vbl = min;
+	crtc->debug.max_vbl = max;
+	trace_i915_pipe_update_start(crtc);
 
 	for (;;) {
 		/*
@@ -134,9 +135,12 @@ void intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
 
 	drm_crtc_vblank_put(&crtc->base);
 
-	*start_vbl_count = dev->driver->get_vblank_counter(dev, pipe);
+	crtc->debug.scanline_start = scanline;
+	crtc->debug.start_vbl_time = ktime_get();
+	crtc->debug.start_vbl_count =
+		dev->driver->get_vblank_counter(dev, pipe);
 
-	trace_i915_pipe_update_vblank_evaded(crtc, min, max, *start_vbl_count);
+	trace_i915_pipe_update_vblank_evaded(crtc);
 }
 
 /**
@@ -148,19 +152,27 @@ void intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
  * re-enables interrupts and verifies the update was actually completed
  * before a vblank using the value of @start_vbl_count.
  */
-void intel_pipe_update_end(struct intel_crtc *crtc, u32 start_vbl_count)
+void intel_pipe_update_end(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	enum pipe pipe = crtc->pipe;
+	int scanline_end = intel_get_crtc_scanline(crtc);
 	u32 end_vbl_count = dev->driver->get_vblank_counter(dev, pipe);
+	ktime_t end_vbl_time = ktime_get();
 
-	trace_i915_pipe_update_end(crtc, end_vbl_count);
+	trace_i915_pipe_update_end(crtc, end_vbl_count, scanline_end);
 
 	local_irq_enable();
 
-	if (start_vbl_count && start_vbl_count != end_vbl_count)
-		DRM_ERROR("Atomic update failure on pipe %c (start=%u end=%u)\n",
-			  pipe_name(pipe), start_vbl_count, end_vbl_count);
+	if (crtc->debug.start_vbl_count &&
+	    crtc->debug.start_vbl_count != end_vbl_count) {
+		DRM_ERROR("Atomic update failure on pipe %c (start=%u end=%u) time %lld us, min %d, max %d, scanline start %d, end %d\n",
+			  pipe_name(pipe), crtc->debug.start_vbl_count,
+			  end_vbl_count,
+			  ktime_us_delta(end_vbl_time, crtc->debug.start_vbl_time),
+			  crtc->debug.min_vbl, crtc->debug.max_vbl,
+			  crtc->debug.scanline_start, scanline_end);
+	}
 }
 
 static void
@@ -923,8 +935,6 @@ intel_commit_sprite_plane(struct drm_plane *plane,
 
 	crtc = crtc ? crtc : plane->crtc;
 
-	plane->fb = fb;
-
 	if (!crtc->state->active)
 		return;
 
@@ -1121,7 +1131,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 
 	intel_plane->pipe = pipe;
 	intel_plane->plane = plane;
-	intel_plane->frontbuffer_bit = INTEL_FRONTBUFFER_SPRITE(pipe);
+	intel_plane->frontbuffer_bit = INTEL_FRONTBUFFER_SPRITE(pipe, plane);
 	intel_plane->check_plane = intel_check_sprite_plane;
 	intel_plane->commit_plane = intel_commit_sprite_plane;
 	possible_crtcs = (1 << pipe);
