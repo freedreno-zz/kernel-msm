@@ -44,6 +44,7 @@
 #include <asm/pgalloc.h>
 #include <asm/tlb.h>
 #include <asm/fixmap.h>
+#include <asm/maar.h>
 
 /*
  * We have up to 8 empty zeroed pages so we can map one of the right colour
@@ -370,9 +371,14 @@ unsigned __weak platform_maar_init(unsigned num_pairs)
 	return num_configured;
 }
 
-static void maar_init(void)
+void maar_init(void)
 {
 	unsigned num_maars, used, i;
+	phys_addr_t lower, upper, attr;
+	static struct {
+		struct maar_config cfgs[3];
+		unsigned used;
+	} recorded = { { { 0 } }, 0 };
 
 	if (!cpu_has_maar)
 		return;
@@ -385,8 +391,14 @@ static void maar_init(void)
 	/* MAARs should be in pairs */
 	WARN_ON(num_maars % 2);
 
-	/* Configure the required MAARs */
-	used = platform_maar_init(num_maars / 2);
+	/* Set MAARs using values we recorded already */
+	if (recorded.used) {
+		used = maar_config(recorded.cfgs, recorded.used, num_maars / 2);
+		BUG_ON(used != recorded.used);
+	} else {
+		/* Configure the required MAARs */
+		used = platform_maar_init(num_maars / 2);
+	}
 
 	/* Disable any further MAARs */
 	for (i = (used * 2); i < num_maars; i++) {
@@ -394,6 +406,45 @@ static void maar_init(void)
 		back_to_back_c0_hazard();
 		write_c0_maar(0);
 		back_to_back_c0_hazard();
+	}
+
+	if (recorded.used)
+		return;
+
+	pr_info("MAAR configuration:\n");
+	for (i = 0; i < num_maars; i += 2) {
+		write_c0_maari(i);
+		back_to_back_c0_hazard();
+		upper = read_c0_maar();
+
+		write_c0_maari(i + 1);
+		back_to_back_c0_hazard();
+		lower = read_c0_maar();
+
+		attr = lower & upper;
+		lower = (lower & MIPS_MAAR_ADDR) << 4;
+		upper = ((upper & MIPS_MAAR_ADDR) << 4) | 0xffff;
+
+		pr_info("  [%d]: ", i / 2);
+		if (!(attr & MIPS_MAAR_V)) {
+			pr_cont("disabled\n");
+			continue;
+		}
+
+		pr_cont("%pa-%pa", &lower, &upper);
+
+		if (attr & MIPS_MAAR_S)
+			pr_cont(" speculate");
+
+		pr_cont("\n");
+
+		/* Record the setup for use on secondary CPUs */
+		if (used <= ARRAY_SIZE(recorded.cfgs)) {
+			recorded.cfgs[recorded.used].lower = lower;
+			recorded.cfgs[recorded.used].upper = upper;
+			recorded.cfgs[recorded.used].attrs = attr;
+			recorded.used++;
+		}
 	}
 }
 

@@ -194,6 +194,9 @@ BUILD_CM_RW(reg3_mask,		MIPS_CM_GCB_OFS + 0xc8)
 BUILD_CM_R_(gic_status,		MIPS_CM_GCB_OFS + 0xd0)
 BUILD_CM_R_(cpc_status,		MIPS_CM_GCB_OFS + 0xf0)
 BUILD_CM_RW(l2_config,		MIPS_CM_GCB_OFS + 0x130)
+BUILD_CM_RW(sys_config2,	MIPS_CM_GCB_OFS + 0x150)
+BUILD_CM_RW(l2_pft_control,	MIPS_CM_GCB_OFS + 0x300)
+BUILD_CM_RW(l2_pft_control_b,	MIPS_CM_GCB_OFS + 0x308)
 
 /* Core Local & Core Other register accessor functions */
 BUILD_CM_Cx_RW(reset_release,	0x00)
@@ -244,6 +247,7 @@ BUILD_CM_Cx_R_(tcid_8_priority,	0x80)
 		 ((minor) << CM_GCR_REV_MINOR_SHF))
 
 #define CM_REV_CM2				CM_ENCODE_REV(6, 0)
+#define CM_REV_CM2_5				CM_ENCODE_REV(7, 0)
 #define CM_REV_CM3				CM_ENCODE_REV(8, 0)
 
 /* GCR_ERROR_CAUSE register fields */
@@ -315,6 +319,24 @@ BUILD_CM_Cx_R_(tcid_8_priority,	0x80)
 #define CM_GCR_L2_CONFIG_LINE_SIZE_MSK		(_ULCAST_(0xf) << 8)
 #define CM_GCR_L2_CONFIG_ASSOC_SHF		0
 #define CM_GCR_L2_CONFIG_ASSOC_MSK		(_ULCAST_(0xff) << 0)
+
+/* GCR_SYS_CONFIG2 register fields */
+#define CM_GCR_SYS_CONFIG2_MAXVPW_SHF		0
+#define CM_GCR_SYS_CONFIG2_MAXVPW_MSK		(_ULCAST_(0xf) << 0)
+
+/* GCR_L2_PFT_CONTROL register fields */
+#define CM_GCR_L2_PFT_CONTROL_PAGEMASK_SHF	12
+#define CM_GCR_L2_PFT_CONTROL_PAGEMASK_MSK	(_ULCAST_(0xfffff) << 12)
+#define CM_GCR_L2_PFT_CONTROL_PFTEN_SHF		8
+#define CM_GCR_L2_PFT_CONTROL_PFTEN_MSK		(_ULCAST_(0x1) << 8)
+#define CM_GCR_L2_PFT_CONTROL_NPFT_SHF		0
+#define CM_GCR_L2_PFT_CONTROL_NPFT_MSK		(_ULCAST_(0xff) << 0)
+
+/* GCR_L2_PFT_CONTROL_B register fields */
+#define CM_GCR_L2_PFT_CONTROL_B_CEN_SHF		8
+#define CM_GCR_L2_PFT_CONTROL_B_CEN_MSK		(_ULCAST_(0x1) << 8)
+#define CM_GCR_L2_PFT_CONTROL_B_PORTID_SHF	0
+#define CM_GCR_L2_PFT_CONTROL_B_PORTID_MSK	(_ULCAST_(0xff) << 0)
 
 /* GCR_Cx_COHERENCE register fields */
 #define CM_GCR_Cx_COHERENCE_COHDOMAINEN_SHF	0
@@ -403,6 +425,40 @@ static inline int mips_cm_revision(void)
 		return 0;
 
 	return read_gcr_rev();
+}
+
+/**
+ * mips_cm_max_vp_width() - return the width in bits of VP indices
+ *
+ * Return: the width, in bits, of VP indices in fields that combine core & VP
+ * indices.
+ */
+static inline unsigned int mips_cm_max_vp_width(void)
+{
+	extern int smp_num_siblings;
+
+	if (mips_cm_revision() >= CM_REV_CM3)
+		return read_gcr_sys_config2() & CM_GCR_SYS_CONFIG2_MAXVPW_MSK;
+
+	return smp_num_siblings;
+}
+
+/**
+ * mips_cm_vp_id() - calculate the hardware VP ID for a CPU
+ * @cpu: the CPU whose VP ID to calculate
+ *
+ * Hardware such as the GIC uses identifiers for VPs which may not match the
+ * CPU numbers used by Linux. This function calculates the hardware VP
+ * identifier corresponding to a given CPU.
+ *
+ * Return: the VP ID for the CPU.
+ */
+static inline unsigned int mips_cm_vp_id(unsigned int cpu)
+{
+	unsigned int core = cpu_data[cpu].core;
+	unsigned int vp = cpu_vpe_id(&cpu_data[cpu]);
+
+	return (core * mips_cm_max_vp_width()) + vp;
 }
 
 #endif /* __MIPS_ASM_MIPS_CM_H__ */
