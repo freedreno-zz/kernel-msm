@@ -138,6 +138,8 @@ struct perf_session *perf_session__new(struct perf_data_file *file,
 			perf_session__set_id_hdr_size(session);
 			perf_session__set_comm_exec(session);
 		}
+	} else  {
+		session->machines.host.env = &perf_env;
 	}
 
 	if (!file || perf_data_file__is_write(file)) {
@@ -170,30 +172,13 @@ static void perf_session__delete_threads(struct perf_session *session)
 	machine__delete_threads(&session->machines.host);
 }
 
-static void perf_session_env__exit(struct perf_env *env)
-{
-	zfree(&env->hostname);
-	zfree(&env->os_release);
-	zfree(&env->version);
-	zfree(&env->arch);
-	zfree(&env->cpu_desc);
-	zfree(&env->cpuid);
-
-	zfree(&env->cmdline);
-	zfree(&env->cmdline_argv);
-	zfree(&env->sibling_cores);
-	zfree(&env->sibling_threads);
-	zfree(&env->numa_nodes);
-	zfree(&env->pmu_mappings);
-}
-
 void perf_session__delete(struct perf_session *session)
 {
 	auxtrace__free(session);
 	auxtrace_index__free(&session->auxtrace_index);
 	perf_session__destroy_kernel_maps(session);
 	perf_session__delete_threads(session);
-	perf_session_env__exit(&session->header.env);
+	perf_env__exit(&session->header.env);
 	machines__exit(&session->machines);
 	if (session->file)
 		perf_data_file__close(session->file);
@@ -1079,11 +1064,11 @@ static int machines__deliver_event(struct machines *machines,
 
 	switch (event->header.type) {
 	case PERF_RECORD_SAMPLE:
-		dump_sample(evsel, event, sample);
 		if (evsel == NULL) {
 			++evlist->stats.nr_unknown_id;
 			return 0;
 		}
+		dump_sample(evsel, event, sample);
 		if (machine == NULL) {
 			++evlist->stats.nr_unprocessable_samples;
 			return 0;

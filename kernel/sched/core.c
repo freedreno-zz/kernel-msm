@@ -817,7 +817,7 @@ static void set_load_weight(struct task_struct *p)
 	/*
 	 * SCHED_IDLE tasks get minimal weight:
 	 */
-	if (p->policy == SCHED_IDLE) {
+	if (idle_policy(p->policy)) {
 		load->weight = scale_load(WEIGHT_IDLEPRIO);
 		load->inv_weight = WMULT_IDLEPRIO;
 		return;
@@ -2114,23 +2114,17 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #endif /* CONFIG_NUMA_BALANCING */
 }
 
+DEFINE_STATIC_KEY_FALSE(sched_numa_balancing);
+
 #ifdef CONFIG_NUMA_BALANCING
-#ifdef CONFIG_SCHED_DEBUG
-void set_numabalancing_state(bool enabled)
-{
-	if (enabled)
-		sched_feat_set("NUMA");
-	else
-		sched_feat_set("NO_NUMA");
-}
-#else
-__read_mostly bool numabalancing_enabled;
 
 void set_numabalancing_state(bool enabled)
 {
-	numabalancing_enabled = enabled;
+	if (enabled)
+		static_branch_enable(&sched_numa_balancing);
+	else
+		static_branch_disable(&sched_numa_balancing);
 }
-#endif /* CONFIG_SCHED_DEBUG */
 
 #ifdef CONFIG_PROC_SYSCTL
 int sysctl_numa_balancing(struct ctl_table *table, int write,
@@ -2138,7 +2132,7 @@ int sysctl_numa_balancing(struct ctl_table *table, int write,
 {
 	struct ctl_table t;
 	int err;
-	int state = numabalancing_enabled;
+	int state = static_branch_likely(&sched_numa_balancing);
 
 	if (write && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
@@ -2349,6 +2343,8 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq *rq;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	/* Initialize new task's runnable average */
+	init_entity_runnable_average(&p->se);
 #ifdef CONFIG_SMP
 	/*
 	 * Fork balancing, do it here and not earlier because:
@@ -2358,8 +2354,6 @@ void wake_up_new_task(struct task_struct *p)
 	set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0));
 #endif
 
-	/* Initialize new task's runnable average */
-	init_entity_runnable_average(&p->se);
 	rq = __task_rq_lock(p);
 	activate_task(rq, p, 0);
 	p->on_rq = TASK_ON_RQ_QUEUED;
@@ -3746,10 +3740,7 @@ recheck:
 	} else {
 		reset_on_fork = !!(attr->sched_flags & SCHED_FLAG_RESET_ON_FORK);
 
-		if (policy != SCHED_DEADLINE &&
-				policy != SCHED_FIFO && policy != SCHED_RR &&
-				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+		if (!valid_policy(policy))
 			return -EINVAL;
 	}
 
@@ -3805,7 +3796,7 @@ recheck:
 		 * Treat SCHED_IDLE as nice 20. Only allow a switch to
 		 * SCHED_NORMAL if the RLIMIT_NICE would normally permit it.
 		 */
-		if (p->policy == SCHED_IDLE && policy != SCHED_IDLE) {
+		if (idle_policy(p->policy) && !idle_policy(policy)) {
 			if (!can_nice(p, task_nice(p)))
 				return -EPERM;
 		}
@@ -4934,7 +4925,15 @@ void init_idle(struct task_struct *idle, int cpu)
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
 
-	do_set_cpus_allowed(idle, cpumask_of(cpu));
+#ifdef CONFIG_SMP
+	/*
+	 * Its possible that init_idle() gets called multiple times on a task,
+	 * in that case do_set_cpus_allowed() will not do the right thing.
+	 *
+	 * And since this is boot we can forgo the serialization.
+	 */
+	set_cpus_allowed_common(idle, cpumask_of(cpu));
+#endif
 	/*
 	 * We're having a chicken and egg problem, even though we are
 	 * holding rq->lock, the cpu isn't yet set to this cpu so the
@@ -4951,7 +4950,7 @@ void init_idle(struct task_struct *idle, int cpu)
 
 	rq->curr = rq->idle = idle;
 	idle->on_rq = TASK_ON_RQ_QUEUED;
-#if defined(CONFIG_SMP)
+#ifdef CONFIG_SMP
 	idle->on_cpu = 1;
 #endif
 	raw_spin_unlock(&rq->lock);
@@ -4966,7 +4965,7 @@ void init_idle(struct task_struct *idle, int cpu)
 	idle->sched_class = &idle_sched_class;
 	ftrace_graph_init_idle_task(idle, cpu);
 	vtime_init_idle(idle, cpu);
-#if defined(CONFIG_SMP)
+#ifdef CONFIG_SMP
 	sprintf(idle->comm, "%s/%d", INIT_TASK_COMM, cpu);
 #endif
 }
@@ -7728,7 +7727,7 @@ void sched_move_task(struct task_struct *tsk)
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	if (tsk->sched_class->task_move_group)
-		tsk->sched_class->task_move_group(tsk, queued);
+		tsk->sched_class->task_move_group(tsk);
 	else
 #endif
 		set_task_rq(tsk, task_cpu(tsk));
@@ -8200,14 +8199,6 @@ static void cpu_cgroup_exit(struct cgroup_subsys_state *css,
 			    struct cgroup_subsys_state *old_css,
 			    struct task_struct *task)
 {
-	/*
-	 * cgroup_exit() is called in the copy_process() failure path.
-	 * Ignore this case since the task hasn't ran yet, this avoids
-	 * trying to poke a half freed task state from generic code.
-	 */
-	if (!(task->flags & PF_EXITING))
-		return;
-
 	sched_move_task(task);
 }
 

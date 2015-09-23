@@ -84,6 +84,10 @@ static inline void update_cpu_load_active(struct rq *this_rq) { }
  */
 #define RUNTIME_INF	((u64)~0ULL)
 
+static inline int idle_policy(int policy)
+{
+	return policy == SCHED_IDLE;
+}
 static inline int fair_policy(int policy)
 {
 	return policy == SCHED_NORMAL || policy == SCHED_BATCH;
@@ -97,6 +101,11 @@ static inline int rt_policy(int policy)
 static inline int dl_policy(int policy)
 {
 	return policy == SCHED_DEADLINE;
+}
+static inline bool valid_policy(int policy)
+{
+	return idle_policy(policy) || fair_policy(policy) ||
+		rt_policy(policy) || dl_policy(policy);
 }
 
 static inline int task_has_rt_policy(struct task_struct *p)
@@ -1003,17 +1012,7 @@ extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
 #define sched_feat(x) (sysctl_sched_features & (1UL << __SCHED_FEAT_##x))
 #endif /* SCHED_DEBUG && HAVE_JUMP_LABEL */
 
-#ifdef CONFIG_NUMA_BALANCING
-#define sched_feat_numa(x) sched_feat(x)
-#ifdef CONFIG_SCHED_DEBUG
-#define numabalancing_enabled sched_feat_numa(NUMA)
-#else
-extern bool numabalancing_enabled;
-#endif /* CONFIG_SCHED_DEBUG */
-#else
-#define sched_feat_numa(x) (0)
-#define numabalancing_enabled (0)
-#endif /* CONFIG_NUMA_BALANCING */
+extern struct static_key_false sched_numa_balancing;
 
 static inline u64 global_rt_period(void)
 {
@@ -1226,7 +1225,7 @@ struct sched_class {
 	void (*update_curr) (struct rq *rq);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	void (*task_move_group) (struct task_struct *p, int on_rq);
+	void (*task_move_group) (struct task_struct *p);
 #endif
 };
 
@@ -1400,6 +1399,17 @@ extern void sched_avg_update(struct rq *rq);
 static __always_inline
 unsigned long arch_scale_freq_capacity(struct sched_domain *sd, int cpu)
 {
+	return SCHED_CAPACITY_SCALE;
+}
+#endif
+
+#ifndef arch_scale_cpu_capacity
+static __always_inline
+unsigned long arch_scale_cpu_capacity(struct sched_domain *sd, int cpu)
+{
+	if (sd && (sd->flags & SD_SHARE_CPUCAPACITY) && (sd->span_weight > 1))
+		return sd->smt_gain / sd->span_weight;
+
 	return SCHED_CAPACITY_SCALE;
 }
 #endif
