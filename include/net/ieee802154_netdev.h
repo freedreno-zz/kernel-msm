@@ -50,15 +50,6 @@ struct ieee802154_sechdr {
 	};
 };
 
-struct ieee802154_addr {
-	u8 mode;
-	__le16 pan_id;
-	union {
-		__le16 short_addr;
-		__le64 extended_addr;
-	};
-};
-
 struct ieee802154_hdr_fc {
 #if defined(__LITTLE_ENDIAN_BITFIELD)
 	u16 type:3,
@@ -99,7 +90,7 @@ struct ieee802154_hdr {
  * hdr->fc will be ignored. this includes the INTRA_PAN bit and the frame
  * version, if SECEN is set.
  */
-int ieee802154_hdr_push(struct sk_buff *skb, const struct ieee802154_hdr *hdr);
+int ieee802154_hdr_push(struct sk_buff *skb, struct ieee802154_hdr *hdr);
 
 /* pulls the entire 802.15.4 header off of the skb, including the security
  * header, and performs pan id decompression
