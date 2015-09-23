@@ -39,7 +39,7 @@
 //			<&mmcc OXILICX_AXI_CLK>,
 //			<&mmcc OCMEMCX_AHB_CLK>;
 
-		power-domains = <&mmcc OXILI_GDSC>;
+		power-domains = <&mmcc OXILICX_GDSC>;
 		qcom,chipid = <0x03030002>;
 		qcom,gpu-pwrlevels {
 			compatible = "qcom,gpu-pwrlevels";
