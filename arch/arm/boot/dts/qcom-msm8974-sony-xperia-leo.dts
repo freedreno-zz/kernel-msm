@@ -337,7 +337,7 @@
 	};
 
 	sdhci@f9824900 {
-		status = "ok";
+		status = "disabled";
 
 		non-removable;
 		bus-width = <8>;
