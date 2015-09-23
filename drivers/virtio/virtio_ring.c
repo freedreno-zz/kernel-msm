@@ -91,6 +91,7 @@ struct vring_virtqueue {
 	bool last_add_time_valid;
 	ktime_t last_add_time;
 #endif
+	u16 *avail;
 
 	/* Tokens for callbacks. */
 	void *data[];
@@ -236,7 +237,10 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 	/* Put entry in available array (but don't update avail->idx until they
 	 * do sync). */
 	avail = virtio16_to_cpu(_vq->vdev, vq->vring.avail->idx) & (vq->vring.num - 1);
-	vq->vring.avail->ring[avail] = cpu_to_virtio16(_vq->vdev, head);
+	if (vq->avail[avail] != head) {
+		vq->avail[avail] = head;
+		vq->vring.avail->ring[avail] = cpu_to_virtio16(_vq->vdev, head);
+	}
 
 	/* Descriptors and available array need to be set before we expose the
 	 * new available array entries. */
@@ -724,6 +728,11 @@ struct virtqueue *vring_new_virtqueue(unsigned int index,
 	vq = kmalloc(sizeof(*vq) + sizeof(void *)*num, GFP_KERNEL);
 	if (!vq)
 		return NULL;
+	vq->avail = kzalloc(sizeof (*vq->avail) * num, GFP_KERNEL);
+	if (!vq->avail) {
+		kfree(vq);
+		return NULL;
+	}
 
 	vring_init(&vq->vring, num, pages, vring_align);
 	vq->vq.callback = callback;
