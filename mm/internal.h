@@ -14,6 +14,10 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 
+extern int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
+			unsigned long address, pte_t *page_table, pmd_t *pmd,
+			unsigned int flags, pte_t orig_pte);
+
 void free_pgtables(struct mmu_gather *tlb, struct vm_area_struct *start_vma,
 		unsigned long floor, unsigned long ceiling);
 
@@ -61,9 +65,9 @@ static inline void __get_page_tail_foll(struct page *page,
 	 * speculative page access (like in
 	 * page_cache_get_speculative()) on tail pages.
 	 */
-	VM_BUG_ON_PAGE(atomic_read(&page->first_page->_count) <= 0, page);
+	VM_BUG_ON_PAGE(atomic_read(&compound_head(page)->_count) <= 0, page);
 	if (get_page_head)
-		atomic_inc(&page->first_page->_count);
+		atomic_inc(&compound_head(page)->_count);
 	get_huge_page_tail(page);
 }
 
@@ -157,7 +161,7 @@ __find_buddy_index(unsigned long page_idx, unsigned int order)
 extern int __isolate_free_page(struct page *page, unsigned int order);
 extern void __free_pages_bootmem(struct page *page, unsigned long pfn,
 					unsigned int order);
-extern void prep_compound_page(struct page *page, unsigned long order);
+extern void prep_compound_page(struct page *page, unsigned int order);
 #ifdef CONFIG_MEMORY_FAILURE
 extern bool is_free_buddy_page(struct page *page);
 #endif
@@ -215,7 +219,7 @@ int find_suitable_fallback(struct free_area *area, unsigned int order,
  * page cannot be allocated or merged in parallel. Alternatively, it must
  * handle invalid values gracefully, and use page_order_unsafe() below.
  */
-static inline unsigned long page_order(struct page *page)
+static inline unsigned int page_order(struct page *page)
 {
 	/* PageBuddy() must be checked by the caller */
 	return page_private(page);

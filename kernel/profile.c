@@ -336,7 +336,7 @@ static int profile_cpu_callback(struct notifier_block *info,
 	switch (action) {
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		node = cpu_to_mem(cpu);
+		node = cpu_to_node(cpu);
 		per_cpu(cpu_profile_flip, cpu) = 0;
 		if (!per_cpu(cpu_profile_hits, cpu)[1]) {
 			page = __alloc_pages_node(node,

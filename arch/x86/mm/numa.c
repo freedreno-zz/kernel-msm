@@ -22,6 +22,7 @@
 
 int __initdata numa_off;
 nodemask_t numa_nodes_parsed __initdata;
+static nodemask_t numa_nodes_empty __initdata;
 
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 EXPORT_SYMBOL(node_data);
@@ -562,17 +563,16 @@ static int __init numa_register_memblks(struct numa_meminfo *mi)
 			end = max(mi->blk[i].end, end);
 		}
 
-		if (start >= end)
-			continue;
-
 		/*
 		 * Don't confuse VM with a node that doesn't have the
 		 * minimum amount of memory:
 		 */
-		if (end && (end - start) < NODE_MIN_SIZE)
-			continue;
-
-		alloc_node_data(nid);
+		if (start < end && (end - start) >= NODE_MIN_SIZE) {
+			alloc_node_data(nid);
+		} else if (IS_ENABLED(CONFIG_HAVE_MEMORYLESS_NODES)) {
+			alloc_node_data(nid);
+			node_set(nid, numa_nodes_empty);
+		}
 	}
 
 	/* Dump memblock with node info and return. */
@@ -589,16 +589,18 @@ static int __init numa_register_memblks(struct numa_meminfo *mi)
  */
 static void __init numa_init_array(void)
 {
-	int rr, i;
+	int i, rr = MAX_NUMNODES;
 
-	rr = first_node(node_online_map);
 	for (i = 0; i < nr_cpu_ids; i++) {
-		if (early_cpu_to_node(i) != NUMA_NO_NODE)
-			continue;
+		/* Search for an onlined node with memory */
+		do {
+			if (rr != MAX_NUMNODES)
+				rr = next_node(rr, node_online_map);
+			if (rr == MAX_NUMNODES)
+				rr = first_node(node_online_map);
+		} while (node_isset(rr, numa_nodes_empty));
+
 		numa_set_node(i, rr);
-		rr = next_node(rr, node_online_map);
-		if (rr == MAX_NUMNODES)
-			rr = first_node(node_online_map);
 	}
 }
 
@@ -646,14 +648,6 @@ static int __init numa_init(int (*init_func)(void))
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < nr_cpu_ids; i++) {
-		int nid = early_cpu_to_node(i);
-
-		if (nid == NUMA_NO_NODE)
-			continue;
-		if (!node_online(nid))
-			numa_clear_node(i);
-	}
 	numa_init_array();
 
 	return 0;
@@ -708,9 +702,12 @@ static __init int find_near_online_node(int node)
 {
 	int n, val;
 	int min_val = INT_MAX;
-	int best_node = -1;
+	int best_node = NUMA_NO_NODE;
 
 	for_each_online_node(n) {
+		if (node_isset(n, numa_nodes_empty))
+			continue;
+
 		val = node_distance(node, n);
 
 		if (val < min_val) {
@@ -751,6 +748,22 @@ void __init init_cpu_to_node(void)
 		if (!node_online(node))
 			node = find_near_online_node(node);
 		numa_set_node(cpu, node);
+		if (node_spanned_pages(node))
+			set_cpu_numa_mem(cpu, node);
+		if (IS_ENABLED(CONFIG_HAVE_MEMORYLESS_NODES))
+			node_clear(node, numa_nodes_empty);
+	}
+
+	/* Destroy empty nodes */
+	if (IS_ENABLED(CONFIG_HAVE_MEMORYLESS_NODES)) {
+		int nid;
+		const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
+
+		for_each_node_mask(nid, numa_nodes_empty) {
+			node_set_offline(nid);
+			memblock_free(__pa(node_data[nid]), nd_size);
+			node_data[nid] = NULL;
+		}
 	}
 }
 

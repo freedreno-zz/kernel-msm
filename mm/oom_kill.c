@@ -118,6 +118,15 @@ found:
 	return t;
 }
 
+/*
+ * order == -1 means the oom kill is required by sysrq, otherwise only
+ * for display purposes.
+ */
+static inline bool is_sysrq_oom(struct oom_control *oc)
+{
+	return oc->order == -1;
+}
+
 /* return true if the task is not adequate as candidate victim task. */
 static bool oom_unkillable_task(struct task_struct *p,
 		struct mem_cgroup *memcg, const nodemask_t *nodemask)
@@ -265,7 +274,7 @@ enum oom_scan_t oom_scan_process_thread(struct oom_control *oc,
 	 * Don't allow any other task to have access to the reserves.
 	 */
 	if (test_tsk_thread_flag(task, TIF_MEMDIE)) {
-		if (oc->order != -1)
+		if (!is_sysrq_oom(oc))
 			return OOM_SCAN_ABORT;
 	}
 	if (!task->mm)
@@ -278,7 +287,7 @@ enum oom_scan_t oom_scan_process_thread(struct oom_control *oc,
 	if (oom_task_origin(task))
 		return OOM_SCAN_SELECT;
 
-	if (task_will_free_mem(task) && oc->order != -1)
+	if (task_will_free_mem(task) && !is_sysrq_oom(oc))
 		return OOM_SCAN_ABORT;
 
 	return OOM_SCAN_OK;
@@ -552,8 +561,15 @@ void oom_kill_process(struct oom_control *oc, struct task_struct *p,
 		victim = p;
 	}
 
-	/* mm cannot safely be dereferenced after task_unlock(victim) */
+	/* Get a reference to safely compare mm after task_unlock(victim) */
 	mm = victim->mm;
+	atomic_inc(&mm->mm_users);
+	/*
+	 * We should send SIGKILL before setting TIF_MEMDIE in order to prevent
+	 * the OOM victim from depleting the memory reserves from the user
+	 * space under its control.
+	 */
+	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, true);
 	mark_oom_victim(victim);
 	pr_err("Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB\n",
 		task_pid_nr(victim), victim->comm, K(victim->mm->total_vm),
@@ -576,16 +592,18 @@ void oom_kill_process(struct oom_control *oc, struct task_struct *p,
 		    !(p->flags & PF_KTHREAD)) {
 			if (p->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
 				continue;
+			if (fatal_signal_pending(p))
+				continue;
 
 			task_lock(p);	/* Protect ->comm from prctl() */
-			pr_err("Kill process %d (%s) sharing same memory\n",
+			pr_info("Kill process %d (%s) sharing same memory\n",
 				task_pid_nr(p), p->comm);
 			task_unlock(p);
 			do_send_sig_info(SIGKILL, SEND_SIG_FORCED, p, true);
 		}
 	rcu_read_unlock();
 
-	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, true);
+	mmput(mm);
 	put_task_struct(victim);
 }
 #undef K
@@ -608,7 +626,7 @@ void check_panic_on_oom(struct oom_control *oc, enum oom_constraint constraint,
 			return;
 	}
 	/* Do not panic for oom kills triggered by sysrq */
-	if (oc->order == -1)
+	if (is_sysrq_oom(oc))
 		return;
 	dump_header(oc, NULL, memcg);
 	panic("Out of memory: %s panic_on_oom is enabled\n",
@@ -688,7 +706,7 @@ bool out_of_memory(struct oom_control *oc)
 
 	p = select_bad_process(oc, &points, totalpages);
 	/* Found nothing?!?! Either we hang forever, or we panic. */
-	if (!p && oc->order != -1) {
+	if (!p && !is_sysrq_oom(oc)) {
 		dump_header(oc, NULL, NULL);
 		panic("Out of memory and no killable processes...\n");
 	}

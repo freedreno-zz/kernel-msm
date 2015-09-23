@@ -155,6 +155,8 @@ static void smp_callin(void)
 	 */
 	phys_id = read_apic_id();
 
+	set_numa_mem(local_memory_node(cpu_to_node(cpuid)));
+
 	/*
 	 * the boot CPU has finished the init stage and is spinning
 	 * on callin_map until we finish. We are free to set up this

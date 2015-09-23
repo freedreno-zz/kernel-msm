@@ -154,7 +154,7 @@ enum {
 	SWP_SCANNING	= (1 << 10),	/* refcount in scan_swap_map */
 };
 
-#define SWAP_CLUSTER_MAX 32UL
+#define SWAP_CLUSTER_MAX 256UL
 #define COMPACT_CLUSTER_MAX SWAP_CLUSTER_MAX
 
 /*
@@ -308,6 +308,7 @@ extern void lru_add_drain_cpu(int cpu);
 extern void lru_add_drain_all(void);
 extern void rotate_reclaimable_page(struct page *page);
 extern void deactivate_file_page(struct page *page);
+extern void deactivate_page(struct page *page);
 extern void swap_setup(void);
 
 extern void add_page_to_unevictable_list(struct page *page);
