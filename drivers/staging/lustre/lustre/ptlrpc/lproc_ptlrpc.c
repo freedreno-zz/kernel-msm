@@ -54,7 +54,7 @@ static struct ll_rpc_opcode {
 	{ OST_SETATTR,      "ost_setattr" },
 	{ OST_READ,	 "ost_read" },
 	{ OST_WRITE,	"ost_write" },
-	{ OST_CREATE ,      "ost_create" },
+	{ OST_CREATE,       "ost_create" },
 	{ OST_DESTROY,      "ost_destroy" },
 	{ OST_GET_INFO,     "ost_get_info" },
 	{ OST_CONNECT,      "ost_connect" },
@@ -1223,7 +1223,7 @@ int lprocfs_wr_evict_client(struct file *file, const char __user *buffer,
 		return -ENOMEM;
 
 	/*
-	 * OBD_ALLOC() will zero kbuf, but we only copy BUFLEN - 1
+	 * kzalloc() will zero kbuf, but we only copy BUFLEN - 1
 	 * bytes into kbuf, to ensure that the string is NUL-terminated.
 	 * UUID_MAX should include a trailing NUL already.
 	 */

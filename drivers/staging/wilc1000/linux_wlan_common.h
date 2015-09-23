@@ -12,7 +12,6 @@ enum debug_region {
 	RX_debug,
 	Lock_debug,
 	Tcp_enhance,
-	/*Added by amr - BugID_4720*/
 	Spin_debug,
 
 	Init_debug,
@@ -135,12 +134,7 @@ extern atomic_t DEBUG_LEVEL;
 
 #define WILC_MULTICAST_TABLE_SIZE	8
 
-#if defined (NM73131_0_BOARD)
-
-#define MODALIAS "wilc_spi"
-#define GPIO_NUM	IRQ_WILC1000_GPIO
-
-#elif defined (BEAGLE_BOARD)
+#if defined (BEAGLE_BOARD)
 	#define SPI_CHANNEL	4
 
 	#if SPI_CHANNEL == 4
@@ -150,9 +144,6 @@ extern atomic_t DEBUG_LEVEL;
 		#define MODALIAS	"wilc_spi3"
 		#define GPIO_NUM	133
 	#endif
-#elif defined(PANDA_BOARD)
-	#define MODALIAS	"WILC_SPI"
-	#define GPIO_NUM	139
 #elif defined(PLAT_WMS8304)             /* rachel */
 	#define MODALIAS	"wilc_spi"
 	#define GPIO_NUM	139
@@ -176,7 +167,4 @@ extern atomic_t DEBUG_LEVEL;
 	#define MODALIAS	"WILC_SPI"
 	#define GPIO_NUM	0x44
 #endif
-
-
-void linux_wlan_enable_irq(void);
 #endif

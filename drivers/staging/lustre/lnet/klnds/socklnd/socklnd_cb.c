@@ -626,7 +626,7 @@ ksocknal_find_conn_locked(ksock_peer_t *peer, ksock_tx_t *tx, int nonblk)
 	list_for_each (tmp, &peer->ksnp_conns) {
 		ksock_conn_t *c  = list_entry(tmp, ksock_conn_t, ksnc_list);
 		int nob = atomic_read(&c->ksnc_tx_nob) +
-                                      c->ksnc_sock->sk->sk_wmem_queued;
+			c->ksnc_sock->sk->sk_wmem_queued;
 		int rc;
 
 		LASSERT(!c->ksnc_closing);
@@ -714,7 +714,7 @@ ksocknal_queue_tx_locked (ksock_tx_t *tx, ksock_conn_t *conn)
 	LASSERT(tx->tx_resid == tx->tx_nob);
 
 	CDEBUG (D_NET, "Packet %p type %d, nob %d niov %d nkiov %d\n",
-		tx, (tx->tx_lnetmsg != NULL) ? tx->tx_lnetmsg->msg_hdr.type:
+		tx, (tx->tx_lnetmsg != NULL) ? tx->tx_lnetmsg->msg_hdr.type :
 					       KSOCK_MSG_NOOP,
 		tx->tx_nob, tx->tx_niov, tx->tx_nkiov);
 
@@ -1092,7 +1092,7 @@ ksocknal_new_packet (ksock_conn_t *conn, int nob_to_skip)
 		conn->ksnc_rx_iov[niov].iov_len  = nob;
 		niov++;
 		skipped += nob;
-		nob_to_skip -=nob;
+		nob_to_skip -= nob;
 
 	} while (nob_to_skip != 0 &&    /* mustn't overflow conn's rx iov */
 		 niov < sizeof(conn->ksnc_rx_iov_space) / sizeof (struct iovec));
@@ -1313,7 +1313,7 @@ ksocknal_recv (lnet_ni_t *ni, void *private, lnet_msg_t *msg, int delayed,
 	       unsigned int niov, struct kvec *iov, lnet_kiov_t *kiov,
 	       unsigned int offset, unsigned int mlen, unsigned int rlen)
 {
-	ksock_conn_t *conn = (ksock_conn_t *)private;
+	ksock_conn_t *conn = private;
 	ksock_sched_t *sched = conn->ksnc_scheduler;
 
 	LASSERT(mlen <= rlen);

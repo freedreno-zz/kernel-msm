@@ -190,8 +190,7 @@ static void flush_channel_fifos(struct most_c_obj *c)
 	list_for_each_entry_safe(mbo, tmp, &c->fifo, list) {
 		list_del(&mbo->list);
 		spin_unlock_irqrestore(&c->fifo_lock, flags);
-		if (likely(mbo))
-			most_free_mbo_coherent(mbo);
+		most_free_mbo_coherent(mbo);
 		spin_lock_irqsave(&c->fifo_lock, flags);
 	}
 	spin_unlock_irqrestore(&c->fifo_lock, flags);
@@ -200,8 +199,7 @@ static void flush_channel_fifos(struct most_c_obj *c)
 	list_for_each_entry_safe(mbo, tmp, &c->halt_fifo, list) {
 		list_del(&mbo->list);
 		spin_unlock_irqrestore(&c->fifo_lock, hf_flags);
-		if (likely(mbo))
-			most_free_mbo_coherent(mbo);
+		most_free_mbo_coherent(mbo);
 		spin_lock_irqsave(&c->fifo_lock, hf_flags);
 	}
 	spin_unlock_irqrestore(&c->fifo_lock, hf_flags);
@@ -1341,7 +1339,7 @@ static void most_write_completion(struct mbo *mbo)
 	c = mbo->context;
 	if (mbo->status == MBO_E_INVAL)
 		pr_info("WARN: Tx MBO status: invalid\n");
-	if (unlikely((c->is_poisoned == true) || (mbo->status == MBO_E_CLOSE)))
+	if (unlikely(c->is_poisoned || (mbo->status == MBO_E_CLOSE)))
 		trash_mbo(mbo);
 	else
 		arm_mbo(mbo);
@@ -1446,7 +1444,7 @@ static void most_read_completion(struct mbo *mbo)
 	struct most_c_obj *c;
 
 	c = mbo->context;
-	if (unlikely((c->is_poisoned == true) || (mbo->status == MBO_E_CLOSE)))
+	if (unlikely(c->is_poisoned || (mbo->status == MBO_E_CLOSE)))
 		goto release_mbo;
 
 	if (mbo->status == MBO_E_INVAL) {

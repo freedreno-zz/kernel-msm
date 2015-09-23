@@ -11,8 +11,6 @@
  */
 
 #include "wilc_platform.h"
-#include "wilc_errorsupport.h"
-#include "wilc_memory.h"
 
 /*!
  *  @brief		Creates a new Message queue
@@ -27,7 +25,7 @@
  *  @date		30 Aug 2010
  *  @version		1.0
  */
-WILC_ErrNo WILC_MsgQueueCreate(WILC_MsgQueueHandle *pHandle);
+int wilc_mq_create(WILC_MsgQueueHandle *pHandle);
 
 /*!
  *  @brief		Sends a message
@@ -44,7 +42,7 @@ WILC_ErrNo WILC_MsgQueueCreate(WILC_MsgQueueHandle *pHandle);
  *  @date		30 Aug 2010
  *  @version		1.0
  */
-WILC_ErrNo WILC_MsgQueueSend(WILC_MsgQueueHandle *pHandle,
+int wilc_mq_send(WILC_MsgQueueHandle *pHandle,
 			     const void *pvSendBuffer, u32 u32SendBufferSize);
 
 /*!
@@ -63,7 +61,7 @@ WILC_ErrNo WILC_MsgQueueSend(WILC_MsgQueueHandle *pHandle,
  *  @date		30 Aug 2010
  *  @version		1.0
  */
-WILC_ErrNo WILC_MsgQueueRecv(WILC_MsgQueueHandle *pHandle,
+int wilc_mq_recv(WILC_MsgQueueHandle *pHandle,
 			     void *pvRecvBuffer, u32 u32RecvBufferSize,
 			     u32 *pu32ReceivedLength);
 
@@ -76,6 +74,6 @@ WILC_ErrNo WILC_MsgQueueRecv(WILC_MsgQueueHandle *pHandle,
  *  @date		30 Aug 2010
  *  @version		1.0
  */
-WILC_ErrNo WILC_MsgQueueDestroy(WILC_MsgQueueHandle *pHandle);
+int wilc_mq_destroy(WILC_MsgQueueHandle *pHandle);
 
 #endif

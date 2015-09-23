@@ -728,8 +728,8 @@ static inline void oti_alloc_cookies(struct obd_trans_info *oti,
 	if (num_cookies == 1)
 		oti->oti_logcookies = &oti->oti_onecookie;
 	else
-		OBD_ALLOC_LARGE(oti->oti_logcookies,
-				num_cookies * sizeof(oti->oti_onecookie));
+		oti->oti_logcookies = libcfs_kvzalloc(num_cookies * sizeof(oti->oti_onecookie),
+						      GFP_NOFS);
 
 	oti->oti_numcookies = num_cookies;
 }
@@ -742,8 +742,8 @@ static inline void oti_free_cookies(struct obd_trans_info *oti)
 	if (oti->oti_logcookies == &oti->oti_onecookie)
 		LASSERT(oti->oti_numcookies == 1);
 	else
-		OBD_FREE_LARGE(oti->oti_logcookies,
-			       oti->oti_numcookies*sizeof(oti->oti_onecookie));
+		kvfree(oti->oti_logcookies);
+
 	oti->oti_logcookies = NULL;
 	oti->oti_numcookies = 0;
 }
@@ -1300,7 +1300,7 @@ struct md_ops {
 			   const struct lu_fid *,
 			   struct ptlrpc_request **);
 	int (*m_setattr)(struct obd_export *, struct md_op_data *, void *,
-			 int , void *, int, struct ptlrpc_request **,
+			 int, void *, int, struct ptlrpc_request **,
 			 struct md_open_data **mod);
 	int (*m_sync)(struct obd_export *, const struct lu_fid *,
 		      struct obd_capa *, struct ptlrpc_request **);
@@ -1408,7 +1408,7 @@ static inline struct md_open_data *obd_mod_alloc(void)
 {
 	struct md_open_data *mod;
 
-	OBD_ALLOC_PTR(mod);
+	mod = kzalloc(sizeof(*mod), GFP_NOFS);
 	if (mod == NULL)
 		return NULL;
 	atomic_set(&mod->mod_refcount, 1);
@@ -1421,7 +1421,7 @@ static inline struct md_open_data *obd_mod_alloc(void)
 	if (atomic_dec_and_test(&(mod)->mod_refcount)) {	  \
 		if ((mod)->mod_open_req)			  \
 			ptlrpc_req_finished((mod)->mod_open_req);   \
-		OBD_FREE_PTR(mod);			      \
+		kfree(mod);			      \
 	}						       \
 })
 

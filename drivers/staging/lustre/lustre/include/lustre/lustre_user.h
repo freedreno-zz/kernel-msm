@@ -658,7 +658,8 @@ enum changelog_rec_type {
 	CL_LAST
 };
 
-static inline const char *changelog_type2str(int type) {
+static inline const char *changelog_type2str(int type)
+{
 	static const char *changelog_str[] = {
 		"MARK",  "CREAT", "MKDIR", "HLINK", "SLINK", "MKNOD", "UNLNK",
 		"RMDIR", "RENME", "RNMTO", "OPEN",  "CLOSE", "LYOUT", "TRUNC",
@@ -798,14 +799,14 @@ struct changelog_ext_rec {
 
 static inline int changelog_rec_size(struct changelog_rec *rec)
 {
-	return CHANGELOG_REC_EXTENDED(rec) ? sizeof(struct changelog_ext_rec):
+	return CHANGELOG_REC_EXTENDED(rec) ? sizeof(struct changelog_ext_rec) :
 					     sizeof(*rec);
 }
 
 static inline char *changelog_rec_name(struct changelog_rec *rec)
 {
 	return CHANGELOG_REC_EXTENDED(rec) ?
-		((struct changelog_ext_rec *)rec)->cr_name: rec->cr_name;
+		((struct changelog_ext_rec *)rec)->cr_name : rec->cr_name;
 }
 
 static inline int changelog_rec_snamelen(struct changelog_ext_rec *rec)

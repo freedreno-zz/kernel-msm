@@ -18,10 +18,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <linux/module.h>
@@ -37,7 +33,6 @@
 #define TXBUFLEN	(4 * PAGE_SIZE)
 #define DEFAULT_GAMMA	"1F 1A 18 0A 0F 06 45 87 32 0A 07 02 07 05 00\n" \
 			"00 25 27 05 10 09 3A 78 4D 05 18 0D 38 3A 1F"
-
 
 static int init_display(struct fbtft_par *par)
 {
@@ -82,9 +77,6 @@ static int init_display(struct fbtft_par *par)
 
 static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 {
-	fbtft_par_dbg(DEBUG_SET_ADDR_WIN, par,
-		"%s(xs=%d, ys=%d, xe=%d, ye=%d)\n", __func__, xs, ys, xe, ye);
-
 	/* Column address set */
 	write_reg(par, 0x2A,
 		(xs >> 8) & 0xFF, xs & 0xFF, (xe >> 8) & 0xFF, xe & 0xFF);
@@ -113,7 +105,7 @@ static int set_var(struct fbtft_par *par)
 		break;
 	case 270:
 		write_reg(par, 0x36,
-			(1<<MEM_V) | (1 << MEM_L) | (par->bgr << MEM_BGR));
+			(1 << MEM_V) | (1 << MEM_L) | (par->bgr << MEM_BGR));
 		break;
 	case 180:
 		write_reg(par, 0x36, (1 << MEM_Y) | (par->bgr << MEM_BGR));
@@ -132,7 +124,7 @@ static int set_var(struct fbtft_par *par)
     Positive: Par1 Par2 [...] Par15
     Negative: Par1 Par2 [...] Par15
 */
-#define CURVE(num, idx)  curves[num*par->gamma.num_values + idx]
+#define CURVE(num, idx)  curves[num * par->gamma.num_values + idx]
 static int set_gamma(struct fbtft_par *par, unsigned long *curves)
 {
 	int i;
@@ -151,7 +143,6 @@ static int set_gamma(struct fbtft_par *par, unsigned long *curves)
 }
 #undef CURVE
 
-
 static struct fbtft_display display = {
 	.regwidth = 8,
 	.width = WIDTH,
@@ -167,6 +158,7 @@ static struct fbtft_display display = {
 		.set_gamma = set_gamma,
 	},
 };
+
 FBTFT_REGISTER_DRIVER(DRVNAME, "ilitek,ili9341", &display);
 
 MODULE_ALIAS("spi:" DRVNAME);

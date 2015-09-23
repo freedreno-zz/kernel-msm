@@ -826,7 +826,7 @@ resend:
 		LASSERT(lmm && lmmsize == 0);
 		LASSERTF(einfo->ei_type == LDLM_FLOCK, "lock type %d\n",
 			 einfo->ei_type);
-		policy = (ldlm_policy_data_t *)lmm;
+		policy = lmm;
 		res_id.name[3] = LDLM_FLOCK;
 		req = NULL;
 	} else if (it->it_op & IT_OPEN) {
@@ -1307,7 +1307,7 @@ int mdc_intent_getattr_async(struct obd_export *exp,
 	ga->ga_einfo = einfo;
 
 	req->rq_interpret_reply = mdc_intent_getattr_async_interpret;
-	ptlrpcd_add_req(req, PDL_POLICY_LOCAL, -1);
+	ptlrpcd_add_req(req);
 
 	return 0;
 }

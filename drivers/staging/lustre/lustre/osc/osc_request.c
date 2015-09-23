@@ -50,8 +50,17 @@
 #include "../include/lustre_param.h"
 #include "../include/lustre_fid.h"
 #include "../include/obd_class.h"
+#include "../include/obd.h"
 #include "osc_internal.h"
 #include "osc_cl_internal.h"
+
+atomic_t osc_pool_req_count;
+unsigned int osc_reqpool_maxreqcount;
+struct ptlrpc_request_pool *osc_rq_pool;
+
+/* max memory used for request pool, unit is MB */
+static unsigned int osc_reqpool_mem_max = 5;
+module_param(osc_reqpool_mem_max, uint, 0444);
 
 struct osc_brw_async_args {
 	struct obdo       *aa_oa;
@@ -428,19 +437,19 @@ int osc_setattr_async_base(struct obd_export *exp, struct obd_info *oinfo,
 	/* do mds to ost setattr asynchronously */
 	if (!rqset) {
 		/* Do not wait for response. */
-		ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+		ptlrpcd_add_req(req);
 	} else {
 		req->rq_interpret_reply =
 			(ptlrpc_interpterer_t)osc_setattr_interpret;
 
-		CLASSERT (sizeof(*sa) <= sizeof(req->rq_async_args));
+		CLASSERT(sizeof(*sa) <= sizeof(req->rq_async_args));
 		sa = ptlrpc_req_async_args(req);
 		sa->sa_oa = oinfo->oi_oa;
 		sa->sa_upcall = upcall;
 		sa->sa_cookie = cookie;
 
 		if (rqset == PTLRPCD_SET)
-			ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+			ptlrpcd_add_req(req);
 		else
 			ptlrpc_set_add_req(rqset, req);
 	}
@@ -575,13 +584,13 @@ int osc_punch_base(struct obd_export *exp, struct obd_info *oinfo,
 	ptlrpc_request_set_replen(req);
 
 	req->rq_interpret_reply = (ptlrpc_interpterer_t)osc_setattr_interpret;
-	CLASSERT (sizeof(*sa) <= sizeof(req->rq_async_args));
+	CLASSERT(sizeof(*sa) <= sizeof(req->rq_async_args));
 	sa = ptlrpc_req_async_args(req);
 	sa->sa_oa = oinfo->oi_oa;
 	sa->sa_upcall = upcall;
 	sa->sa_cookie = cookie;
 	if (rqset == PTLRPCD_SET)
-		ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+		ptlrpcd_add_req(req);
 	else
 		ptlrpc_set_add_req(rqset, req);
 
@@ -600,7 +609,7 @@ static int osc_sync_interpret(const struct lu_env *env,
 
 	body = req_capsule_server_get(&req->rq_pill, &RMF_OST_BODY);
 	if (body == NULL) {
-		CERROR ("can't unpack ost_body\n");
+		CERROR("can't unpack ost_body\n");
 		rc = -EPROTO;
 		goto out;
 	}
@@ -648,7 +657,7 @@ int osc_sync_base(struct obd_export *exp, struct obd_info *oinfo,
 	fa->fa_cookie = cookie;
 
 	if (rqset == PTLRPCD_SET)
-		ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+		ptlrpcd_add_req(req);
 	else
 		ptlrpc_set_add_req(rqset, req);
 
@@ -817,7 +826,7 @@ static int osc_destroy(const struct lu_env *env, struct obd_export *exp,
 	}
 
 	/* Do not wait for response */
-	ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+	ptlrpcd_add_req(req);
 	return 0;
 }
 
@@ -1100,7 +1109,7 @@ static void handle_short_read(int nob_read, u32 page_count,
 
 	/* skip bytes read OK */
 	while (nob_read > 0) {
-		LASSERT (page_count > 0);
+		LASSERT(page_count > 0);
 
 		if (pga[i]->count > nob_read) {
 			/* EOF inside this page */
@@ -1268,7 +1277,7 @@ static int osc_brw_prep_request(int cmd, struct client_obd *cli,
 	if ((cmd & OBD_BRW_WRITE) != 0) {
 		opc = OST_WRITE;
 		req = ptlrpc_request_alloc_pool(cli->cl_import,
-						cli->cl_import->imp_rq_pool,
+						osc_rq_pool,
 						&RQF_OST_BRW_WRITE);
 	} else {
 		opc = OST_READ;
@@ -1571,7 +1580,7 @@ static int osc_brw_fini_request(struct ptlrpc_request *req, int rc)
 	}
 
 	if (rc != req->rq_bulk->bd_nob_transferred) {
-		CERROR ("Unexpected rc %d (%d transferred)\n",
+		CERROR("Unexpected rc %d (%d transferred)\n",
 			rc, req->rq_bulk->bd_nob_transferred);
 		return -EPROTO;
 	}
@@ -1586,7 +1595,7 @@ static int osc_brw_fini_request(struct ptlrpc_request *req, int rc)
 		char *router;
 		cksum_type_t cksum_type;
 
-		cksum_type = cksum_type_unpack(body->oa.o_valid &OBD_MD_FLFLAGS?
+		cksum_type = cksum_type_unpack(body->oa.o_valid&OBD_MD_FLFLAGS ?
 					       body->oa.o_flags : 0);
 		client_cksum = osc_checksum_bulk(rc, aa->aa_page_count,
 						 aa->aa_ppga, OST_READ,
@@ -1654,7 +1663,7 @@ static int osc_brw_redo_request(struct ptlrpc_request *request,
 		  "redo for recoverable error %d", rc);
 
 	rc = osc_brw_prep_request(lustre_msg_get_opc(request->rq_reqmsg) ==
-					OST_WRITE ? OBD_BRW_WRITE :OBD_BRW_READ,
+					OST_WRITE ? OBD_BRW_WRITE : OBD_BRW_READ,
 				  aa->aa_cli, aa->aa_oa,
 				  NULL /* lsm unused by osc currently */,
 				  aa->aa_page_count, aa->aa_ppga,
@@ -1709,7 +1718,7 @@ static int osc_brw_redo_request(struct ptlrpc_request *request,
 	 * to add a series of BRW RPCs into a self-defined ptlrpc_request_set
 	 * and wait for all of them to be finished. We should inherit request
 	 * set from old request. */
-	ptlrpcd_add_req(new_req, PDL_POLICY_SAME, -1);
+	ptlrpcd_add_req(new_req);
 
 	DEBUG_REQ(D_INFO, new_req, "new request");
 	return 0;
@@ -1850,7 +1859,7 @@ static int brw_interpret(const struct lu_env *env,
 	osc_wake_cache_waiters(cli);
 	client_obd_list_unlock(&cli->cl_loi_list_lock);
 
-	osc_io_unplug(env, cli, NULL, PDL_POLICY_SAME);
+	osc_io_unplug(env, cli, NULL);
 	return rc;
 }
 
@@ -1860,7 +1869,7 @@ static int brw_interpret(const struct lu_env *env,
  * Extents in the list must be in OES_RPC state.
  */
 int osc_build_rpc(const struct lu_env *env, struct client_obd *cli,
-		  struct list_head *ext_list, int cmd, pdl_policy_t pol)
+		  struct list_head *ext_list, int cmd)
 {
 	struct ptlrpc_request *req = NULL;
 	struct osc_extent *ext;
@@ -2034,19 +2043,7 @@ int osc_build_rpc(const struct lu_env *env, struct client_obd *cli,
 		  page_count, aa, cli->cl_r_in_flight,
 		  cli->cl_w_in_flight);
 
-	/* XXX: Maybe the caller can check the RPC bulk descriptor to
-	 * see which CPU/NUMA node the majority of pages were allocated
-	 * on, and try to assign the async RPC to the CPU core
-	 * (PDL_POLICY_PREFERRED) to reduce cross-CPU memory traffic.
-	 *
-	 * But on the other hand, we expect that multiple ptlrpcd
-	 * threads and the initial write sponsor can run in parallel,
-	 * especially when data checksum is enabled, which is CPU-bound
-	 * operation and single ptlrpcd thread cannot process in time.
-	 * So more ptlrpcd threads sharing BRW load
-	 * (with PDL_POLICY_ROUND) seems better.
-	 */
-	ptlrpcd_add_req(req, pol, -1);
+	ptlrpcd_add_req(req);
 	rc = 0;
 
 out:
@@ -2373,7 +2370,7 @@ int osc_enqueue_base(struct obd_export *exp, struct ldlm_res_id *res_id,
 			req->rq_interpret_reply =
 				(ptlrpc_interpterer_t)osc_enqueue_interpret;
 			if (rqset == PTLRPCD_SET)
-				ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+				ptlrpcd_add_req(req);
 			else
 				ptlrpc_set_add_req(rqset, req);
 		} else if (intent) {
@@ -2988,8 +2985,9 @@ static int osc_set_info_async(const struct lu_env *env, struct obd_export *exp,
 		LASSERT(set != NULL);
 		ptlrpc_set_add_req(set, req);
 		ptlrpc_check_set(NULL, set);
-	} else
-		ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+	} else {
+		ptlrpcd_add_req(req);
+	}
 
 	return 0;
 }
@@ -3081,7 +3079,7 @@ static int osc_import_event(struct obd_device *obd,
 			cli = &obd->u.cli;
 			/* all pages go to failing rpcs due to the invalid
 			 * import */
-			osc_io_unplug(env, cli, NULL, PDL_POLICY_ROUND);
+			osc_io_unplug(env, cli, NULL);
 
 			ldlm_namespace_cleanup(ns, LDLM_FL_LOCAL_ONLY);
 			cl_env_put(env, &refcheck);
@@ -3101,7 +3099,7 @@ static int osc_import_event(struct obd_device *obd,
 
 		/* See bug 7198 */
 		if (ocd->ocd_connect_flags & OBD_CONNECT_REQPORTAL)
-			imp->imp_client->cli_request_portal =OST_REQUEST_PORTAL;
+			imp->imp_client->cli_request_portal = OST_REQUEST_PORTAL;
 
 		rc = obd_notify_observer(obd, obd, OBD_NOTIFY_OCD, NULL);
 		break;
@@ -3153,7 +3151,7 @@ static int brw_queue_work(const struct lu_env *env, void *data)
 
 	CDEBUG(D_CACHE, "Run writeback work for client obd %p.\n", cli);
 
-	osc_io_unplug(env, cli, NULL, PDL_POLICY_SAME);
+	osc_io_unplug(env, cli, NULL);
 	return 0;
 }
 
@@ -3163,6 +3161,9 @@ int osc_setup(struct obd_device *obd, struct lustre_cfg *lcfg)
 	struct client_obd *cli = &obd->u.cli;
 	void *handler;
 	int rc;
+	int adding;
+	int added;
+	int req_count;
 
 	rc = ptlrpcd_addref();
 	if (rc)
@@ -3191,15 +3192,20 @@ int osc_setup(struct obd_device *obd, struct lustre_cfg *lcfg)
 		ptlrpc_lprocfs_register_obd(obd);
 	}
 
-	/* We need to allocate a few requests more, because
-	 * brw_interpret tries to create new requests before freeing
-	 * previous ones, Ideally we want to have 2x max_rpcs_in_flight
-	 * reserved, but I'm afraid that might be too much wasted RAM
-	 * in fact, so 2 is just my guess and still should work. */
-	cli->cl_import->imp_rq_pool =
-		ptlrpc_init_rq_pool(cli->cl_max_rpcs_in_flight + 2,
-				    OST_MAXREQSIZE,
-				    ptlrpc_add_rqs_to_pool);
+	/*
+	 * We try to control the total number of requests with a upper limit
+	 * osc_reqpool_maxreqcount. There might be some race which will cause
+	 * over-limit allocation, but it is fine.
+	 */
+	req_count = atomic_read(&osc_pool_req_count);
+	if (req_count < osc_reqpool_maxreqcount) {
+		adding = cli->cl_max_rpcs_in_flight + 2;
+		if (req_count + adding > osc_reqpool_maxreqcount)
+			adding = osc_reqpool_maxreqcount - req_count;
+
+		added = ptlrpc_add_rqs_to_pool(osc_rq_pool, adding);
+		atomic_add(added, &osc_pool_req_count);
+	}
 
 	INIT_LIST_HEAD(&cli->cl_grant_shrink_list);
 	ns_register_cancel(obd->obd_namespace, osc_cancel_for_recovery);
@@ -3339,6 +3345,8 @@ extern struct lock_class_key osc_ast_guard_class;
 static int __init osc_init(void)
 {
 	struct lprocfs_static_vars lvars = { NULL };
+	unsigned int reqpool_size;
+	unsigned int reqsize;
 	int rc;
 
 	/* print an address of _any_ initialized kernel symbol from this
@@ -3354,14 +3362,45 @@ static int __init osc_init(void)
 
 	rc = class_register_type(&osc_obd_ops, NULL,
 				 LUSTRE_OSC_NAME, &osc_device_type);
-	if (rc) {
-		lu_kmem_fini(osc_caches);
-		return rc;
-	}
+	if (rc)
+		goto out_kmem;
 
 	spin_lock_init(&osc_ast_guard);
 	lockdep_set_class(&osc_ast_guard, &osc_ast_guard_class);
 
+	/* This is obviously too much memory, only prevent overflow here */
+	if (osc_reqpool_mem_max >= 1 << 12 || osc_reqpool_mem_max == 0) {
+		rc = -EINVAL;
+		goto out_type;
+	}
+
+	reqpool_size = osc_reqpool_mem_max << 20;
+
+	reqsize = 1;
+	while (reqsize < OST_MAXREQSIZE)
+		reqsize = reqsize << 1;
+
+	/*
+	 * We don't enlarge the request count in OSC pool according to
+	 * cl_max_rpcs_in_flight. The allocation from the pool will only be
+	 * tried after normal allocation failed. So a small OSC pool won't
+	 * cause much performance degression in most of cases.
+	 */
+	osc_reqpool_maxreqcount = reqpool_size / reqsize;
+
+	atomic_set(&osc_pool_req_count, 0);
+	osc_rq_pool = ptlrpc_init_rq_pool(0, OST_MAXREQSIZE,
+					  ptlrpc_add_rqs_to_pool);
+
+	if (osc_rq_pool)
+		return 0;
+
+	rc = -ENOMEM;
+
+out_type:
+	class_unregister_type(LUSTRE_OSC_NAME);
+out_kmem:
+	lu_kmem_fini(osc_caches);
 	return rc;
 }
 
@@ -3369,6 +3408,7 @@ static void /*__exit*/ osc_exit(void)
 {
 	class_unregister_type(LUSTRE_OSC_NAME);
 	lu_kmem_fini(osc_caches);
+	ptlrpc_free_rq_pool(osc_rq_pool);
 }
 
 MODULE_AUTHOR("Sun Microsystems, Inc. <http://www.lustre.org/>");

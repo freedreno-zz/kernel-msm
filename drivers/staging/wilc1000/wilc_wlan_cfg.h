@@ -11,23 +11,23 @@
 #define WILC_WLAN_CFG_H
 
 typedef struct {
-	uint16_t id;
-	uint16_t val;
+	u16 id;
+	u16 val;
 } wilc_cfg_byte_t;
 
 typedef struct {
-	uint16_t id;
-	uint16_t val;
+	u16 id;
+	u16 val;
 } wilc_cfg_hword_t;
 
 typedef struct {
-	uint32_t id;
-	uint32_t val;
+	u32 id;
+	u32 val;
 } wilc_cfg_word_t;
 
 typedef struct {
-	uint32_t id;
-	uint8_t *str;
+	u32 id;
+	u8 *str;
 } wilc_cfg_str_t;
 
 #endif

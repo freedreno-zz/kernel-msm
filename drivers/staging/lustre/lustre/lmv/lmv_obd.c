@@ -593,11 +593,11 @@ static int lmv_disconnect_mdc(struct obd_device *obd, struct lmv_tgt_desc *tgt)
 		mdc_obd->obd_force = obd->obd_force;
 		mdc_obd->obd_fail = obd->obd_fail;
 		mdc_obd->obd_no_recov = obd->obd_no_recov;
-	}
 
-	if (lmv->lmv_tgts_kobj)
-		sysfs_remove_link(lmv->lmv_tgts_kobj,
-				  mdc_obd->obd_name);
+		if (lmv->lmv_tgts_kobj)
+			sysfs_remove_link(lmv->lmv_tgts_kobj,
+					  mdc_obd->obd_name);
+	}
 
 	rc = obd_fid_fini(tgt->ltd_exp->exp_obd);
 	if (rc)
@@ -1849,7 +1849,7 @@ static int lmv_early_cancel(struct obd_export *exp, struct md_op_data *op_data,
 	struct obd_device      *obd = exp->exp_obd;
 	struct lmv_obd	 *lmv = &obd->u.lmv;
 	struct lmv_tgt_desc    *tgt;
-	ldlm_policy_data_t      policy = {{0}};
+	ldlm_policy_data_t      policy = { {0} };
 	int		     rc = 0;
 
 	if (!fid_is_sane(fid))
@@ -2099,7 +2099,8 @@ static void lmv_adjust_dirpages(struct page **pages, int ncfspgs, int nlupgs)
 		while (--nlupgs > 0) {
 			ent = lu_dirent_start(dp);
 			for (end_dirent = ent; ent != NULL;
-			     end_dirent = ent, ent = lu_dirent_next(ent));
+			     end_dirent = ent, ent = lu_dirent_next(ent))
+				;
 
 			/* Advance dp to next lu_dirpage. */
 			dp = (struct lu_dirpage *)((char *)dp + LU_PAGE_SIZE);

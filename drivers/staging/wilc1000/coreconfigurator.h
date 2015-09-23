@@ -29,8 +29,6 @@
 #define NUM_11N_HUT_SWITCHES    0
 #endif /* MAC_802_11N */
 
-extern u16 g_num_total_switches;
-
 #define MAC_HDR_LEN             24          /* No Address4 - non-ESS         */
 #define MAX_SSID_LEN            33
 #define FCS_LEN                 4
@@ -46,14 +44,11 @@ extern u16 g_num_total_switches;
 /* Operating Mode: GET */
 #define GET_CFG              1
 
-#define MAX_PACKET_BUFF_SIZE 1596
-
 #define MAX_STRING_LEN               256
 #define MAX_SURVEY_RESULT_FRAG_SIZE  MAX_STRING_LEN
 #define SURVEY_RESULT_LENGTH         44
 #define MAX_ASSOC_RESP_FRAME_SIZE    MAX_STRING_LEN
 
-#define STATUS_MSG_LEN               12
 #define MAC_CONNECTED                1
 #define MAC_DISCONNECTED             0
 
@@ -116,9 +111,7 @@ typedef struct {
 #ifdef AGING_ALG
 	u8 u8Found;
 #endif
-#ifdef WILC_P2P
 	u32 u32Tsf; /* time-stamp [Low only 32 bit] */
-#endif
 	u8 *pu8IEs;
 	u16 u16IEsLen;
 	void *pJoinParams;
@@ -182,7 +175,6 @@ s32 ParseSurveyResults(u8 ppu8RcvdSiteSurveyResults[][MAX_SURVEY_RESULT_FRAG_SIZ
 s32 DeallocateSurveyResults(wid_site_survey_reslts_s *pstrSurveyResults);
 #endif
 
-s32 SendRawPacket(s8 *pspacket, s32 s32PacketLen);
 void NetworkInfoReceived(u8 *pu8Buffer, u32 u32Length);
 void GnrlAsyncInfoReceived(u8 *pu8Buffer, u32 u32Length);
 void host_int_ScanCompleteReceived(u8 *pu8Buffer, u32 u32Length);

@@ -54,9 +54,6 @@ static int init_display(struct fbtft_par *par)
 
 static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 {
-	fbtft_par_dbg(DEBUG_SET_ADDR_WIN, par,
-		"%s(xs=%d, ys=%d, xe=%d, ye=%d)\n", __func__, xs, ys, xe, ye);
-
 	write_reg(par, 0x15, xs, xe);
 	write_reg(par, 0x75, ys, ye);
 }
@@ -126,7 +123,6 @@ static void write_reg8_bus8(struct fbtft_par *par, int len, ...)
 			:
 			Setting of GS63 has to be > Setting of GS62 +1
 
-
 */
 static int set_gamma(struct fbtft_par *par, unsigned long *curves)
 {
@@ -175,7 +171,6 @@ static int blank(struct fbtft_par *par, bool on)
 		write_reg(par, 0xAF);
 	return 0;
 }
-
 
 static struct fbtft_display display = {
 	.regwidth = 8,

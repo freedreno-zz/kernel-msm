@@ -15,10 +15,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <linux/module.h>
@@ -33,7 +29,7 @@
 #define DRVNAME	       "fb_pcd8544"
 #define WIDTH          84
 #define HEIGHT         48
-#define TXBUFLEN       (84*6)
+#define TXBUFLEN       (84 * 6)
 #define DEFAULT_GAMMA  "40" /* gamma controls the contrast in this driver */
 
 static unsigned tc;
@@ -43,7 +39,6 @@ MODULE_PARM_DESC(tc, "TC[1:0] Temperature coefficient: 0-3 (default: 0)");
 static unsigned bs = 4;
 module_param(bs, uint, 0);
 MODULE_PARM_DESC(bs, "BS[2:0] Bias voltage level: 0-7 (default: 4)");
-
 
 static int init_display(struct fbtft_par *par)
 {
@@ -101,9 +96,6 @@ static int init_display(struct fbtft_par *par)
 
 static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 {
-	fbtft_par_dbg(DEBUG_SET_ADDR_WIN, par, "%s(xs=%d, ys=%d, xe=%d, ye=%d)\n",
-		      __func__, xs, ys, xe, ye);
-
 	/* H=0 Set X address of RAM
 	 *
 	 * 7:1  1
@@ -133,14 +125,15 @@ static int write_vmem(struct fbtft_par *par, size_t offset, size_t len)
 		for (y = 0; y < 6; y++) {
 			*buf = 0x00;
 			for (i = 0; i < 8; i++)
-				*buf |= (vmem16[(y*8+i)*84+x] ? 1 : 0) << i;
+				*buf |= (vmem16[(y * 8 + i) * 84 + x] ?
+					 1 : 0) << i;
 			buf++;
 		}
 	}
 
 	/* Write data */
 	gpio_set_value(par->gpio.dc, 1);
-	ret = par->fbtftops.write(par, par->txbuf.buf, 6*84);
+	ret = par->fbtftops.write(par, par->txbuf.buf, 6 * 84);
 	if (ret < 0)
 		dev_err(par->info->device, "write failed and returned: %d\n",
 			ret);
@@ -162,7 +155,6 @@ static int set_gamma(struct fbtft_par *par, unsigned long *curves)
 	return 0;
 }
 
-
 static struct fbtft_display display = {
 	.regwidth = 8,
 	.width = WIDTH,
@@ -179,6 +171,7 @@ static struct fbtft_display display = {
 	},
 	.backlight = 1,
 };
+
 FBTFT_REGISTER_DRIVER(DRVNAME, "philips,pdc8544", &display);
 
 MODULE_ALIAS("spi:" DRVNAME);

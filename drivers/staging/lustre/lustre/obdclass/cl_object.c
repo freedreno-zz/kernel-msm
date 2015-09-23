@@ -653,7 +653,8 @@ static inline void cl_env_do_detach(struct cl_env *cle)
 	cle->ce_owner = NULL;
 }
 
-static int cl_env_store_init(void) {
+static int cl_env_store_init(void)
+{
 	cl_env_hash = cfs_hash_create("cl_env",
 				      HASH_CL_ENV_BITS, HASH_CL_ENV_BITS,
 				      HASH_CL_ENV_BKT_BITS, 0,
@@ -661,7 +662,7 @@ static int cl_env_store_init(void) {
 				      CFS_HASH_MAX_THETA,
 				      &cl_env_hops,
 				      CFS_HASH_RW_BKTLOCK);
-	return cl_env_hash != NULL ? 0 :-ENOMEM;
+	return cl_env_hash != NULL ? 0 : -ENOMEM;
 }
 
 static void cl_env_store_fini(void)
@@ -693,10 +694,10 @@ static struct lu_env *cl_env_new(__u32 ctx_tags, __u32 ses_tags, void *debug)
 		INIT_LIST_HEAD(&cle->ce_linkage);
 		cle->ce_magic = &cl_env_init0;
 		env = &cle->ce_lu;
-		rc = lu_env_init(env, LCT_CL_THREAD|ctx_tags);
+		rc = lu_env_init(env, ctx_tags | LCT_CL_THREAD);
 		if (rc == 0) {
 			rc = lu_context_init(&cle->ce_ses,
-					     LCT_SESSION | ses_tags);
+					     ses_tags | LCT_SESSION);
 			if (rc == 0) {
 				lu_context_enter(&cle->ce_ses);
 				env->le_ses = &cle->ce_ses;
@@ -1074,7 +1075,7 @@ static struct lu_kmem_descr cl_object_caches[] = {
 	{
 		.ckd_cache = &cl_env_kmem,
 		.ckd_name  = "cl_env_kmem",
-		.ckd_size  = sizeof (struct cl_env)
+		.ckd_size  = sizeof(struct cl_env)
 	},
 	{
 		.ckd_cache = NULL

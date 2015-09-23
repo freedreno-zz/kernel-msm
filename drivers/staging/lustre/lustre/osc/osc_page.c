@@ -553,7 +553,7 @@ void osc_page_submit(const struct lu_env *env, struct osc_page *opg,
 	oap->oap_cmd = crt == CRT_WRITE ? OBD_BRW_WRITE : OBD_BRW_READ;
 	oap->oap_page_off = opg->ops_from;
 	oap->oap_count = opg->ops_to - opg->ops_from;
-	oap->oap_brw_flags = OBD_BRW_SYNC | brw_flags;
+	oap->oap_brw_flags = brw_flags | OBD_BRW_SYNC;
 
 	if (!client_is_remote(osc_export(obj)) &&
 			capable(CFS_CAP_SYS_RESOURCE)) {
@@ -818,7 +818,6 @@ static int osc_lru_reclaim(struct client_obd *cli)
 	int rc;
 
 	LASSERT(cache != NULL);
-	LASSERT(!list_empty(&cache->ccc_lru));
 
 	rc = osc_lru_shrink(cli, lru_shrink_min);
 	if (rc != 0) {
@@ -835,6 +834,8 @@ static int osc_lru_reclaim(struct client_obd *cli)
 	/* Reclaim LRU slots from other client_obd as it can't free enough
 	 * from its own. This should rarely happen. */
 	spin_lock(&cache->ccc_lru_lock);
+	LASSERT(!list_empty(&cache->ccc_lru));
+
 	cache->ccc_lru_shrinkers++;
 	list_move_tail(&cli->cl_lru_osc, &cache->ccc_lru);
 

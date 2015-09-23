@@ -1219,14 +1219,13 @@ static int ll_setattr_done_writing(struct inode *inode,
 	ll_pack_inode2opdata(inode, op_data, NULL);
 
 	rc = md_done_writing(ll_i2sbi(inode)->ll_md_exp, op_data, mod);
-	if (rc == -EAGAIN) {
+	if (rc == -EAGAIN)
 		/* MDS has instructed us to obtain Size-on-MDS attribute
 		 * from OSTs and send setattr to back to MDS. */
 		rc = ll_som_update(inode, op_data);
-	} else if (rc) {
+	else if (rc)
 		CERROR("inode %lu mdc truncate failed: rc = %d\n",
 		       inode->i_ino, rc);
-	}
 	return rc;
 }
 
@@ -1974,6 +1973,47 @@ int ll_remount_fs(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
+/**
+ * Cleanup the open handle that is cached on MDT-side.
+ *
+ * For open case, the client side open handling thread may hit error
+ * after the MDT grant the open. Under such case, the client should
+ * send close RPC to the MDT as cleanup; otherwise, the open handle
+ * on the MDT will be leaked there until the client umount or evicted.
+ *
+ * In further, if someone unlinked the file, because the open handle
+ * holds the reference on such file/object, then it will block the
+ * subsequent threads that want to locate such object via FID.
+ *
+ * \param[in] sb	super block for this file-system
+ * \param[in] open_req	pointer to the original open request
+ */
+void ll_open_cleanup(struct super_block *sb, struct ptlrpc_request *open_req)
+{
+	struct mdt_body			*body;
+	struct md_op_data		*op_data;
+	struct ptlrpc_request		*close_req = NULL;
+	struct obd_export		*exp	   = ll_s2sbi(sb)->ll_md_exp;
+
+	body = req_capsule_server_get(&open_req->rq_pill, &RMF_MDT_BODY);
+	op_data = kzalloc(sizeof(*op_data), GFP_NOFS);
+	if (!op_data) {
+		CWARN("%s: cannot allocate op_data to release open handle for "
+		      DFID "\n",
+		      ll_get_fsname(sb, NULL, 0), PFID(&body->fid1));
+
+		return;
+	}
+
+	op_data->op_fid1 = body->fid1;
+	op_data->op_ioepoch = body->ioepoch;
+	op_data->op_handle = body->handle;
+	op_data->op_mod_time = get_seconds();
+	md_close(exp, op_data, NULL, &close_req);
+	ptlrpc_req_finished(close_req);
+	ll_finish_md_op_data(op_data);
+}
+
 int ll_prep_inode(struct inode **inode, struct ptlrpc_request *req,
 		  struct super_block *sb, struct lookup_intent *it)
 {
@@ -1986,7 +2026,7 @@ int ll_prep_inode(struct inode **inode, struct ptlrpc_request *req,
 	rc = md_get_lustre_md(sbi->ll_md_exp, req, sbi->ll_dt_exp,
 			      sbi->ll_md_exp, &md);
 	if (rc)
-		return rc;
+		goto cleanup;
 
 	if (*inode) {
 		ll_update_inode(*inode, &md);
@@ -2048,6 +2088,11 @@ out:
 	if (md.lsm != NULL)
 		obd_free_memmd(sbi->ll_dt_exp, &md.lsm);
 	md_free_lustre_md(sbi->ll_md_exp, &md);
+
+cleanup:
+	if (rc != 0 && it && it->it_op & IT_OPEN)
+		ll_open_cleanup(sb ? sb : (*inode)->i_sb, req);
+
 	return rc;
 }
 
@@ -2201,7 +2246,7 @@ struct md_op_data *ll_prep_md_op_data(struct md_op_data *op_data,
 	}
 
 	/* When called by ll_setattr_raw, file is i1. */
-	if (LLIF_DATA_MODIFIED & ll_i2info(i1)->lli_flags)
+	if (ll_i2info(i1)->lli_flags & LLIF_DATA_MODIFIED)
 		op_data->op_bias |= MDS_DATA_MODIFIED;
 
 	return op_data;

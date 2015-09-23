@@ -71,7 +71,7 @@ struct ll_dentry_data {
 	struct rcu_head			lld_rcu_head;
 };
 
-#define ll_d2d(de) ((struct ll_dentry_data*)((de)->d_fsdata))
+#define ll_d2d(de) ((struct ll_dentry_data *)((de)->d_fsdata))
 
 #define LLI_INODE_MAGIC		 0x111d0de5
 #define LLI_INODE_DEAD		  0xdeadd00d
@@ -801,6 +801,7 @@ struct md_op_data *ll_prep_md_op_data(struct md_op_data *op_data,
 void ll_finish_md_op_data(struct md_op_data *op_data);
 int ll_get_obd_name(struct inode *inode, unsigned int cmd, unsigned long arg);
 char *ll_get_fsname(struct super_block *sb, char *buf, int buflen);
+void ll_open_cleanup(struct super_block *sb, struct ptlrpc_request *open_req);
 
 /* llite/llite_nfs.c */
 extern struct export_operations lustre_export_operations;
@@ -1465,7 +1466,15 @@ static inline void d_lustre_invalidate(struct dentry *dentry, int nested)
 	spin_lock_nested(&dentry->d_lock,
 			 nested ? DENTRY_D_LOCK_NESTED : DENTRY_D_LOCK_NORMAL);
 	__d_lustre_invalidate(dentry);
-	if (d_count(dentry) == 0)
+	/*
+	 * We should be careful about dentries created by d_obtain_alias().
+	 * These dentries are not put in the dentry tree, instead they are
+	 * linked to sb->s_anon through dentry->d_hash.
+	 * shrink_dcache_for_umount() shrinks the tree and sb->s_anon list.
+	 * If we unhashed such a dentry, unmount would not be able to find
+	 * it and busy inodes would be reported.
+	 */
+	if (d_count(dentry) == 0 && !(dentry->d_flags & DCACHE_DISCONNECTED))
 		__d_drop(dentry);
 	spin_unlock(&dentry->d_lock);
 }

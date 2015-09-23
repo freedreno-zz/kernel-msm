@@ -446,7 +446,7 @@ EXPORT_SYMBOL(ptlrpc_free_rq_pool);
 /**
  * Allocates, initializes and adds \a num_rq requests to the pool \a pool
  */
-void ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq)
+int ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq)
 {
 	int i;
 	int size = 1;
@@ -468,11 +468,11 @@ void ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq)
 		spin_unlock(&pool->prp_lock);
 		req = ptlrpc_request_cache_alloc(GFP_NOFS);
 		if (!req)
-			return;
+			return i;
 		msg = libcfs_kvzalloc(size, GFP_NOFS);
 		if (!msg) {
 			ptlrpc_request_cache_free(req);
-			return;
+			return i;
 		}
 		req->rq_reqbuf = msg;
 		req->rq_reqbuf_len = size;
@@ -481,6 +481,7 @@ void ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq)
 		list_add_tail(&req->rq_list, &pool->prp_req_list);
 	}
 	spin_unlock(&pool->prp_lock);
+	return num_rq;
 }
 EXPORT_SYMBOL(ptlrpc_add_rqs_to_pool);
 
@@ -494,7 +495,7 @@ EXPORT_SYMBOL(ptlrpc_add_rqs_to_pool);
  */
 struct ptlrpc_request_pool *
 ptlrpc_init_rq_pool(int num_rq, int msgsize,
-		    void (*populate_pool)(struct ptlrpc_request_pool *, int))
+		    int (*populate_pool)(struct ptlrpc_request_pool *, int))
 {
 	struct ptlrpc_request_pool *pool;
 
@@ -512,11 +513,6 @@ ptlrpc_init_rq_pool(int num_rq, int msgsize,
 
 	populate_pool(pool, num_rq);
 
-	if (list_empty(&pool->prp_req_list)) {
-		/* have not allocated a single request for the pool */
-		kfree(pool);
-		pool = NULL;
-	}
 	return pool;
 }
 EXPORT_SYMBOL(ptlrpc_init_rq_pool);
@@ -702,11 +698,10 @@ struct ptlrpc_request *__ptlrpc_request_alloc(struct obd_import *imp,
 {
 	struct ptlrpc_request *request = NULL;
 
-	if (pool)
-		request = ptlrpc_prep_req_from_pool(pool);
+	request = ptlrpc_request_cache_alloc(GFP_NOFS);
 
-	if (!request)
-		request = ptlrpc_request_cache_alloc(GFP_NOFS);
+	if (!request && pool)
+		request = ptlrpc_prep_req_from_pool(pool);
 
 	if (request) {
 		LASSERTF((unsigned long)imp > 0x1000, "%p", imp);
@@ -849,14 +844,17 @@ ptlrpc_prep_req(struct obd_import *imp, __u32 version, int opcode, int count,
 EXPORT_SYMBOL(ptlrpc_prep_req);
 
 /**
- * Allocate and initialize new request set structure.
+ * Allocate and initialize new request set structure on the current CPT.
  * Returns a pointer to the newly allocated set structure or NULL on error.
  */
 struct ptlrpc_request_set *ptlrpc_prep_set(void)
 {
 	struct ptlrpc_request_set *set;
+	int cpt;
 
-	set = kzalloc(sizeof(*set), GFP_NOFS);
+	cpt = cfs_cpt_current(cfs_cpt_table, 0);
+	set = kzalloc_node(sizeof(*set), GFP_NOFS,
+			   cfs_cpt_spread_node(cfs_cpt_table, cpt));
 	if (!set)
 		return NULL;
 	atomic_set(&set->set_refcount, 1);
@@ -1164,12 +1162,11 @@ static int ptlrpc_check_status(struct ptlrpc_request *req)
 		return err < 0 ? err : -EINVAL;
 	}
 
-	if (err < 0) {
+	if (err < 0)
 		DEBUG_REQ(D_INFO, req, "status is %d", err);
-	} else if (err > 0) {
+	else if (err > 0)
 		/* XXX: translate this error from net to host */
 		DEBUG_REQ(D_INFO, req, "status is %d", err);
-	}
 
 	return err;
 }
@@ -2833,7 +2830,7 @@ int ptlrpc_replay_req(struct ptlrpc_request *req)
 	atomic_inc(&req->rq_import->imp_replay_inflight);
 	ptlrpc_request_addref(req); /* ptlrpcd needs a ref */
 
-	ptlrpcd_add_req(req, PDL_POLICY_LOCAL, -1);
+	ptlrpcd_add_req(req);
 	return 0;
 }
 EXPORT_SYMBOL(ptlrpc_replay_req);
@@ -2954,7 +2951,7 @@ void ptlrpc_init_xid(void)
 	}
 
 	/* Always need to be aligned to a power-of-two for multi-bulk BRW */
-	CLASSERT((PTLRPC_BULK_OPS_COUNT & (PTLRPC_BULK_OPS_COUNT - 1)) == 0);
+	CLASSERT(((PTLRPC_BULK_OPS_COUNT - 1) & PTLRPC_BULK_OPS_COUNT) == 0);
 	ptlrpc_last_xid &= PTLRPC_BULK_OPS_MASK;
 }
 
@@ -3039,7 +3036,7 @@ static void ptlrpcd_add_work_req(struct ptlrpc_request *req)
 	req->rq_xid		= ptlrpc_next_xid();
 	req->rq_import_generation = req->rq_import->imp_generation;
 
-	ptlrpcd_add_req(req, PDL_POLICY_ROUND, -1);
+	ptlrpcd_add_req(req);
 }
 
 static int work_interpreter(const struct lu_env *env,

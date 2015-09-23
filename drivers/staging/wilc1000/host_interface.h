@@ -14,63 +14,51 @@
 /*****************************************************************************/
 /*								Macros                                       */
 /*****************************************************************************/
-#define FAIL		0x0000
-#define SUCCESS		0x0001
 
 #define IP_ALEN  4
 
-#define BIT2                    ((u32)(1 << 2))
-#define BIT1                    ((u32)(1 << 1))
-#define BIT0                    ((u32)(1 << 0))
-
+#define IDLE_MODE	0x00
 #define AP_MODE		0x01
 #define STATION_MODE	0x02
-#define GO_MODE	0x03
+#define GO_MODE		0x03
 #define CLIENT_MODE	0x04
 
 
-#define MAX_NUM_STA                 9
+#define MAX_NUM_STA				9
 #define ACTIVE_SCAN_TIME			10
 #define PASSIVE_SCAN_TIME			1200
 #define MIN_SCAN_TIME				10
 #define MAX_SCAN_TIME				1200
 #define DEFAULT_SCAN				0
-#define USER_SCAN					BIT0
-#define OBSS_PERIODIC_SCAN			BIT1
-#define OBSS_ONETIME_SCAN			BIT2
+#define USER_SCAN				BIT(0)
+#define OBSS_PERIODIC_SCAN			BIT(1)
+#define OBSS_ONETIME_SCAN			BIT(2)
 #define GTK_RX_KEY_BUFF_LEN			24
-#define ADDKEY						0x1
-#define REMOVEKEY					0x2
-#define DEFAULTKEY					0x4
-#define ADDKEY_AP					0x8
-#define MAX_NUM_SCANNED_NETWORKS	100 /* 30		// rachel */
-#define MAX_NUM_SCANNED_NETWORKS_SHADOW	130
-#define MAX_NUM_PROBED_SSID            10  /*One more than the number of scanned ssids*/
+#define ADDKEY					0x1
+#define REMOVEKEY				0x2
+#define DEFAULTKEY				0x4
+#define ADDKEY_AP				0x8
+#define MAX_NUM_SCANNED_NETWORKS		100 /* 30		// rachel */
+#define MAX_NUM_SCANNED_NETWORKS_SHADOW		130
+#define MAX_NUM_PROBED_SSID			10  /*One more than the number of scanned ssids*/
 #define CHANNEL_SCAN_TIME			250 /* 250 */
 
 #define TX_MIC_KEY_LEN				8
 #define RX_MIC_KEY_LEN				8
-#define PTK_KEY_LEN					16
+#define PTK_KEY_LEN				16
 
 #define TX_MIC_KEY_MSG_LEN			26
 #define RX_MIC_KEY_MSG_LEN			48
 #define PTK_KEY_MSG_LEN				39
 
 #define PMKSA_KEY_LEN				22
-#define ETH_ALEN  6
-#define PMKID_LEN					16
-#define WILC_MAX_NUM_PMKIDS  16
-#define WILC_SUPP_MCS_SET_SIZE	16
-#define WILC_ADD_STA_LENGTH	40 /* Not including the rates field cause it has variable length*/
+#define ETH_ALEN				6
+#define PMKID_LEN				16
+#define WILC_MAX_NUM_PMKIDS			16
+#define WILC_SUPP_MCS_SET_SIZE			16
+#define WILC_ADD_STA_LENGTH			40 /* Not including the rates field cause it has variable length*/
 #define SCAN_EVENT_DONE_ABORTED
-/*****************************************************************************/
-/* Data Types                                                                */
-/*****************************************************************************/
-/* typedef unsigned char	uint8; */
-/* typedef signed char     int8; */
-/* typedef unsigned short	uint16; */
-/* typedef unsigned long   uint32; */
-/* typedef uint32   Bool; */
+#define NUM_CONCURRENT_IFC			2
 
 typedef struct {
 	u16 cfg_wid;
@@ -89,13 +77,13 @@ typedef struct _tstrStatistics {
 
 
 typedef enum {
-	HOST_IF_IDLE					= 0,
-	HOST_IF_SCANNING				= 1,
-	HOST_IF_CONNECTING				= 2,
-	HOST_IF_WAITING_CONN_RESP		= 3,
-	HOST_IF_CONNECTED				= 4,
-	HOST_IF_P2P_LISTEN				= 5,
-	HOST_IF_FORCE_32BIT			= 0xFFFFFFFF
+	HOST_IF_IDLE			= 0,
+	HOST_IF_SCANNING		= 1,
+	HOST_IF_CONNECTING		= 2,
+	HOST_IF_WAITING_CONN_RESP	= 3,
+	HOST_IF_CONNECTED		= 4,
+	HOST_IF_P2P_LISTEN		= 5,
+	HOST_IF_FORCE_32BIT		= 0xFFFFFFFF
 } tenuHostIFstate;
 
 typedef struct _tstrHostIFpmkid {
@@ -109,19 +97,19 @@ typedef struct _tstrHostIFpmkidAttr {
 } tstrHostIFpmkidAttr;
 
 typedef enum {
-	AUTORATE	 = 0,
-	MBPS_1	     = 1,
-	MBPS_2	     = 2,
-	MBPS_5_5	     = 5,
-	MBPS_11	     = 11,
-	MBPS_6	     = 6,
-	MBPS_9	     = 9,
-	MBPS_12	     = 12,
-	MBPS_18	     = 18,
-	MBPS_24	     = 24,
-	MBPS_36	     = 36,
-	MBPS_48	     = 48,
-	MBPS_54	     = 54
+	AUTORATE	= 0,
+	MBPS_1		= 1,
+	MBPS_2		= 2,
+	MBPS_5_5	= 5,
+	MBPS_11		= 11,
+	MBPS_6		= 6,
+	MBPS_9		= 9,
+	MBPS_12		= 12,
+	MBPS_18		= 18,
+	MBPS_24		= 24,
+	MBPS_36		= 36,
+	MBPS_48		= 48,
+	MBPS_54		= 54
 } CURRENT_TX_RATE_T;
 
 typedef struct {
@@ -152,23 +140,23 @@ typedef struct {
 typedef enum {
 	RETRY_SHORT		= 1 << 0,
 	RETRY_LONG		= 1 << 1,
-	FRAG_THRESHOLD	= 1 << 2,
-	RTS_THRESHOLD	= 1 << 3,
-	BSS_TYPE  = 1 << 4,
-	AUTH_TYPE = 1 << 5,
-	AUTHEN_TIMEOUT = 1 << 6,
-	POWER_MANAGEMENT = 1 << 7,
-	PREAMBLE = 1 << 8,
-	SHORT_SLOT_ALLOWED = 1 << 9,
-	TXOP_PROT_DISABLE = 1 << 10,
-	BEACON_INTERVAL = 1 << 11,
-	DTIM_PERIOD = 1 << 12,
-	SITE_SURVEY = 1 << 13,
-	SITE_SURVEY_SCAN_TIME = 1 << 14,
-	ACTIVE_SCANTIME = 1 << 15,
-	PASSIVE_SCANTIME = 1 << 16,
-	CURRENT_TX_RATE = 1 << 17,
-	HT_ENABLE = 1 << 18,
+	FRAG_THRESHOLD		= 1 << 2,
+	RTS_THRESHOLD		= 1 << 3,
+	BSS_TYPE		= 1 << 4,
+	AUTH_TYPE		= 1 << 5,
+	AUTHEN_TIMEOUT		= 1 << 6,
+	POWER_MANAGEMENT	= 1 << 7,
+	PREAMBLE		= 1 << 8,
+	SHORT_SLOT_ALLOWED	= 1 << 9,
+	TXOP_PROT_DISABLE	= 1 << 10,
+	BEACON_INTERVAL		= 1 << 11,
+	DTIM_PERIOD		= 1 << 12,
+	SITE_SURVEY		= 1 << 13,
+	SITE_SURVEY_SCAN_TIME	= 1 << 14,
+	ACTIVE_SCANTIME		= 1 << 15,
+	PASSIVE_SCANTIME	= 1 << 16,
+	CURRENT_TX_RATE		= 1 << 17,
+	HT_ENABLE		= 1 << 18,
 } tenuCfgParam;
 
 typedef struct {
@@ -184,13 +172,12 @@ typedef enum {SCAN_EVENT_NETWORK_FOUND  = 0,
 typedef enum {
 	CONN_DISCONN_EVENT_CONN_RESP		= 0,
 	CONN_DISCONN_EVENT_DISCONN_NOTIF	= 1,
-	CONN_DISCONN_EVENT_FORCE_32BIT	 = 0xFFFFFFFF
+	CONN_DISCONN_EVENT_FORCE_32BIT		= 0xFFFFFFFF
 } tenuConnDisconnEvent;
 
 typedef enum {
 	WEP,
 	WPARxGtk,
-	/* WPATxGtk, */
 	WPAPtk,
 	PMKSA,
 } tenuKeyType;
@@ -206,10 +193,8 @@ typedef void (*tWILCpfConnectResult)(tenuConnDisconnEvent,
 				     tstrDisconnectNotifInfo *,
 				     void *);
 
-#ifdef WILC_P2P
 typedef void (*tWILCpfRemainOnChanExpired)(void *, u32);  /*Remain on channel expiration callback function*/
 typedef void (*tWILCpfRemainOnChanReady)(void *); /*Remain on channel callback function*/
-#endif
 
 /* typedef u32 WILC_WFIDrvHandle; */
 typedef struct {
@@ -217,7 +202,7 @@ typedef struct {
 } *WILC_WFIDrvHandle;
 
 /*!
- *  @struct             tstrRcvdNetworkInfo
+ *  @struct             rcvd_net_info
  *  @brief		Structure to hold Received Asynchronous Network info
  *  @details
  *  @todo
@@ -226,12 +211,11 @@ typedef struct {
  *  @date		25 March 2012
  *  @version		1.0
  */
-typedef struct _tstrRcvdNetworkInfo {
+struct rcvd_net_info {
 	u8 *pu8Buffer;
 	u32 u32Length;
-} tstrRcvdNetworkInfo;
+};
 
-/*BugID_4156*/
 typedef struct _tstrHiddenNetworkInfo {
 	u8  *pu8ssid;
 	u8 u8ssidlen;
@@ -271,57 +255,50 @@ typedef struct {
 	void *u32UserConnectPvoid;
 } tstrWILC_UsrConnReq;
 
-typedef struct {
+struct drv_handler {
 	u32 u32Address;
-} tstrHostIfSetDrvHandler;
+};
 
-typedef struct {
+struct op_mode {
 	u32 u32Mode;
-} tstrHostIfSetOperationMode;
+};
 
-/*BugID_5077*/
-typedef struct {
+struct set_mac_addr {
 	u8 u8MacAddress[ETH_ALEN];
-} tstrHostIfSetMacAddress;
+};
 
-/*BugID_5213*/
-typedef struct {
+struct get_mac_addr {
 	u8 *u8MacAddress;
-} tstrHostIfGetMacAddress;
+};
 
-/*BugID_5222*/
-typedef struct {
+struct ba_session_info {
 	u8 au8Bssid[ETH_ALEN];
 	u8 u8Ted;
 	u16 u16BufferSize;
 	u16 u16SessionTimeout;
-} tstrHostIfBASessionInfo;
+};
 
-#ifdef WILC_P2P
-typedef struct {
+struct remain_ch {
 	u16 u16Channel;
 	u32 u32duration;
 	tWILCpfRemainOnChanExpired pRemainOnChanExpired;
 	tWILCpfRemainOnChanReady pRemainOnChanReady;
 	void *pVoid;
 	u32 u32ListenSessionID;
-} tstrHostIfRemainOnChan;
+};
 
-typedef struct {
-
+struct reg_frame {
 	bool bReg;
 	u16 u16FrameType;
 	u8 u8Regid;
+};
 
 
-} tstrHostIfRegisterFrame;
-
-
-#define   ACTION         0xD0
-#define   PROBE_REQ   0x40
-#define   PROBE_RESP  0x50
-#define   ACTION_FRM_IDX   0
-#define   PROBE_REQ_IDX     1
+#define ACTION			0xD0
+#define PROBE_REQ		0x40
+#define PROBE_RESP		0x50
+#define ACTION_FRM_IDX		0
+#define PROBE_REQ_IDX		1
 
 
 enum p2p_listen_state {
@@ -330,7 +307,6 @@ enum p2p_listen_state {
 	P2P_GRP_FORMATION
 };
 
-#endif
 typedef struct {
 	/* Scan user structure */
 	tstrWILC_UsrScanReq strWILC_UsrScanReq;
@@ -338,17 +314,13 @@ typedef struct {
 	/* Connect User structure */
 	tstrWILC_UsrConnReq strWILC_UsrConnReq;
 
-	#ifdef WILC_P2P
 	/*Remain on channel struvture*/
-	tstrHostIfRemainOnChan strHostIfRemainOnChan;
+	struct remain_ch strHostIfRemainOnChan;
 	u8 u8RemainOnChan_pendingreq;
 	u64 u64P2p_MgmtTimeout;
 	u8 u8P2PConnect;
-	#endif
 
 	tenuHostIFstate enuHostIFstate;
-
-	/* bool bPendingConnRequest; */
 
 	#ifndef CONNECT_DIRECT
 	u32 u32SurveyResultsCount;
@@ -369,9 +341,7 @@ typedef struct {
 /* timer handlers */
 	struct timer_list hScanTimer;
 	struct timer_list hConnectTimer;
-	#ifdef WILC_P2P
 	struct timer_list hRemainOnChannel;
-	#endif
 
 	bool IFC_UP;
 } tstrWILC_WFIDrv;
@@ -396,7 +366,7 @@ typedef enum {
 	WILC_STA_FLAG_AUTHENTICATED             /*!< station is authenticated*/
 } tenuWILC_StaFlag;
 
-typedef struct {
+struct add_sta_param {
 	u8 au8BSSID[ETH_ALEN];
 	u16 u16AssocID;
 	u8 u8NumRates;
@@ -410,9 +380,7 @@ typedef struct {
 	u8 u8ASELCap;
 	u16 u16FlagsMask;               /*<! Determines which of u16FlagsSet were changed>*/
 	u16 u16FlagsSet;                /*<! Decoded according to tenuWILC_StaFlag */
-} tstrWILC_AddStaParam;
-
-/* extern void CfgDisconnected(void* pUserVoid, u16 u16reason, u8 * ie, size_t ie_len); */
+};
 
 /*****************************************************************************/
 /*																			 */
@@ -1078,7 +1046,8 @@ s32 host_int_add_beacon(tstrWILC_WFIDrv *hWFIDrv, u32 u32Interval,
 s32 host_int_del_beacon(tstrWILC_WFIDrv *hWFIDrv);
 
 /*!
- *  @fn		s32 host_int_add_station(WILC_WFIDrvHandle hWFIDrv, tstrWILC_AddStaParam strStaParams)
+ *  @fn		s32 host_int_add_station(WILC_WFIDrvHandle hWFIDrv,
+ *					 struct add_sta_param *pstrStaParams)
  *  @brief		Notifies the firmware with a new associated stations
  *  @details
  *  @param[in,out]	hWFIDrv		handle to the wifi driver
@@ -1090,7 +1059,8 @@ s32 host_int_del_beacon(tstrWILC_WFIDrv *hWFIDrv);
  *  @date		12 July 2012
  *  @version		1.0 Description
  */
-s32 host_int_add_station(tstrWILC_WFIDrv *hWFIDrv, tstrWILC_AddStaParam *pstrStaParams);
+s32 host_int_add_station(tstrWILC_WFIDrv *hWFIDrv,
+			 struct add_sta_param *pstrStaParams);
 
 /*!
  *  @fn		s32 host_int_del_allstation(WILC_WFIDrvHandle hWFIDrv, const u8* pu8MacAddr)
@@ -1123,7 +1093,8 @@ s32 host_int_del_allstation(tstrWILC_WFIDrv *hWFIDrv, u8 pu8MacAddr[][ETH_ALEN])
 s32 host_int_del_station(tstrWILC_WFIDrv *hWFIDrv, const u8 *pu8MacAddr);
 
 /*!
- *  @fn		s32 host_int_edit_station(WILC_WFIDrvHandle hWFIDrv, tstrWILC_AddStaParam strStaParams)
+ *  @fn		s32 host_int_edit_station(WILC_WFIDrvHandle hWFIDrv,
+ *					  struct add_sta_param *pstrStaParams)
  *  @brief		Notifies the firmware with new parameters of an already associated station
  *  @details
  *  @param[in,out]	hWFIDrv		handle to the wifi driver
@@ -1135,7 +1106,8 @@ s32 host_int_del_station(tstrWILC_WFIDrv *hWFIDrv, const u8 *pu8MacAddr);
  *  @date		15 July 2012
  *  @version		1.0 Description
  */
-s32 host_int_edit_station(tstrWILC_WFIDrv *hWFIDrv, tstrWILC_AddStaParam *pstrStaParams);
+s32 host_int_edit_station(tstrWILC_WFIDrv *hWFIDrv,
+			  struct add_sta_param *pstrStaParams);
 
 /*!
  *  @fn		s32 host_int_set_power_mgmt(WILC_WFIDrvHandle hWFIDrv, bool bIsEnabled, u32 u32Timeout)
@@ -1211,7 +1183,6 @@ s32 host_int_del_All_Rx_BASession(tstrWILC_WFIDrv *hWFIDrv, char *pBSSID, char T
  */
 s32 host_int_get_ipaddress(tstrWILC_WFIDrv *hWFIDrv, u8 *pu8IPAddr, u8 idx);
 
-#ifdef WILC_P2P
 /**
  *  @brief           host_int_remain_on_channel
  *  @details
@@ -1249,7 +1220,6 @@ s32 host_int_ListenStateExpired(tstrWILC_WFIDrv *hWFIDrv, u32 u32SessionID);
  *  @version	1.0
  */
 s32 host_int_frame_register(tstrWILC_WFIDrv *hWFIDrv, u16 u16FrameType, bool bReg);
-#endif
 /**
  *  @brief           host_int_set_wfi_drv_handler
  *  @details

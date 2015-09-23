@@ -50,7 +50,7 @@ extern struct mutex ptlrpc_all_services_mutex;
 
 int ptlrpc_start_thread(struct ptlrpc_service_part *svcpt, int wait);
 /* ptlrpcd.c */
-int ptlrpcd_start(int index, int max, const char *name, struct ptlrpcd_ctl *pc);
+int ptlrpcd_start(struct ptlrpcd_ctl *pc);
 
 /* client.c */
 struct ptlrpc_bulk_desc *ptlrpc_new_bulk(unsigned npages, unsigned max_brw,
@@ -298,6 +298,6 @@ static inline void tgt_mod_exit(void)
 static inline void ptlrpc_reqset_put(struct ptlrpc_request_set *set)
 {
 	if (atomic_dec_and_test(&set->set_refcount))
-		OBD_FREE_PTR(set);
+		kfree(set);
 }
 #endif /* PTLRPC_INTERNAL_H */

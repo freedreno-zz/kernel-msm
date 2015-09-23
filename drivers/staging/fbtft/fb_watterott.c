@@ -12,10 +12,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <linux/module.h>
@@ -42,7 +38,6 @@
 #define COLOR_RGB332		9
 #define COLOR_RGB233		10
 #define COLOR_RGB565		16
-
 
 static short mode = 565;
 module_param(mode, short, 0);
@@ -257,31 +252,24 @@ static int backlight_chip_update_status(struct backlight_device *bd)
 	return 0;
 }
 
+static const struct backlight_ops bl_ops = {
+	.update_status = backlight_chip_update_status,
+};
+
 static void register_chip_backlight(struct fbtft_par *par)
 {
 	struct backlight_device *bd;
 	struct backlight_properties bl_props = { 0, };
-	struct backlight_ops *bl_ops;
 
 	fbtft_par_dbg(DEBUG_BACKLIGHT, par, "%s()\n", __func__);
 
-	bl_ops = devm_kzalloc(par->info->device, sizeof(struct backlight_ops),
-				GFP_KERNEL);
-	if (!bl_ops) {
-		dev_err(par->info->device,
-			"%s: could not allocate memory for backlight operations.\n",
-			__func__);
-		return;
-	}
-
-	bl_ops->update_status = backlight_chip_update_status;
 	bl_props.type = BACKLIGHT_RAW;
 	bl_props.power = FB_BLANK_POWERDOWN;
 	bl_props.max_brightness = 100;
 	bl_props.brightness = DEFAULT_BRIGHTNESS;
 
 	bd = backlight_device_register(dev_driver_string(par->info->device),
-				par->info->device, par, bl_ops, &bl_props);
+				par->info->device, par, &bl_ops, &bl_props);
 	if (IS_ERR(bd)) {
 		dev_err(par->info->device,
 			"cannot register backlight device (%ld)\n",
@@ -296,7 +284,6 @@ static void register_chip_backlight(struct fbtft_par *par)
 #else
 #define register_chip_backlight NULL
 #endif
-
 
 static struct fbtft_display display = {
 	.regwidth = 8,
@@ -315,6 +302,7 @@ static struct fbtft_display display = {
 		.register_backlight = register_chip_backlight,
 	},
 };
+
 FBTFT_REGISTER_DRIVER(DRVNAME, "watterott,openlcd", &display);
 
 MODULE_ALIAS("spi:" DRVNAME);

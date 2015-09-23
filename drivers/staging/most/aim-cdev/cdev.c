@@ -48,7 +48,6 @@ struct aim_channel {
 static struct list_head channel_list;
 static spinlock_t ch_list_lock;
 
-
 static struct aim_channel *get_channel(struct most_interface *iface, int id)
 {
 	struct aim_channel *channel, *tmp;
@@ -133,7 +132,7 @@ static int aim_close(struct inode *inode, struct file *filp)
 
 	while (0 != kfifo_out((struct kfifo *)&channel->fifo, &mbo, 1))
 		most_put_mbo(mbo);
-	if (channel->keep_mbo == true)
+	if (channel->keep_mbo)
 		most_put_mbo(channel->stacked_mbo);
 	ret = most_stop_channel(channel->iface, channel->channel_id);
 	atomic_dec(&channel->access_ref);
@@ -167,14 +166,14 @@ static ssize_t aim_write(struct file *filp, const char __user *buf,
 
 	mbo = most_get_mbo(channel->iface, channel->channel_id);
 
-	if (!mbo && channel->dev) {
+	if (!mbo) {
 		if ((filp->f_flags & O_NONBLOCK))
 			return -EAGAIN;
 		if (wait_event_interruptible(
 			    channel->wq,
 			    (mbo = most_get_mbo(channel->iface,
 						channel->channel_id)) ||
-			    (channel->dev == NULL)))
+			    (!channel->dev)))
 			return -ERESTARTSYS;
 	}
 
@@ -224,18 +223,18 @@ aim_read(struct file *filp, char __user *buf, size_t count, loff_t *offset)
 	struct mbo *mbo;
 	struct aim_channel *channel = filp->private_data;
 
-	if (channel->keep_mbo == true) {
+	if (channel->keep_mbo) {
 		mbo = channel->stacked_mbo;
 		channel->keep_mbo = false;
 		goto start_copy;
 	}
 	while ((0 == kfifo_out(&channel->fifo, &mbo, 1))
-	       && (channel->dev != NULL)) {
+	       && (channel->dev)) {
 		if (filp->f_flags & O_NONBLOCK)
 			return -EAGAIN;
 		if (wait_event_interruptible(channel->wq,
 					     (!kfifo_is_empty(&channel->fifo) ||
-					      (channel->dev == NULL))))
+					      (!channel->dev))))
 			return -ERESTARTSYS;
 	}
 
@@ -259,7 +258,7 @@ start_copy:
 
 	retval = not_copied ? proc_len - not_copied : proc_len;
 
-	if (channel->keep_mbo == true) {
+	if (channel->keep_mbo) {
 		channel->mbo_offs = retval;
 		channel->stacked_mbo = mbo;
 	} else {
@@ -300,7 +299,7 @@ static int aim_disconnect_channel(struct most_interface *iface, int channel_id)
 	}
 
 	channel = get_channel(iface, channel_id);
-	if (channel == NULL)
+	if (!channel)
 		return -ENXIO;
 
 	mutex_lock(&channel->io_mutex);
@@ -337,7 +336,7 @@ static int aim_rx_completion(struct mbo *mbo)
 		return -EINVAL;
 
 	channel = get_channel(mbo->ifp, mbo->hdm_channel_id);
-	if (channel == NULL)
+	if (!channel)
 		return -ENXIO;
 
 	kfifo_in(&channel->fifo, &mbo, 1);
@@ -370,7 +369,7 @@ static int aim_tx_completion(struct most_interface *iface, int channel_id)
 	}
 
 	channel = get_channel(iface, channel_id);
-	if (channel == NULL)
+	if (!channel)
 		return -ENXIO;
 	wake_up_interruptible(&channel->wq);
 	return 0;
@@ -413,7 +412,6 @@ static int aim_probe(struct most_interface *iface, int channel_id,
 
 	channel = kzalloc(sizeof(*channel), GFP_KERNEL);
 	if (!channel) {
-		pr_info("failed to alloc channel object\n");
 		retval = -ENOMEM;
 		goto error_alloc_channel;
 	}

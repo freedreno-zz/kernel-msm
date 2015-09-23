@@ -258,7 +258,7 @@ int obd_ioctl_popdata(void *arg, void *data, int len);
 
 static inline void obd_ioctl_freedata(char *buf, int len)
 {
-	OBD_FREE_LARGE(buf, len);
+	kvfree(buf);
 	return;
 }
 
@@ -313,7 +313,7 @@ static inline void obd_ioctl_freedata(char *buf, int len)
 #define OBD_IOC_CLIENT_RECOVER	 _IOW ('f', 133, OBD_IOC_DATA_TYPE)
 #define OBD_IOC_PING_TARGET	    _IOW ('f', 136, OBD_IOC_DATA_TYPE)
 
-#define OBD_IOC_DEC_FS_USE_COUNT       _IO  ('f', 139      )
+#define OBD_IOC_DEC_FS_USE_COUNT       _IO  ('f', 139)
 #define OBD_IOC_NO_TRANSNO	     _IOW ('f', 140, OBD_IOC_DATA_TYPE)
 #define OBD_IOC_SET_READONLY	   _IOW ('f', 141, OBD_IOC_DATA_TYPE)
 #define OBD_IOC_ABORT_RECOVERY	 _IOR ('f', 142, OBD_IOC_DATA_TYPE)
@@ -453,7 +453,7 @@ static inline void obd_ioctl_freedata(char *buf, int len)
  *					 __wake_up_common(q, ...);     (2.2)
  *					 spin_unlock(&q->lock, flags); (2.3)
  *
- *   OBD_FREE_PTR(obj);						  (3)
+ *   kfree(obj);						  (3)
  *
  * As l_wait_event() may "short-cut" execution and return without taking
  * wait-queue spin-lock, some additional synchronization is necessary to
@@ -557,9 +557,9 @@ do {									   \
 		if (__timeout == 0) {					  \
 			schedule();					       \
 		} else {						       \
-			long interval = info->lwi_interval?	  \
+			long interval = info->lwi_interval ?	  \
 					     min_t(long,	     \
-						 info->lwi_interval,__timeout):\
+						 info->lwi_interval, __timeout) : \
 					     __timeout;			\
 			long remaining = schedule_timeout(interval);\
 			__timeout = cfs_time_sub(__timeout,		    \

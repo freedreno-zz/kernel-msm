@@ -1487,7 +1487,7 @@ static int lov_iocontrol(unsigned int cmd, struct obd_export *exp, int len,
 		struct obd_quotactl *oqctl;
 
 		if (qctl->qc_valid == QC_OSTIDX) {
-			if (qctl->qc_idx < 0 || count <= qctl->qc_idx)
+			if (count <= qctl->qc_idx)
 				return -EINVAL;
 
 			tgt = lov->lov_tgts[qctl->qc_idx];
@@ -1672,7 +1672,7 @@ static int fiemap_calc_last_stripe(struct lov_stripe_md *lsm, u64 fm_start,
 				break;
 		}
 		*stripe_count = j;
-		last_stripe = (start_stripe + j - 1) %lsm->lsm_stripe_count;
+		last_stripe = (start_stripe + j - 1) % lsm->lsm_stripe_count;
 	}
 
 	return last_stripe;
@@ -1862,7 +1862,7 @@ static int lov_fiemap(struct lov_obd *lov, __u32 keylen, void *key,
 			fm_local->fm_start = lun_start;
 			fm_local->fm_flags &= ~FIEMAP_FLAG_DEVICE_ORDER;
 			memcpy(&fm_key->fiemap, fm_local, sizeof(*fm_local));
-			*vallen=fiemap_count_to_size(fm_local->fm_extent_count);
+			*vallen = fiemap_count_to_size(fm_local->fm_extent_count);
 			rc = obd_get_info(NULL,
 					  lov->lov_tgts[ost_index]->ltd_exp,
 					  keylen, key, vallen, fm_local, lsm);

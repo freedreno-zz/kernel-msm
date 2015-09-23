@@ -306,7 +306,7 @@ union ptlrpc_async_args {
 	/**
 	 * Scratchpad for passing args to completion interpreter. Users
 	 * cast to the struct of their choosing, and CLASSERT that this is
-	 * big enough.  For _tons_ of context, OBD_ALLOC a struct and store
+	 * big enough.  For _tons_ of context, kmalloc a struct and store
 	 * a pointer to it here.  The pointer_arg ensures this struct is at
 	 * least big enough for that.
 	 */
@@ -500,7 +500,7 @@ struct ptlrpc_request_pool {
 	/** Maximum message size that would fit into a request from this pool */
 	int prp_rq_size;
 	/** Function to allocate more requests for this pool */
-	void (*prp_populate)(struct ptlrpc_request_pool *, int);
+	int (*prp_populate)(struct ptlrpc_request_pool *, int);
 };
 
 struct lu_context;
@@ -2065,7 +2065,7 @@ struct ptlrpc_service_part {
 	 * rqbd list and incoming requests waiting for preprocess,
 	 * threads starting & stopping are also protected by this lock.
 	 */
-	spinlock_t			scp_lock  __cfs_cacheline_aligned;
+	spinlock_t scp_lock __cfs_cacheline_aligned;
 	/** total # req buffer descs allocated */
 	int				scp_nrqbds_total;
 	/** # posted request buffers for receiving */
@@ -2191,21 +2191,29 @@ struct ptlrpcd_ctl {
 	 */
 	struct lu_env	       pc_env;
 	/**
+	 * CPT the thread is bound on.
+	 */
+	int				pc_cpt;
+	/**
 	 * Index of ptlrpcd thread in the array.
 	 */
-	int			 pc_index;
-	/**
-	 * Number of the ptlrpcd's partners.
-	 */
-	int			 pc_npartners;
+	int				pc_index;
 	/**
 	 * Pointer to the array of partners' ptlrpcd_ctl structure.
 	 */
 	struct ptlrpcd_ctl	**pc_partners;
 	/**
+	 * Number of the ptlrpcd's partners.
+	 */
+	int				pc_npartners;
+	/**
 	 * Record the partner index to be processed next.
 	 */
 	int			 pc_cursor;
+	/**
+	 * Error code if the thread failed to fully start.
+	 */
+	int				pc_error;
 };
 
 /* Bits for pc_flags */
@@ -2228,10 +2236,6 @@ enum ptlrpcd_ctl_flags {
 	 * This is a recovery ptlrpc thread.
 	 */
 	LIOD_RECOVERY    = 1 << 3,
-	/**
-	 * The ptlrpcd is bound to some CPU core.
-	 */
-	LIOD_BIND	= 1 << 4,
 };
 
 /**
@@ -2381,11 +2385,11 @@ void ptlrpc_set_add_new_req(struct ptlrpcd_ctl *pc,
 			    struct ptlrpc_request *req);
 
 void ptlrpc_free_rq_pool(struct ptlrpc_request_pool *pool);
-void ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq);
+int ptlrpc_add_rqs_to_pool(struct ptlrpc_request_pool *pool, int num_rq);
 
 struct ptlrpc_request_pool *
 ptlrpc_init_rq_pool(int, int,
-		    void (*populate_pool)(struct ptlrpc_request_pool *, int));
+		    int (*populate_pool)(struct ptlrpc_request_pool *, int));
 
 void ptlrpc_at_set_req_timeout(struct ptlrpc_request *req);
 struct ptlrpc_request *ptlrpc_request_alloc(struct obd_import *imp,
@@ -2610,7 +2614,6 @@ void lustre_msg_set_flags(struct lustre_msg *msg, int flags);
 void lustre_msg_clear_flags(struct lustre_msg *msg, int flags);
 __u32 lustre_msg_get_op_flags(struct lustre_msg *msg);
 void lustre_msg_add_op_flags(struct lustre_msg *msg, int flags);
-void lustre_msg_set_op_flags(struct lustre_msg *msg, int flags);
 struct lustre_handle *lustre_msg_get_handle(struct lustre_msg *msg);
 __u32 lustre_msg_get_type(struct lustre_msg *msg);
 __u32 lustre_msg_get_version(struct lustre_msg *msg);
@@ -2626,7 +2629,6 @@ void lustre_msg_set_slv(struct lustre_msg *msg, __u64 slv);
 void lustre_msg_set_limit(struct lustre_msg *msg, __u64 limit);
 int lustre_msg_get_status(struct lustre_msg *msg);
 __u32 lustre_msg_get_conn_cnt(struct lustre_msg *msg);
-int lustre_msg_is_v1(struct lustre_msg *msg);
 __u32 lustre_msg_get_magic(struct lustre_msg *msg);
 __u32 lustre_msg_get_timeout(struct lustre_msg *msg);
 __u32 lustre_msg_get_service_time(struct lustre_msg *msg);
@@ -2905,43 +2907,11 @@ void ptlrpc_pinger_ir_down(void);
 /** @} */
 int ptlrpc_pinger_suppress_pings(void);
 
-/* ptlrpc daemon bind policy */
-typedef enum {
-	/* all ptlrpcd threads are free mode */
-	PDB_POLICY_NONE	  = 1,
-	/* all ptlrpcd threads are bound mode */
-	PDB_POLICY_FULL	  = 2,
-	/* <free1 bound1> <free2 bound2> ... <freeN boundN> */
-	PDB_POLICY_PAIR	  = 3,
-	/* <free1 bound1> <bound1 free2> ... <freeN boundN> <boundN free1>,
-	 * means each ptlrpcd[X] has two partners: thread[X-1] and thread[X+1].
-	 * If kernel supports NUMA, pthrpcd threads are binded and
-	 * grouped by NUMA node */
-	PDB_POLICY_NEIGHBOR      = 4,
-} pdb_policy_t;
-
-/* ptlrpc daemon load policy
- * It is caller's duty to specify how to push the async RPC into some ptlrpcd
- * queue, but it is not enforced, affected by "ptlrpcd_bind_policy". If it is
- * "PDB_POLICY_FULL", then the RPC will be processed by the selected ptlrpcd,
- * Otherwise, the RPC may be processed by the selected ptlrpcd or its partner,
- * depends on which is scheduled firstly, to accelerate the RPC processing. */
-typedef enum {
-	/* on the same CPU core as the caller */
-	PDL_POLICY_SAME	 = 1,
-	/* within the same CPU partition, but not the same core as the caller */
-	PDL_POLICY_LOCAL	= 2,
-	/* round-robin on all CPU cores, but not the same core as the caller */
-	PDL_POLICY_ROUND	= 3,
-	/* the specified CPU core is preferred, but not enforced */
-	PDL_POLICY_PREFERRED    = 4,
-} pdl_policy_t;
-
 /* ptlrpc/ptlrpcd.c */
 void ptlrpcd_stop(struct ptlrpcd_ctl *pc, int force);
 void ptlrpcd_free(struct ptlrpcd_ctl *pc);
 void ptlrpcd_wake(struct ptlrpc_request *req);
-void ptlrpcd_add_req(struct ptlrpc_request *req, pdl_policy_t policy, int idx);
+void ptlrpcd_add_req(struct ptlrpc_request *req);
 void ptlrpcd_add_rqset(struct ptlrpc_request_set *set);
 int ptlrpcd_addref(void);
 void ptlrpcd_decref(void);
@@ -2959,7 +2929,6 @@ void ptlrpc_lprocfs_brw(struct ptlrpc_request *req, int bytes);
 
 /* ptlrpc/llog_client.c */
 extern struct llog_operations llog_client_ops;
-
 /** @} net */
 
 #endif

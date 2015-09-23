@@ -5,7 +5,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/cdev.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/spi/spi.h>
 
@@ -38,7 +38,7 @@
  #define MAX_SPEED 6000000
 #endif /* WILC_ASIC_A0 */
 
-static uint32_t SPEED = MIN_SPEED;
+static u32 SPEED = MIN_SPEED;
 
 struct spi_device *wilc_spi_dev;
 void linux_spi_deinit(void *vp);
@@ -113,57 +113,20 @@ int linux_spi_init(void *vp)
 #define TXRX_PHASE_SIZE (4096)
 #endif
 
-#if defined (NM73131_0_BOARD)
+#if defined(TXRX_PHASE_SIZE)
 
-int linux_spi_write(uint8_t *b, uint32_t len)
-{
-
-	int ret;
-
-	if (len > 0 && b != NULL) {
-		struct spi_message msg;
-		PRINT_D(BUS_DBG, "Request writing %d bytes\n", len);
-		struct spi_transfer tr = {
-			.tx_buf = b,
-			.len = len,
-			.speed_hz = SPEED,
-			.delay_usecs = 0,
-		};
-
-		spi_message_init(&msg);
-		spi_message_add_tail(&tr, &msg);
-		ret = spi_sync(wilc_spi_dev, &msg);
-		if (ret < 0) {
-			PRINT_ER("SPI transaction failed\n");
-		}
-
-	} else {
-		PRINT_ER("can't write data with the following length: %d\n", len);
-		PRINT_ER("FAILED due to NULL buffer or ZERO length check the following length: %d\n", len);
-		ret = -1;
-	}
-
-	/* change return value to match WILC interface */
-	(ret < 0) ? (ret = 0) : (ret = 1);
-
-
-	return ret;
-}
-
-#elif defined(TXRX_PHASE_SIZE)
-
-int linux_spi_write(uint8_t *b, uint32_t len)
+int linux_spi_write(u8 *b, u32 len)
 {
 	int ret;
+
 	if (len > 0 && b != NULL) {
 		int i = 0;
 		int blk = len / TXRX_PHASE_SIZE;
 		int remainder = len % TXRX_PHASE_SIZE;
 
 		char *r_buffer = kzalloc(TXRX_PHASE_SIZE, GFP_KERNEL);
-		if (!r_buffer) {
-			PRINT_ER("Failed to allocate memory for r_buffer\n");
-		}
+		if (!r_buffer)
+			return -ENOMEM;
 
 		if (blk) {
 			while (i < blk)	{
@@ -229,7 +192,7 @@ int linux_spi_write(uint8_t *b, uint32_t len)
 }
 
 #else
-int linux_spi_write(uint8_t *b, uint32_t len)
+int linux_spi_write(u8 *b, u32 len)
 {
 
 	int ret;
@@ -243,9 +206,9 @@ int linux_spi_write(uint8_t *b, uint32_t len)
 			.delay_usecs = 0,
 		};
 		char *r_buffer = kzalloc(len, GFP_KERNEL);
-		if (!r_buffer) {
-			PRINT_ER("Failed to allocate memory for r_buffer\n");
-		}
+		if (!r_buffer)
+			return -ENOMEM;
+
 		tr.rx_buf = r_buffer;
 		PRINT_D(BUS_DBG, "Request writing %d bytes\n", len);
 
@@ -278,40 +241,7 @@ int linux_spi_write(uint8_t *b, uint32_t len)
 
 #endif
 
-#if defined (NM73131_0_BOARD)
-
-int linux_spi_read(unsigned char *rb, unsigned long rlen)
-{
-
-	int ret;
-
-	if (rlen > 0) {
-		struct spi_message msg;
-		struct spi_transfer tr = {
-			.rx_buf = rb,
-			.len = rlen,
-			.speed_hz = SPEED,
-			.delay_usecs = 0,
-
-		};
-
-		spi_message_init(&msg);
-		spi_message_add_tail(&tr, &msg);
-		ret = spi_sync(wilc_spi_dev, &msg);
-		if (ret < 0) {
-			PRINT_ER("SPI transaction failed\n");
-		}
-	} else {
-		PRINT_ER("can't read data with the following length: %ld\n", rlen);
-		ret = -1;
-	}
-	/* change return value to match WILC interface */
-	(ret < 0) ? (ret = 0) : (ret = 1);
-
-	return ret;
-}
-
-#elif defined(TXRX_PHASE_SIZE)
+#if defined(TXRX_PHASE_SIZE)
 
 int linux_spi_read(unsigned char *rb, unsigned long rlen)
 {
@@ -324,9 +254,8 @@ int linux_spi_read(unsigned char *rb, unsigned long rlen)
 		int remainder = rlen % TXRX_PHASE_SIZE;
 
 		char *t_buffer = kzalloc(TXRX_PHASE_SIZE, GFP_KERNEL);
-		if (!t_buffer) {
-			PRINT_ER("Failed to allocate memory for t_buffer\n");
-		}
+		if (!t_buffer)
+			return -ENOMEM;
 
 		if (blk) {
 			while (i < blk)	{
@@ -403,9 +332,9 @@ int linux_spi_read(unsigned char *rb, unsigned long rlen)
 
 		};
 		char *t_buffer = kzalloc(rlen, GFP_KERNEL);
-		if (!t_buffer) {
-			PRINT_ER("Failed to allocate memory for t_buffer\n");
-		}
+		if (!t_buffer)
+			return -ENOMEM;
+
 		tr.tx_buf = t_buffer;
 
 		memset(&msg, 0, sizeof(msg));

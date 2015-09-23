@@ -94,7 +94,7 @@ void ll_pack_inode2opdata(struct inode *inode, struct md_op_data *op_data,
 		op_data->op_handle = *fh;
 	op_data->op_capa1 = ll_mdscapa_get(inode);
 
-	if (LLIF_DATA_MODIFIED & ll_i2info(inode)->lli_flags)
+	if (ll_i2info(inode)->lli_flags & LLIF_DATA_MODIFIED)
 		op_data->op_bias |= MDS_DATA_MODIFIED;
 }
 
@@ -270,7 +270,7 @@ static int ll_md_close(struct obd_export *md_exp, struct inode *inode,
 	int lockmode;
 	__u64 flags = LDLM_FL_BLOCK_GRANTED | LDLM_FL_TEST_LOCK;
 	struct lustre_handle lockh;
-	ldlm_policy_data_t policy = {.l_inodebits = {MDS_INODELOCK_OPEN}};
+	ldlm_policy_data_t policy = {.l_inodebits = {MDS_INODELOCK_OPEN} };
 	int rc = 0;
 
 	/* clear group lock, if present */
@@ -694,7 +694,7 @@ out_och_free:
 	if (rc) {
 		if (och_p && *och_p) {
 			kfree(*och_p);
-			*och_p = NULL; /* OBD_FREE writes some magic there */
+			*och_p = NULL;
 			(*och_usecount)--;
 		}
 		mutex_unlock(&lli->lli_och_mutex);
@@ -1433,7 +1433,7 @@ int ll_lov_getstripe_ea_info(struct inode *inode, const char *filename,
 	 * little endian.  We convert it to host endian before
 	 * passing it to userspace.
 	 */
-	if (LOV_MAGIC != cpu_to_le32(LOV_MAGIC)) {
+	if (cpu_to_le32(LOV_MAGIC) != LOV_MAGIC) {
 		int stripe_count;
 
 		stripe_count = le16_to_cpu(lmm->lmm_stripe_count);
@@ -2118,11 +2118,20 @@ static int ll_hsm_state_set(struct inode *inode, struct hsm_state_set *hss)
 	struct md_op_data	*op_data;
 	int			 rc;
 
+	/* Detect out-of range masks */
+	if ((hss->hss_setmask | hss->hss_clearmask) & ~HSM_FLAGS_MASK)
+		return -EINVAL;
+
 	/* Non-root users are forbidden to set or clear flags which are
 	 * NOT defined in HSM_USER_MASK. */
 	if (((hss->hss_setmask | hss->hss_clearmask) & ~HSM_USER_MASK) &&
 	    !capable(CFS_CAP_SYS_ADMIN))
 		return -EPERM;
+
+	/* Detect out-of range archive id */
+	if ((hss->hss_valid & HSS_ARCHIVE_ID) &&
+	    (hss->hss_archive_id > LL_HSM_MAX_ARCHIVE))
+		return -EINVAL;
 
 	op_data = ll_prep_md_op_data(NULL, inode, NULL, NULL, 0, 0,
 				     LUSTRE_OPC_ANY, hss);
@@ -2494,8 +2503,8 @@ ll_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	default: {
 		int err;
 
-		if (LLIOC_STOP ==
-		     ll_iocontrol_call(inode, file, cmd, arg, &err))
+		if (ll_iocontrol_call(inode, file, cmd, arg, &err) ==
+		     LLIOC_STOP)
 			return err;
 
 		return obd_iocontrol(cmd, ll_i2dtexp(inode), 0, NULL,
@@ -2670,7 +2679,7 @@ ll_file_flock(struct file *file, int cmd, struct file_lock *file_lock)
 	};
 	struct md_op_data *op_data;
 	struct lustre_handle lockh = {0};
-	ldlm_policy_data_t flock = {{0}};
+	ldlm_policy_data_t flock = { {0} };
 	__u64 flags = 0;
 	int rc;
 	int rc2 = 0;
@@ -2850,7 +2859,7 @@ ldlm_mode_t ll_take_md_lock(struct inode *inode, __u64 bits,
 	fid = &ll_i2info(inode)->lli_fid;
 	CDEBUG(D_INFO, "trying to match res "DFID"\n", PFID(fid));
 
-	rc = md_lock_match(ll_i2mdexp(inode), LDLM_FL_BLOCK_GRANTED|flags,
+	rc = md_lock_match(ll_i2mdexp(inode), flags | LDLM_FL_BLOCK_GRANTED,
 			   fid, LDLM_IBITS, &policy, mode, lockh);
 
 	return rc;
