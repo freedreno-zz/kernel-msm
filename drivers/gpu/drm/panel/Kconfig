@@ -51,4 +51,22 @@ config DRM_PANEL_SHARP_LQ101R1SX01
 	  To compile this driver as a module, choose M here: the module
 	  will be called panel-sharp-lq101r1sx01.
 
+config DRM_PANEL_AUO_NOVATEK_1080P_VID
+	tristate "AUO Novatek 1080p video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for AUO 1080p DSI panel
+	  as found in some Sony XPERIA Z3 devices
+
+config DRM_PANEL_SHARP_NOVATEK_1080P_VID
+	tristate "SHARP Novatek 1080p video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SHARP 1080p DSI panel
+	  as found in some Sony XPERIA Z3 devices
+
 endmenu

@@ -1255,6 +1255,16 @@ int drm_atomic_check_only(struct drm_atomic_state *state)
 		}
 	}
 
+	if (ret == 0) {
+		/* in legacy paths, there can be multiple atomic updates,
+		 * such as drm_mode_plane_set_obj_prop(), which happen
+		 * under a single drm_modeset_lock_all().  In the legacy
+		 * paths, skip marking acquire-done lest we anger ww-mutex:
+		 */
+		if (state->acquire_ctx != dev->mode_config.acquire_ctx)
+			ww_acquire_done(&state->acquire_ctx->ww_ctx);
+	}
+
 	return ret;
 }
 EXPORT_SYMBOL(drm_atomic_check_only);
