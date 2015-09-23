@@ -11,39 +11,46 @@
  */
 
 &soc {
-//	gpu: qcom,adreno-3xx@fdb00000 {
-//		compatible = "qcom,adreno-3xx";
-//		#stream-id-cells = <16>;
-//		reg = <0xfdb00000 0x10000>;
-//		reg-names = "kgsl_3d0_reg_memory";
-//		interrupts = <0 33 0>;
-//		interrupt-names = "kgsl_3d0_irq";
+	gpu: qcom,adreno-3xx@fdb00000 {
+		compatible = "qcom,adreno-3xx";
+		#stream-id-cells = <16>;
+		reg = <0xfdb00000 0x10000>;
+		reg-names = "kgsl_3d0_reg_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		clock-names =
+			"core_clk",
+			"iface_clk",
+			"mem_iface_clk";
+		clocks =
+			<&mmcc OXILI_GFX3D_CLK>,
+			<&mmcc OXILICX_AHB_CLK>,
+			<&mmcc OXILICX_AXI_CLK>,
+			<&mmcc OCMEMCX_OCMEMNOC_CLK>;
+
 //		clock-names =
 //			"core_clk",
 //			"iface_clk",
 //			"mem_clk",
-//			"mem_iface_clk",
-//			"alt_mem_iface_clk",
-//			"gfx3d_clk_src";
+//			"mem_iface_clk";
 //		clocks =
-//			<&gcc GCC_OXILI_GFX3D_CLK>,
-//			<&gcc GCC_OXILI_AHB_CLK>,
-//			<&gcc GCC_OXILI_GMEM_CLK>,
-//			<&gcc GCC_BIMC_GFX_CLK>,
-//			<&gcc GCC_BIMC_GPU_CLK>,
-//			<&gcc GFX3D_CLK_SRC>;
-//		power-domains = <&gcc OXILI_GDSC>;
-//		qcom,chipid = <0x03030000>;
-//		qcom,gpu-pwrlevels {
-//			compatible = "qcom,gpu-pwrlevels";
-//			qcom,gpu-pwrlevel@0 {
-//				qcom,gpu-freq = <450000000>;
-//			};
-//			qcom,gpu-pwrlevel@1 {
-//				qcom,gpu-freq = <27000000>;
-//			};
-//		};
-//	};
+//			<&mmcc OXILI_GFX3D_CLK>,
+//			<&mmcc OXILICX_AHB_CLK>,
+//			<&mmcc OXILICX_AXI_CLK>,
+//			<&mmcc OCMEMCX_AHB_CLK>;
+
+		power-domains = <&mmcc OXILICX_GDSC>;
+		qcom,chipid = <0x03030002>;
+		qcom,gpu-pwrlevels {
+			compatible = "qcom,gpu-pwrlevels";
+			qcom,gpu-pwrlevel@0 {
+				qcom,gpu-freq = <578000000>;
+			};
+			qcom,gpu-pwrlevel@1 {
+				qcom,gpu-freq = <27000000>;
+			};
+		};
+	};
 
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
@@ -58,7 +65,7 @@
 		power-domains = <&mmcc MDSS_GDSC>;
 
 		connectors = <&mdss_dsi0>;
-//		gpus = <&gpu>;
+		gpus = <&gpu>;
 
 		clocks = <&mmcc MDSS_AHB_CLK>,
 			<&mmcc MDSS_AXI_CLK>,
