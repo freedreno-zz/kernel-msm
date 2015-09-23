@@ -695,26 +695,6 @@ int acpi_device_add(struct acpi_device *device,
 	return result;
 }
 
-struct acpi_device *acpi_get_next_child(struct device *dev,
-					struct acpi_device *child)
-{
-	struct acpi_device *adev = ACPI_COMPANION(dev);
-	struct list_head *head, *next;
-
-	if (!adev)
-		return NULL;
-
-	head = &adev->children;
-	if (list_empty(head))
-		return NULL;
-
-	if (!child)
-		return list_first_entry(head, struct acpi_device, node);
-
-	next = child->node.next;
-	return next == head ? NULL : list_entry(next, struct acpi_device, node);
-}
-
 /* --------------------------------------------------------------------------
                                  Device Enumeration
    -------------------------------------------------------------------------- */
@@ -1184,7 +1164,7 @@ static void acpi_add_id(struct acpi_device_pnp *pnp, const char *dev_id)
 	if (!id)
 		return;
 
-	id->id = kstrdup(dev_id, GFP_KERNEL);
+	id->id = kstrdup_const(dev_id, GFP_KERNEL);
 	if (!id->id) {
 		kfree(id);
 		return;
@@ -1322,7 +1302,7 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
 	struct acpi_hardware_id *id, *tmp;
 
 	list_for_each_entry_safe(id, tmp, &pnp->ids, list) {
-		kfree(id->id);
+		kfree_const(id->id);
 		kfree(id);
 	}
 	kfree(pnp->unique_id);
@@ -1472,7 +1452,7 @@ bool acpi_device_is_present(struct acpi_device *adev)
 }
 
 static bool acpi_scan_handler_matching(struct acpi_scan_handler *handler,
-				       char *idstr,
+				       const char *idstr,
 				       const struct acpi_device_id **matchid)
 {
 	const struct acpi_device_id *devid;
@@ -1491,7 +1471,7 @@ static bool acpi_scan_handler_matching(struct acpi_scan_handler *handler,
 	return false;
 }
 
-static struct acpi_scan_handler *acpi_scan_match_handler(char *idstr,
+static struct acpi_scan_handler *acpi_scan_match_handler(const char *idstr,
 					const struct acpi_device_id **matchid)
 {
 	struct acpi_scan_handler *handler;
