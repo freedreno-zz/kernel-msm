@@ -17,6 +17,7 @@
 #include <linux/fs.h>
 #include <linux/seq_file.h>
 #include <linux/kernfs.h>
+#include <linux/jump_label.h>
 
 #include <linux/cgroup-defs.h>
 
@@ -49,6 +50,26 @@ extern struct css_set init_css_set;
 #define SUBSYS(_x) extern struct cgroup_subsys _x ## _cgrp_subsys;
 #include <linux/cgroup_subsys.h>
 #undef SUBSYS
+
+#define SUBSYS(_x)								\
+	extern struct static_key_true _x ## _cgrp_subsys_enabled_key;		\
+	extern struct static_key_true _x ## _cgrp_subsys_on_dfl_key;
+#include <linux/cgroup_subsys.h>
+#undef SUBSYS
+
+/**
+ * cgroup_subsys_enabled - fast test on whether a subsys is enabled
+ * @ss: subsystem in question
+ */
+#define cgroup_subsys_enabled(ss)						\
+	static_branch_likely(&ss ## _enabled_key)
+
+/**
+ * cgroup_subsys_on_dfl - fast test on whether a subsys is on default hierarchy
+ * @ss: subsystem in question
+ */
+#define cgroup_subsys_on_dfl(ss)						\
+	static_branch_likely(&ss ## _on_dfl_key)
 
 bool css_has_online_children(struct cgroup_subsys_state *css);
 struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss);
@@ -211,10 +232,32 @@ void css_task_iter_end(struct css_task_iter *it);
  * cgroup_taskset_for_each - iterate cgroup_taskset
  * @task: the loop cursor
  * @tset: taskset to iterate
+ *
+ * @tset may contain multiple tasks and they may belong to multiple
+ * processes.  When there are multiple tasks in @tset, if a task of a
+ * process is in @tset, all tasks of the process are in @tset.  Also, all
+ * are guaranteed to share the same source and destination csses.
+ *
+ * Iteration is not in any specific order.
  */
 #define cgroup_taskset_for_each(task, tset)				\
 	for ((task) = cgroup_taskset_first((tset)); (task);		\
 	     (task) = cgroup_taskset_next((tset)))
+
+/**
+ * cgroup_taskset_for_each_leader - iterate group leaders in a cgroup_taskset
+ * @leader: the loop cursor
+ * @tset: takset to iterate
+ *
+ * Iterate threadgroup leaders of @tset.  For single-task migrations, @tset
+ * may not contain any.
+ */
+#define cgroup_taskset_for_each_leader(leader, tset)			\
+	for ((leader) = cgroup_taskset_first((tset)); (leader);		\
+	     (leader) = cgroup_taskset_next((tset)))			\
+		if ((leader) != (leader)->group_leader)			\
+			;						\
+		else
 
 /*
  * Inline functions.
@@ -412,64 +455,6 @@ static inline struct cgroup *task_cgroup(struct task_struct *task,
 	return task_css(task, subsys_id)->cgroup;
 }
 
-/**
- * cgroup_on_dfl - test whether a cgroup is on the default hierarchy
- * @cgrp: the cgroup of interest
- *
- * The default hierarchy is the v2 interface of cgroup and this function
- * can be used to test whether a cgroup is on the default hierarchy for
- * cases where a subsystem should behave differnetly depending on the
- * interface version.
- *
- * The set of behaviors which change on the default hierarchy are still
- * being determined and the mount option is prefixed with __DEVEL__.
- *
- * List of changed behaviors:
- *
- * - Mount options "noprefix", "xattr", "clone_children", "release_agent"
- *   and "name" are disallowed.
- *
- * - When mounting an existing superblock, mount options should match.
- *
- * - Remount is disallowed.
- *
- * - rename(2) is disallowed.
- *
- * - "tasks" is removed.  Everything should be at process granularity.  Use
- *   "cgroup.procs" instead.
- *
- * - "cgroup.procs" is not sorted.  pids will be unique unless they got
- *   recycled inbetween reads.
- *
- * - "release_agent" and "notify_on_release" are removed.  Replacement
- *   notification mechanism will be implemented.
- *
- * - "cgroup.clone_children" is removed.
- *
- * - "cgroup.subtree_populated" is available.  Its value is 0 if the cgroup
- *   and its descendants contain no task; otherwise, 1.  The file also
- *   generates kernfs notification which can be monitored through poll and
- *   [di]notify when the value of the file changes.
- *
- * - cpuset: tasks will be kept in empty cpusets when hotplug happens and
- *   take masks of ancestors with non-empty cpus/mems, instead of being
- *   moved to an ancestor.
- *
- * - cpuset: a task can be moved into an empty cpuset, and again it takes
- *   masks of ancestors.
- *
- * - memcg: use_hierarchy is on by default and the cgroup file for the flag
- *   is not created.
- *
- * - blkcg: blk-throttle becomes properly hierarchical.
- *
- * - debug: disallowed on the default hierarchy.
- */
-static inline bool cgroup_on_dfl(const struct cgroup *cgrp)
-{
-	return cgrp->root == &cgrp_dfl_root;
-}
-
 /* no synchronization, the result can only be used as a hint */
 static inline bool cgroup_has_tasks(struct cgroup *cgrp)
 {
@@ -525,6 +510,19 @@ static inline void pr_cont_cgroup_name(struct cgroup *cgrp)
 static inline void pr_cont_cgroup_path(struct cgroup *cgrp)
 {
 	pr_cont_kernfs_path(cgrp->kn);
+}
+
+/**
+ * cgroup_file_notify - generate a file modified event for a cgroup_file
+ * @cfile: target cgroup_file
+ *
+ * @cfile must have been obtained by setting cftype->file_offset.
+ */
+static inline void cgroup_file_notify(struct cgroup_file *cfile)
+{
+	/* might not have been created due to one of the CFTYPE selector flags */
+	if (cfile->kn)
+		kernfs_notify(cfile->kn);
 }
 
 #else /* !CONFIG_CGROUPS */
