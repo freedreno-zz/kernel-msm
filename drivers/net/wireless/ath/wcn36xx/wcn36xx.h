@@ -21,6 +21,7 @@
 #include <linux/printk.h>
 #include <linux/spinlock.h>
 #include <net/mac80211.h>
+#include <linux/soc/qcom/smem_state.h>
 
 #include "hal.h"
 #include "smd.h"
@@ -34,6 +35,8 @@
 
 /* How many frames until we start a-mpdu TX session */
 #define WCN36XX_AMPDU_START_THRESH	20
+
+struct qcom_smd_channel;
 
 extern unsigned int wcn36xx_dbg_mask;
 
@@ -74,7 +77,7 @@ enum wcn36xx_debug_mask {
 	if (wcn36xx_dbg_mask & mask)					\
 		print_hex_dump(KERN_DEBUG, pr_fmt(prefix_str),	\
 			       DUMP_PREFIX_OFFSET, 32, 1,	\
-			       buf, len, false);		\
+			       buf, len, true);		\
 } while (0)
 
 enum wcn36xx_ampdu_state {
@@ -109,11 +112,11 @@ struct nv_data {
  * @tx: sends a buffer.
  */
 struct wcn36xx_platform_ctrl_ops {
-	int (*open)(void *drv_priv, void *rsp_cb);
+	int (*open)(struct wcn36xx *wcn, int (*cb)(struct qcom_smd_channel *, void *, size_t, void *));
 	void (*close)(void);
-	int (*tx)(char *buf, size_t len);
+	int (*tx)(struct wcn36xx *wcn, char *buf, size_t len);
 	int (*get_hw_mac)(u8 *addr);
-	int (*smsm_change_state)(u32 clear_mask, u32 set_mask);
+	int (*smsm_change_state)(struct wcn36xx *wcn, u32 clear_mask, u32 set_mask);
 };
 
 /**
@@ -186,8 +189,6 @@ struct wcn36xx {
 	struct device		*dev;
 	struct list_head	vif_list;
 
-	const struct firmware	*nv;
-
 	u8			fw_revision;
 	u8			fw_version;
 	u8			fw_minor;
@@ -205,6 +206,12 @@ struct wcn36xx {
 	void __iomem		*mmio;
 
 	struct wcn36xx_platform_ctrl_ops *ctrl_ops;
+	struct qcom_smd_device *smd_device;
+	struct qcom_smd_channel *smd_channel;
+	struct qcom_smem_state	*tx_enable_state;
+	unsigned		tx_enable_state_bit;
+	struct qcom_smem_state	*tx_rings_empty_state;
+	unsigned		tx_rings_empty_state_bit;
 	/*
 	 * smd_buf must be protected with smd_mutex to garantee
 	 * that all messages are sent one after another
@@ -215,7 +222,7 @@ struct wcn36xx {
 	struct completion	hal_rsp_compl;
 	struct workqueue_struct	*hal_ind_wq;
 	struct work_struct	hal_ind_work;
-	struct mutex		hal_ind_mutex;
+	spinlock_t		hal_ind_lock;
 	struct list_head	hal_ind_queue;
 
 	/* DXE channels */
@@ -256,6 +263,7 @@ static inline bool wcn36xx_is_fw_version(struct wcn36xx *wcn,
 		wcn->fw_revision == revision);
 }
 void wcn36xx_set_default_rates(struct wcn36xx_hal_supported_rates *rates);
+int wcn36xx_smd_rsp_process(struct qcom_smd_device *sdev, const void *buf, size_t len);
 
 static inline
 struct ieee80211_sta *wcn36xx_priv_to_sta(struct wcn36xx_sta *sta_priv)

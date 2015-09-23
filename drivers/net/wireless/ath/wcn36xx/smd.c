@@ -19,6 +19,7 @@
 #include <linux/etherdevice.h>
 #include <linux/firmware.h>
 #include <linux/bitops.h>
+#include <linux/soc/qcom/smd.h>
 #include "smd.h"
 
 struct wcn36xx_cfg_val {
@@ -253,7 +254,7 @@ static int wcn36xx_smd_send_and_wait(struct wcn36xx *wcn, size_t len)
 
 	init_completion(&wcn->hal_rsp_compl);
 	start = jiffies;
-	ret = wcn->ctrl_ops->tx(wcn->hal_buf, len);
+	ret = wcn->ctrl_ops->tx(wcn, wcn->hal_buf, len);
 	if (ret) {
 		wcn36xx_err("HAL TX failed\n");
 		goto out;
@@ -300,74 +301,6 @@ static int wcn36xx_smd_rsp_status_check(void *buf, size_t len)
 		return rsp->status;
 
 	return 0;
-}
-
-int wcn36xx_smd_load_nv(struct wcn36xx *wcn)
-{
-	struct nv_data *nv_d;
-	struct wcn36xx_hal_nv_img_download_req_msg msg_body;
-	int fw_bytes_left;
-	int ret;
-	u16 fm_offset = 0;
-
-	if (!wcn->nv) {
-		ret = request_firmware(&wcn->nv, WLAN_NV_FILE, wcn->dev);
-		if (ret) {
-			wcn36xx_err("Failed to load nv file %s: %d\n",
-				      WLAN_NV_FILE, ret);
-			goto out;
-		}
-	}
-
-	nv_d = (struct nv_data *)wcn->nv->data;
-	INIT_HAL_MSG(msg_body, WCN36XX_HAL_DOWNLOAD_NV_REQ);
-
-	msg_body.header.len += WCN36XX_NV_FRAGMENT_SIZE;
-
-	msg_body.frag_number = 0;
-	/* hal_buf must be protected with  mutex */
-	mutex_lock(&wcn->hal_mutex);
-
-	do {
-		fw_bytes_left = wcn->nv->size - fm_offset - 4;
-		if (fw_bytes_left > WCN36XX_NV_FRAGMENT_SIZE) {
-			msg_body.last_fragment = 0;
-			msg_body.nv_img_buffer_size = WCN36XX_NV_FRAGMENT_SIZE;
-		} else {
-			msg_body.last_fragment = 1;
-			msg_body.nv_img_buffer_size = fw_bytes_left;
-
-			/* Do not forget update general message len */
-			msg_body.header.len = sizeof(msg_body) + fw_bytes_left;
-
-		}
-
-		/* Add load NV request message header */
-		memcpy(wcn->hal_buf, &msg_body,	sizeof(msg_body));
-
-		/* Add NV body itself */
-		memcpy(wcn->hal_buf + sizeof(msg_body),
-		       &nv_d->table + fm_offset,
-		       msg_body.nv_img_buffer_size);
-
-		ret = wcn36xx_smd_send_and_wait(wcn, msg_body.header.len);
-		if (ret)
-			goto out_unlock;
-		ret = wcn36xx_smd_rsp_status_check(wcn->hal_buf,
-						   wcn->hal_rsp_len);
-		if (ret) {
-			wcn36xx_err("hal_load_nv response failed err=%d\n",
-				    ret);
-			goto out_unlock;
-		}
-		msg_body.frag_number++;
-		fm_offset += WCN36XX_NV_FRAGMENT_SIZE;
-
-	} while (msg_body.last_fragment != 1);
-
-out_unlock:
-	mutex_unlock(&wcn->hal_mutex);
-out:	return ret;
 }
 
 static int wcn36xx_smd_start_rsp(struct wcn36xx *wcn, void *buf, size_t len)
@@ -2082,9 +2015,12 @@ out:
 	mutex_unlock(&wcn->hal_mutex);
 	return ret;
 }
-static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
+
+int wcn36xx_smd_rsp_process(struct qcom_smd_device *sdev, const void *buf, size_t len)
 {
-	struct wcn36xx_hal_msg_header *msg_header = buf;
+	const struct wcn36xx_hal_msg_header *msg_header = buf;
+	struct ieee80211_hw *hw = dev_get_drvdata(&sdev->dev);
+	struct wcn36xx *wcn = hw->priv;
 	struct wcn36xx_hal_ind_msg *msg_ind;
 	wcn36xx_dbg_dump(WCN36XX_DBG_SMD_DUMP, "SMD <<< ", buf, len);
 
@@ -2131,14 +2067,8 @@ static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
 	case WCN36XX_HAL_OTA_TX_COMPL_IND:
 	case WCN36XX_HAL_MISSED_BEACON_IND:
 	case WCN36XX_HAL_DELETE_STA_CONTEXT_IND:
-		msg_ind = kmalloc(sizeof(*msg_ind), GFP_KERNEL);
-		if (!msg_ind)
-			goto nomem;
-		msg_ind->msg_len = len;
-		msg_ind->msg = kmemdup(buf, len, GFP_KERNEL);
-		if (!msg_ind->msg) {
-			kfree(msg_ind);
-nomem:
+		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_ATOMIC);
+		if (!msg_ind) {
 			/*
 			 * FIXME: Do something smarter then just
 			 * printing an error.
@@ -2147,16 +2077,22 @@ nomem:
 				    msg_header->msg_type);
 			break;
 		}
-		mutex_lock(&wcn->hal_ind_mutex);
+		msg_ind->msg_len = len;
+		memcpy(msg_ind->msg, buf, len);
+
+		spin_lock(&wcn->hal_ind_lock);
 		list_add_tail(&msg_ind->list, &wcn->hal_ind_queue);
 		queue_work(wcn->hal_ind_wq, &wcn->hal_ind_work);
-		mutex_unlock(&wcn->hal_ind_mutex);
+		spin_unlock(&wcn->hal_ind_lock);
+
 		wcn36xx_dbg(WCN36XX_DBG_HAL, "indication arrived\n");
 		break;
 	default:
 		wcn36xx_err("SMD_EVENT (%d) not supported\n",
 			      msg_header->msg_type);
 	}
+
+	return 0;
 }
 static void wcn36xx_ind_smd_work(struct work_struct *work)
 {
@@ -2164,8 +2100,9 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
 		container_of(work, struct wcn36xx, hal_ind_work);
 	struct wcn36xx_hal_msg_header *msg_header;
 	struct wcn36xx_hal_ind_msg *hal_ind_msg;
+	unsigned long flags;
 
-	mutex_lock(&wcn->hal_ind_mutex);
+	spin_lock_irqsave(&wcn->hal_ind_lock, flags);
 
 	hal_ind_msg = list_first_entry(&wcn->hal_ind_queue,
 				       struct wcn36xx_hal_ind_msg,
@@ -2194,9 +2131,8 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
 			      msg_header->msg_type);
 	}
 	list_del(wcn->hal_ind_queue.next);
-	kfree(hal_ind_msg->msg);
 	kfree(hal_ind_msg);
-	mutex_unlock(&wcn->hal_ind_mutex);
+	spin_unlock_irqrestore(&wcn->hal_ind_lock, flags);
 }
 int wcn36xx_smd_open(struct wcn36xx *wcn)
 {
@@ -2209,18 +2145,10 @@ int wcn36xx_smd_open(struct wcn36xx *wcn)
 	}
 	INIT_WORK(&wcn->hal_ind_work, wcn36xx_ind_smd_work);
 	INIT_LIST_HEAD(&wcn->hal_ind_queue);
-	mutex_init(&wcn->hal_ind_mutex);
-
-	ret = wcn->ctrl_ops->open(wcn, wcn36xx_smd_rsp_process);
-	if (ret) {
-		wcn36xx_err("failed to open control channel\n");
-		goto free_wq;
-	}
+	spin_lock_init(&wcn->hal_ind_lock);
 
 	return ret;
 
-free_wq:
-	destroy_workqueue(wcn->hal_ind_wq);
 out:
 	return ret;
 }
@@ -2229,5 +2157,4 @@ void wcn36xx_smd_close(struct wcn36xx *wcn)
 {
 	wcn->ctrl_ops->close();
 	destroy_workqueue(wcn->hal_ind_wq);
-	mutex_destroy(&wcn->hal_ind_mutex);
 }

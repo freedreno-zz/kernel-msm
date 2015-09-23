@@ -19,6 +19,10 @@
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
+#include <linux/soc/qcom/smd.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_gpio.h>
 #include "wcn36xx.h"
 
 unsigned int wcn36xx_dbg_mask;
@@ -232,6 +236,23 @@ static void wcn36xx_detect_chip_version(struct wcn36xx *wcn)
 	}
 }
 
+#define PRONTO_PMU_OFFSET       0x21b000 + 0x1004
+#define PRONTO_SPARE_OFFSET     0x21b000 + 0x1088
+#define NVBIN_DLND_BIT          BIT(25)
+
+#define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
+#define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
+#define WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP   BIT(5)
+#define WCNSS_PMU_CFG_IRIS_XO_CFG_STS      BIT(6) /* 1: in progress, 0: done */
+
+#define WCNSS_PMU_CFG_IRIS_RESET           BIT(7)
+#define WCNSS_PMU_CFG_IRIS_RESET_STS       BIT(8) /* 1: in progress, 0: done */
+#define WCNSS_PMU_CFG_IRIS_XO_READ         BIT(9)
+#define WCNSS_PMU_CFG_IRIS_XO_READ_STS     BIT(10)
+
+#define WCNSS_PMU_CFG_IRIS_XO_MODE         0x6
+#define WCNSS_PMU_CFG_IRIS_XO_MODE_48      (3 << 1)
+
 static int wcn36xx_start(struct ieee80211_hw *hw)
 {
 	struct wcn36xx *wcn = hw->priv;
@@ -264,12 +285,6 @@ static int wcn36xx_start(struct ieee80211_hw *hw)
 		wcn36xx_err("Failed to allocate smd buf\n");
 		ret = -ENOMEM;
 		goto out_free_dxe_ctl;
-	}
-
-	ret = wcn36xx_smd_load_nv(wcn);
-	if (ret) {
-		wcn36xx_err("Failed to push NV to chip\n");
-		goto out_free_smd_buf;
 	}
 
 	ret = wcn36xx_smd_start(wcn);
@@ -655,12 +670,10 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
 				     vif->addr,
 				     bss_conf->aid);
 
-			rcu_read_lock();
 			sta = ieee80211_find_sta(vif, bss_conf->bssid);
 			if (!sta) {
 				wcn36xx_err("sta %pM is not found\n",
 					      bss_conf->bssid);
-				rcu_read_unlock();
 				goto out;
 			}
 			sta_priv = (struct wcn36xx_sta *)sta->drv_priv;
@@ -679,7 +692,6 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
 			 * place where AID is available.
 			 */
 			wcn36xx_smd_config_sta(wcn, vif, sta);
-			rcu_read_unlock();
 		} else {
 			wcn36xx_dbg(WCN36XX_DBG_MAC,
 				    "disassociated bss %pM vif %pM AID=%d\n",
@@ -981,35 +993,45 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
 }
 
 static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
-					  struct platform_device *pdev)
+					  struct device *dev)
 {
-	struct resource *res;
-	/* Set TX IRQ */
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
-					   "wcnss_wlantx_irq");
-	if (!res) {
+	u32 mmio[2];
+	int ret;
+
+	/* Get TX IRQ */
+	wcn->tx_irq = irq_of_parse_and_map(dev->of_node, 0);
+	if (!wcn->tx_irq) {
 		wcn36xx_err("failed to get tx_irq\n");
 		return -ENOENT;
 	}
-	wcn->tx_irq = res->start;
 
 	/* Set RX IRQ */
-	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
-					   "wcnss_wlanrx_irq");
-	if (!res) {
+	wcn->rx_irq = irq_of_parse_and_map(dev->of_node, 1);
+	if (!wcn->rx_irq) {
 		wcn36xx_err("failed to get rx_irq\n");
 		return -ENOENT;
 	}
-	wcn->rx_irq = res->start;
+
+	wcn->tx_enable_state = qcom_smem_state_get(dev, "tx-enable", &wcn->tx_enable_state_bit);
+	if (IS_ERR(wcn->tx_enable_state)) {
+		wcn36xx_err("failed to get tx-enable state\n");
+		return -ENOENT;
+	}
+
+	wcn->tx_rings_empty_state = qcom_smem_state_get(dev, "tx-rings-empty", &wcn->tx_rings_empty_state_bit);
+	if (IS_ERR(wcn->tx_rings_empty_state)) {
+		wcn36xx_err("failed to get tx-rings-empty state\n");
+		return -ENOENT;
+	}
 
 	/* Map the memory */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						 "wcnss_mmio");
-	if (!res) {
+	ret = of_property_read_u32_array(dev->of_node, "qcom,wcnss_mmio", mmio, 2);
+	if (ret) {
 		wcn36xx_err("failed to get mmio\n");
 		return -ENOENT;
 	}
-	wcn->mmio = ioremap(res->start, resource_size(res));
+
+	wcn->mmio = ioremap(mmio[0], mmio[1]);
 	if (!wcn->mmio) {
 		wcn36xx_err("failed to map io memory\n");
 		return -ENOMEM;
@@ -1017,14 +1039,65 @@ static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
 	return 0;
 }
 
-static int wcn36xx_probe(struct platform_device *pdev)
+static int wcn36xx_msm_smd_open(struct wcn36xx *wcn, int (*cb)(struct qcom_smd_channel *, void *, size_t, void *))
+{
+#if 0
+	pr_err("wcn36xx_msm_smd_open\n");
+	wcn->smd_channel = qcom_smd_request_channel(wcn->smd_device, NULL, cb, wcn);
+#endif
+
+	return 0;
+}
+
+static void wcn36xx_msm_smd_close(void)
+{
+	pr_err("wcn36xx_msm_smd_close\n");
+}
+
+static int wcn36xx_msm_smd_send_and_wait(struct wcn36xx *wcn, char *buf, size_t len)
+{
+	return qcom_smd_send(wcn->smd_channel, buf, len);
+}
+
+static int wcn36xx_msm_get_hw_mac(u8 *addr)
+{
+#if 0
+	static const u8 qcom_oui[3] = {0x00, 0x0A, 0xF5};
+
+	memcpy(addr, qcom_oui, 3);
+	get_random_bytes(addr + 3, 3);
+#endif
+	addr[0] = 0x18;
+	addr[1] = 0x00;
+	addr[2] = 0x2d;
+	addr[3] = 0x88;
+	addr[4] = 0x9c;
+	addr[5] = 0xab;
+
+	return 0;
+}
+
+static int wcn36xx_msm_smsm_change_state(struct wcn36xx *wcn, u32 clear_mask, u32 set_mask)
+{
+	return qcom_smem_state_update_bits(wcn->tx_enable_state, clear_mask | set_mask, set_mask);
+}
+
+static struct wcn36xx_platform_ctrl_ops wcn36xx_ctrl_ops = {
+	.open = wcn36xx_msm_smd_open,
+	.close = wcn36xx_msm_smd_close,
+	.tx = wcn36xx_msm_smd_send_and_wait,
+	.get_hw_mac = wcn36xx_msm_get_hw_mac,
+	.smsm_change_state = wcn36xx_msm_smsm_change_state,
+};
+
+static int wcn36xx_probe(struct qcom_smd_device *sdev)
 {
 	struct ieee80211_hw *hw;
 	struct wcn36xx *wcn;
 	int ret;
 	u8 addr[ETH_ALEN];
 
-	wcn36xx_dbg(WCN36XX_DBG_MAC, "platform probe\n");
+	wcn36xx_dbg(WCN36XX_DBG_MAC, "wcn36xx probe\n");
 
 	hw = ieee80211_alloc_hw(sizeof(struct wcn36xx), &wcn36xx_ops);
 	if (!hw) {
@@ -1032,11 +1105,14 @@ static int wcn36xx_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out_err;
 	}
-	platform_set_drvdata(pdev, hw);
+	dev_set_drvdata(&sdev->dev, hw);
 	wcn = hw->priv;
 	wcn->hw = hw;
-	wcn->dev = &pdev->dev;
-	wcn->ctrl_ops = pdev->dev.platform_data;
+	wcn->dev = &sdev->dev;
+	wcn->ctrl_ops = &wcn36xx_ctrl_ops;
+
+	wcn->smd_device = sdev;
+	wcn->smd_channel = sdev->channel;
 
 	mutex_init(&wcn->hal_mutex);
 
@@ -1045,7 +1121,7 @@ static int wcn36xx_probe(struct platform_device *pdev)
 		SET_IEEE80211_PERM_ADDR(wcn->hw, addr);
 	}
 
-	ret = wcn36xx_platform_get_resources(wcn, pdev);
+	ret = wcn36xx_platform_get_resources(wcn, &sdev->dev);
 	if (ret)
 		goto out_wq;
 
@@ -1063,51 +1139,43 @@ out_wq:
 out_err:
 	return ret;
 }
-static int wcn36xx_remove(struct platform_device *pdev)
+static void wcn36xx_remove(struct qcom_smd_device *sdev)
 {
-	struct ieee80211_hw *hw = platform_get_drvdata(pdev);
+	struct ieee80211_hw *hw = dev_get_drvdata(&sdev->dev);
 	struct wcn36xx *wcn = hw->priv;
-	wcn36xx_dbg(WCN36XX_DBG_MAC, "platform remove\n");
-
-	release_firmware(wcn->nv);
-	mutex_destroy(&wcn->hal_mutex);
+	wcn36xx_dbg(WCN36XX_DBG_MAC, "wcn36xx remove\n");
 
 	ieee80211_unregister_hw(hw);
-	iounmap(wcn->mmio);
-	ieee80211_free_hw(hw);
 
-	return 0;
+	qcom_smem_state_put(wcn->tx_enable_state);
+	qcom_smem_state_put(wcn->tx_rings_empty_state);
+
+	iounmap(wcn->mmio);
+
+	mutex_destroy(&wcn->hal_mutex);
+
+	ieee80211_free_hw(hw);
 }
-static const struct platform_device_id wcn36xx_platform_id_table[] = {
-	{
-		.name = "wcn36xx",
-		.driver_data = 0
-	},
+
+static const struct of_device_id wcn36xx_of_match[] = {
+	{ .compatible = "qcom,wcn3660" },
+	{ .compatible = "qcom,wcn3680" },
 	{}
 };
-MODULE_DEVICE_TABLE(platform, wcn36xx_platform_id_table);
+MODULE_DEVICE_TABLE(of, wcn36xx_of_match);
 
-static struct platform_driver wcn36xx_driver = {
+static struct qcom_smd_driver wcn36xx_driver = {
 	.probe      = wcn36xx_probe,
 	.remove     = wcn36xx_remove,
+	.callback = wcn36xx_smd_rsp_process,
 	.driver         = {
 		.name   = "wcn36xx",
+		.of_match_table = wcn36xx_of_match,
+		.owner  = THIS_MODULE,
 	},
-	.id_table    = wcn36xx_platform_id_table,
 };
 
-static int __init wcn36xx_init(void)
-{
-	platform_driver_register(&wcn36xx_driver);
-	return 0;
-}
-module_init(wcn36xx_init);
-
-static void __exit wcn36xx_exit(void)
-{
-	platform_driver_unregister(&wcn36xx_driver);
-}
-module_exit(wcn36xx_exit);
+module_qcom_smd_driver(wcn36xx_driver);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Eugene Krasnikov k.eugene.e@gmail.com");
