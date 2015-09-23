@@ -11,6 +11,17 @@
 	compatible = "qcom,apq8064";
 	interrupt-parent = <&intc>;
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		smem_region: smem@80000000 {
+			reg = <0x80000000 0x200000>;
+			no-map;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -195,6 +206,11 @@
 			reg = <0x020b8000 0x1000>, <0x02008000 0x1000>;
 		};
 
+		l2cc: syscon@2011000 {
+			compatible = "syscon";
+			reg = <0x2011000 0x1000>;
+		};
+
 		saw0: power-controller@2089000 {
 			compatible = "qcom,apq8064-saw2-v1.1-cpu", "qcom,saw2";
 			reg = <0x02089000 0x1000>, <0x02009000 0x1000>;
@@ -217,6 +233,11 @@
 			compatible = "qcom,apq8064-saw2-v1.1-cpu", "qcom,saw2";
 			reg = <0x020b9000 0x1000>, <0x02009000 0x1000>;
 			regulator;
+		};
+
+		sfpb_wrapper_mutex: syscon@01200000 {
+		      compatible = "syscon";
+		      reg = <0x01200000 0x8000>;
 		};
 
 		gsbi1: gsbi@12440000 {
@@ -358,7 +379,6 @@
 				#size-cells = <0>;
 
 				pm8921_gpio: gpio@150 {
-
 					compatible = "qcom,pm8921-gpio";
 					reg = <0x150>;
 					interrupts = <192 1>, <193 1>, <194 1>,
@@ -379,7 +399,6 @@
 
 					gpio-controller;
 					#gpio-cells = <2>;
-
 				};
 
 				pm8921_mpps: mpps@50 {
@@ -431,11 +450,6 @@
 			reg = <0x4000000 0x1000>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
-		};
-
-		l2cc: clock-controller@2011000 {
-			compatible	= "syscon";
-			reg		= <0x2011000 0x1000>;
 		};
 
 		rpm@108000 {
@@ -665,6 +679,19 @@
 		tcsr: syscon@1a400000 {
 			compatible = "qcom,tcsr-apq8064", "syscon";
 			reg = <0x1a400000 0x100>;
+		};
+
+		sfpb_mutex: hwlock@fd484000 {
+			compatible = "qcom,sfpb-mutex";
+			syscon = <&sfpb_wrapper_mutex 0x604 0x4>;
+			#hwlock-cells = <1>;
+		};
+
+		smem@80000000 {
+			compatible = "qcom,smem";
+			memory-region = <&smem_region>;
+
+			hwlocks = <&sfpb_mutex 3>;
 		};
 	};
 };

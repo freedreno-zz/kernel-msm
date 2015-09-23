@@ -1,0 +1,769 @@
+#include "qcom-msm8974.dtsi"
+#include "qcom-pm8841.dtsi"
+#include "qcom-pm8941.dtsi"
+#include <dt-bindings/clock/qcom,gcc-msm8974.h>
+#include <dt-bindings/reset/qcom,gcc-msm8974.h>
+#include <dt-bindings/clock/qcom,rpmcc-msm8974.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+/ {
+	model = "Sony Rhine CDB";
+	compatible = "sony,msm8974-rhine_cdb", "qcom,msm8974";
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		peripheral-region@5d00000 {
+			reg = <0x5d00000 0xa200000>;
+			no-map;
+		};
+
+		external-image@fc00000 {
+			reg = <0x0fc00000 0x300000>;
+			no-map;
+		};
+	};
+
+	smd {
+		rpm {
+			rpm_requests {
+				rpmcc: qcom,rpmcc {
+					compatible = "qcom,rpmcc-msm8974";
+					#clock-cells = <1>;
+				};
+
+				pm8841-regulators {
+					s1 {
+						regulator-min-microvolt = <675000>;
+						regulator-max-microvolt = <1050000>;
+					};
+
+					s2 {
+						regulator-min-microvolt = <500000>;
+						regulator-max-microvolt = <1050000>;
+					};
+
+					s3 {
+						regulator-min-microvolt = <675000>;
+						regulator-max-microvolt = <1050000>;
+					};
+				};
+
+				pm8941-regulators {
+					vdd_l1_l3-supply = <&pm8941_s1>;
+					vdd_l2_lvs1_2_3-supply = <&pm8941_s3>;
+					vdd_l4_l11-supply = <&pm8941_s1>;
+					vdd_l5_l7-supply = <&pm8941_s2>;
+					vdd_l6_l12_l14_l15-supply = <&pm8941_s2>;
+					vdd_l9_l10_l17_l22-supply = <&vreg_boost_bypass>;
+					vdd_l13_l20_l23_l24-supply = <&vreg_boost_bypass>;
+					vdd_l21-supply = <&vreg_boost_bypass>;
+					vin_5vs-supply = <&pm8941_5v>;
+
+					s1 {
+						regulator-min-microvolt = <1300000>;
+						regulator-max-microvolt = <1300000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+					s2 {
+						regulator-min-microvolt = <2150000>;
+						regulator-max-microvolt = <2150000>;
+						regulator-boot-on;
+					};
+
+					s3 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+					s4 {
+						regulator-min-microvolt = <5000000>;
+						regulator-max-microvolt = <5000000>;
+					};
+
+					l1 {
+						regulator-min-microvolt = <1225000>;
+						regulator-max-microvolt = <1225000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+					l2 {
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+					};
+
+					l3 {
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+					};
+
+					l4 {
+						regulator-min-microvolt = <1225000>;
+						regulator-max-microvolt = <1225000>;
+					};
+
+					l5 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+					};
+
+					l6 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-boot-on;
+					};
+
+					l7 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-boot-on;
+					};
+
+					l8 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+					};
+
+					l9 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <2950000>;
+					};
+
+					l11 {
+						regulator-min-microvolt = <1300000>;
+						regulator-max-microvolt = <1350000>;
+					};
+
+					l12 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-boot-on;
+
+						regulator-allow-set-load;
+					};
+
+					l13 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <2950000>;
+						regulator-boot-on;
+					};
+
+					l14 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+					};
+
+					l15 {
+						regulator-min-microvolt = <2050000>;
+						regulator-max-microvolt = <2050000>;
+					};
+
+					l16 {
+						regulator-min-microvolt = <2700000>;
+						regulator-max-microvolt = <2700000>;
+					};
+
+					l17 {
+						regulator-min-microvolt = <2700000>;
+						regulator-max-microvolt = <2700000>;
+					};
+
+					l18 {
+						regulator-min-microvolt = <2850000>;
+						regulator-max-microvolt = <2850000>;
+					};
+
+					l19 {
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+					};
+
+					l20 {
+						regulator-min-microvolt = <2950000>;
+						regulator-max-microvolt = <2950000>;
+						regulator-boot-on;
+
+						regulator-allow-set-load;
+					};
+
+					l21 {
+						regulator-min-microvolt = <2950000>;
+						regulator-max-microvolt = <2950000>;
+						regulator-boot-on;
+					};
+
+					l22 {
+						regulator-min-microvolt = <3000000>;
+						regulator-max-microvolt = <3000000>;
+					};
+
+					l23 {
+						regulator-min-microvolt = <2800000>;
+						regulator-max-microvolt = <2800000>;
+					};
+
+					l24 {
+						regulator-min-microvolt = <3075000>;
+						regulator-max-microvolt = <3075000>;
+						regulator-boot-on;
+					};
+				};
+			};
+		};
+
+		pronto_smd_edge: pronto {
+			interrupts = <0 142 1>;
+
+			qcom,ipc = <&apcs 8 17>;
+			qcom,smd-edge = <6>;
+
+#if 0
+			bt {
+				compatible = "qcom,hci-smd";
+				qcom,smd-channels = "APPS_RIVA_BT_CMD", "APPS_RIVA_BT_ACL";
+				qcom,smd-channel-names = "event", "data";
+			};
+#endif
+
+			wifi {
+				compatible = "qcom,wcn3680";
+				qcom,smd-channels = "WLAN_CTRL";
+
+				interrupts = <0 145 0>, <0 146 0>;
+				interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+				qcom,wcnss_mmio = <0xfb000000 0x21b000>;
+
+				qcom,state = <&apps_smsm 10>, <&apps_smsm 9>;
+				qcom,state-names = "tx-enable", "tx-rings-empty";
+			};
+		};
+
+		adsp {
+			interrupts = <0 156 1>;
+
+			qcom,ipc = <&apcs 8 8>;
+			qcom,smd-edge = <1>;
+		};
+	};
+
+	smsm {
+		compatible = "qcom,smsm";
+		qcom,smem = <85>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ipc-1 = <&apcs 8 13>;
+		qcom,ipc-2 = <&apcs 8 9>;
+		qcom,ipc-3 = <&apcs 8 19>;
+
+		apps_smsm: apps@0 {
+			reg = <0>;
+
+			#qcom,state-cells = <1>;
+		};
+
+		modem_smsm: modem@1 {
+			reg = <1>;
+			interrupts = <0 26 1>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		adsp_smsm: adsp@2 {
+			reg = <2>;
+			interrupts = <0 157 1>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		wcnss_smsm: wcnss@7 {
+			reg = <7>;
+			interrupts = <0 144 1>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	lpass-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <443>, <429>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 158 1>;
+
+		qcom,ipc = <&apcs 8 10>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		lpass_smp2p_master: master-kernel {
+			qcom,entry-name = "master-kernel";
+			qcom,outbound;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		lpass_smp2p_slave: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			qcom,inbound;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	modem-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 27 1>;
+		qcom,ipc = <&apcs 8 14>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			qcom,outbound;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			qcom,inbound;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	wcnss-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <451>, <431>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 143 1>;
+
+		qcom,ipc = <&apcs 8 18>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <4>;
+
+		wcnss_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+
+			#qcom,state-cells = <1>;
+		};
+
+		wcnss_smp2p_slave: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	vreg_boost_bypass: vreg-boost-bypass {
+		compatible = "regulator-fixed";
+
+		regulator-name = "vreg-boost-bypass";
+		regulator-min-microvolt = <3150000>;
+		regulator-max-microvolt = <3150000>;
+
+		regulator-always-on;
+		regulator-boot-on;
+
+		gpio = <&pm8941_gpios 21 0>;
+		enable-active-high;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&boost_bypass_en>;
+
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_keys_active>;
+
+		vol_dn {
+			label = "volume_down";
+			gpios = <&pm8941_gpios 2 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&pm8941_gpios 3 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&pm8941_gpios 4 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8941_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		sim_det {
+			label = "sim-detection";
+			gpios = <&msmgpio 100 0x0>;
+			linux,input-type = <5>;
+			linux,code = <7>;
+			gpio-key,wakeup;
+			debounce-interval = <10>;
+		};
+	};
+};
+
+&soc {
+	serial@f991e000 {
+		status = "ok";
+	};
+
+	pinctrl@fd510000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&state_default &uart2_default>;
+
+		state_default: default_active {
+			uim_detect {
+				pins = "gpio100";
+				function = "gpio";
+
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			debug_gpio0 {
+				pins = "gpio55";
+				function = "gpio";
+
+				bias-pull-up;
+			};
+
+			debug_gpio1 {
+				pins = "gpio56";
+				function = "gpio";
+
+				bias-pull-up;
+			};
+
+			i2c2 {
+				pins = "gpio6", "gpio7";
+				function = "blsp_i2c2";
+
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c6 {
+				pins = "gpio29", "gpio30";
+				function = "blsp_i2c6";
+
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		sdhc1_active: sdhc1-active {
+			clk {
+				pins = "sdc1_clk";
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			cmd {
+				pins = "sdc1_cmd", "sdc1_data";
+				drive-strength = <10>;
+				bias-pull-up;
+			};
+		};
+
+		uart2 {
+			uart2_default: uart2_default {
+				mux {
+					pins = "gpio4", "gpio5";
+					function = "blsp_uart2";
+				};
+
+				tx {
+					pins = "gpio4";
+					drive-strength = <4>;
+					bias-disable;
+				};
+
+				rx {
+					pins = "gpio5";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		wcnss_active_state: wcnss-active {
+			wlan {
+				pins =  "gpio36", "gpio37", "gpio38", "gpio39", "gpio40";
+				function = "wlan";
+
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+
+			bt {
+				pins = "gpio35", "gpio43", "gpio44";
+				function = "bt";
+
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+
+			fm {
+				pins = "gpio41", "gpio42";
+				function = "fm";
+
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		clearpad_active_state: clearpad_active {
+			ts_int {
+				pins = "gpio61";
+				function = "gpio";
+
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		max1187x {
+			maxim_default_state: maxim_default {
+				ts_int {
+					pins = "gpio61";
+					function = "gpio";
+
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				pwr_en {
+					pins = "gpio85";
+					function = "gpio";
+
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+	};
+
+	sdhci@f9824900 {
+		non-removable;
+
+		vmmc-supply = <&pm8941_l20>;
+		vmmc-load = <500000>;
+		vqmmc-supply = <&pm8941_s3>;
+		vqmmc-load = <154000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&sdhc1_active>;
+
+		bus-width = <8>;
+
+		status = "ok";
+	};
+
+	lpass_rproc {
+		compatible = "qcom,tz-pil";
+		interrupts-extended = <&intc 0 162 1>,
+				      <&lpass_smp2p_slave 0 0>,
+				      <&lpass_smp2p_slave 1 0>,
+				      <&lpass_smp2p_slave 2 0>,
+				      <&lpass_smp2p_slave 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
+
+		clocks = <&gcc GCC_CE1_AHB_CLK>, <&gcc GCC_CE1_AXI_CLK>, <&gcc GCC_CE1_CLK>;
+		clock-names = "scm_iface_clk", "scm_bus_clk", "scm_core_clk";
+
+		qcom,firmware-name = "adsp";
+		qcom,pas-id = <1>;
+		qcom,crash-reason = <423>;
+
+		qcom,pll-supply = <&pm8841_s2>;
+
+		qcom,stop-gpios = <&lpass_smp2p_master 0 0>;
+	};
+
+	modem_rproc {
+		compatible = "qcom,q6v5-pil";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base";
+
+		interrupts-extended = <&intc 0 24 1>,
+				      <&modem_smp2p_in 0 0>,
+				      <&modem_smp2p_in 1 0>,
+				      <&modem_smp2p_in 2 0>,
+				      <&modem_smp2p_in 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
+
+		clocks = <&gcc GCC_MSS_Q6_BIMC_AXI_CLK>, <&gcc GCC_MSS_CFG_AHB_CLK>, <&gcc GCC_BOOT_ROM_AHB_CLK>;
+		clock-names = "iface", "bus", "mem";
+
+		resets = <&gcc GCC_MSS_RESTART>;
+		reset-names = "mss_restart";
+
+		qcom,firmware-name = "modem";
+
+		qcom,vdd-supply = <&pm8841_s3>;
+
+		qcom,cx-supply = <&pm8841_s2>;
+
+		qcom,mx-supply = <&pm8841_s1>;
+		qcom,mx-uV = <1050000>;
+
+		qcom,pll-supply = <&pm8941_l12>;
+		qcom,pll-uV = <1800000>;
+
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
+
+		qcom,stop-gpio = <&modem_smp2p_out 0 0>;
+
+		/* Sometimes it loads fine and corrupts memory most of the time */
+		status = "fail";
+	};
+
+	pronto_rproc@fb21b000 {
+		compatible = "qcom,pronto-v2-pil";
+		reg = <0xfb21b000 0x3000>;
+
+		interrupts-extended = <&intc 0 149 1>,
+				      <&wcnss_smp2p_slave 0 0>,
+				      <&wcnss_smp2p_slave 1 0>,
+				      <&wcnss_smp2p_slave 2 0>,
+				      <&wcnss_smp2p_slave 3 0>;
+		interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
+
+		clocks = <&rpmcc RPM_CXO_A2>;
+		clock-names = "xo";
+
+		qcom,firmware-name = "wcnss";
+		qcom,pas-id = <6>;
+
+		qcom,crash-reason = <422>;
+		qcom,smd-edges = <&pronto_smd_edge>;
+
+		qcom,iris-vddxo-supply = <&pm8941_l6>;
+		qcom,iris-vddrfa-supply = <&pm8941_l11>;
+		qcom,iris-vddpa-supply = <&pm8941_l19>;
+		qcom,iris-vdddig-supply = <&pm8941_s3>;
+#if 0
+		qcom,pronto-vddmx-supply = <&pm8841_s1>;
+		qcom,pronto-vddcx-supply = <&pm8841_s2_corner>;
+#endif
+		qcom,pronto-vddpx-supply = <&pm8941_s3>;
+
+		qcom,state = <&wcnss_smp2p_out 0>;
+		qcom,state-names = "stop";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcnss_active_state>;
+	};
+};
+
+&spmi_bus {
+	pm8941@0 {
+		gpios@c000 {
+			boost_bypass_en: boost-bypass-en {
+				pins = "gpio21";
+				function = "normal";
+			};
+
+			gpio_keys_active: gpio-keys {
+				pins = "gpio2", "gpio5";
+				function = "normal";
+
+				bias-pull-up;
+				power-source = <PM8941_GPIO_S3>;
+			};
+		};
+
+		charger@1000 {
+			compatible = "qcom,pm8941-charger";
+			reg = <0x1000 0x700>;
+			interrupts = <0x0 0x10 7 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x10 5 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x10 4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x12 1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x12 0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x13 2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x13 1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x14 1 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "chg-done",
+					  "chg-fast",
+					  "chg-trkl",
+					  "bat-temp-ok",
+					  "bat-present",
+					  "chg-gone",
+					  "usb-valid",
+					  "dc-valid";
+
+			battery-charge-control-limit = <1000000>;
+			usb-charge-control-limit = <500000>;
+			dc-charge-control-limit = <1000000>;
+		};
+	};
+
+	pm8941@1 {
+		wled@d800 {
+			compatible = "qcom,pm8941-wled";
+			reg = <0xd800>;
+			label = "backlight";
+
+			qcom,cs-out;
+			qcom,current-limit = <20>;
+			qcom,current-boost-limit = <805>;
+			qcom,switching-freq = <1600>;
+			qcom,ovp = <29>;
+			qcom,num-strings = <2>;
+		};
+	};
+};
