@@ -215,6 +215,9 @@ int mipi_dsi_dcs_set_tear_on(struct mipi_dsi_device *dsi,
 			     enum mipi_dsi_dcs_tear_mode mode);
 int mipi_dsi_dcs_set_pixel_format(struct mipi_dsi_device *dsi, u8 format);
 
+ssize_t mipi_dsi_turn_on_peripheral(struct mipi_dsi_device *dsi);
+ssize_t mipi_dsi_shutdown_peripheral(struct mipi_dsi_device *dsi);
+
 /**
  * struct mipi_dsi_driver - DSI driver
  * @driver: device driver model driver
