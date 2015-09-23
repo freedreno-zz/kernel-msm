@@ -254,7 +254,7 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
 }
 
 /* modelled after ip_finish_output2 */
-static int vrf_finish_output(struct sock *sk, struct sk_buff *skb)
+static int vrf_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb_dst(skb);
 	struct rtable *rt = (struct rtable *)dst;
@@ -299,14 +299,15 @@ err:
 static int vrf_output(struct sock *sk, struct sk_buff *skb)
 {
 	struct net_device *dev = skb_dst(skb)->dev;
+	struct net *net = dev_net(dev);
 
-	IP_UPD_PO_STATS(dev_net(dev), IPSTATS_MIB_OUT, skb->len);
+	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
 
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_IP);
 
-	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, sk, skb,
-			    NULL, dev,
+	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+			    net, sk, skb, NULL, dev,
 			    vrf_finish_output,
 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
 }
@@ -321,6 +322,7 @@ static void vrf_rtable_destroy(struct net_vrf *vrf)
 
 static struct rtable *vrf_rtable_create(struct net_device *dev)
 {
+	struct net_vrf *vrf = netdev_priv(dev);
 	struct rtable *rth;
 
 	rth = dst_alloc(&vrf_dst_ops, dev, 2,
@@ -336,6 +338,7 @@ static struct rtable *vrf_rtable_create(struct net_device *dev)
 		rth->rt_pmtu	= 0;
 		rth->rt_gateway	= 0;
 		rth->rt_uses_gateway = 0;
+		rth->rt_table_id = vrf->tb_id;
 		INIT_LIST_HEAD(&rth->rt_uncached);
 		rth->rt_uncached_list = NULL;
 	}
