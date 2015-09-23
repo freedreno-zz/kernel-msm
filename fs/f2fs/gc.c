@@ -823,7 +823,8 @@ gc_more:
 			write_checkpoint(sbi, &cpc);
 	}
 
-	if (segno == NULL_SEGNO && !__get_victim(sbi, &segno, gc_type))
+	/* should call __get_victim first to get a victim from retrial path */
+	if (!__get_victim(sbi, &segno, gc_type) && segno == NULL_SEGNO)
 		goto stop;
 	ret = 0;
 
