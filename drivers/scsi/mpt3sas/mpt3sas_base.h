@@ -248,6 +248,7 @@ struct Mpi2ManufacturingPage11_t {
  * @flags: MPT_TARGET_FLAGS_XXX flags
  * @deleted: target flaged for deletion
  * @tm_busy: target is busy with TM request.
+ * @sdev: The sas_device associated with this target
  */
 struct MPT3SAS_TARGET {
 	struct scsi_target *starget;
@@ -257,6 +258,7 @@ struct MPT3SAS_TARGET {
 	u32	flags;
 	u8	deleted;
 	u8	tm_busy;
+	struct	_sas_device *sdev;
 };
 
 
@@ -335,6 +337,9 @@ struct _internal_cmd {
  * @pfa_led_on: flag for PFA LED status
  * @pend_sas_rphy_add: flag to check if device is in sas_rphy_add()
  *	addition routine.
+ * @enclosure_level: used for enclosure services
+ * @connector_name: ASCII value from pg0.ConnectorName
+ * @refcount: reference count for deletion
  */
 struct _sas_device {
 	struct list_head list;
@@ -358,7 +363,23 @@ struct _sas_device {
 	u8	pend_sas_rphy_add;
 	u8	enclosure_level;
 	u8	connector_name[4];
+	struct kref refcount;
 };
+
+static inline void sas_device_get(struct _sas_device *s)
+{
+	kref_get(&s->refcount);
+}
+
+static inline void sas_device_free(struct kref *r)
+{
+	kfree(container_of(r, struct _sas_device, refcount));
+}
+
+static inline void sas_device_put(struct _sas_device *s)
+{
+	kref_put(&s->refcount, sas_device_free);
+}
 
 /**
  * struct _raid_device - raid volume link list
@@ -1090,7 +1111,9 @@ struct _sas_node *mpt3sas_scsih_expander_find_by_handle(
 	struct MPT3SAS_ADAPTER *ioc, u16 handle);
 struct _sas_node *mpt3sas_scsih_expander_find_by_sas_address(
 	struct MPT3SAS_ADAPTER *ioc, u64 sas_address);
-struct _sas_device *mpt3sas_scsih_sas_device_find_by_sas_address(
+struct _sas_device *mpt3sas_get_sdev_by_addr(
+	 struct MPT3SAS_ADAPTER *ioc, u64 sas_address);
+struct _sas_device *__mpt3sas_get_sdev_by_addr(
 	struct MPT3SAS_ADAPTER *ioc, u64 sas_address);
 
 void mpt3sas_port_enable_complete(struct MPT3SAS_ADAPTER *ioc);
