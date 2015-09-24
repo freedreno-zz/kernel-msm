@@ -154,6 +154,41 @@ int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 EXPORT_SYMBOL(qcom_scm_hdcp_req);
 
 /**
+ * qcom_scm_ocmem_secure_available() - Check if secure environment supports OCMEM.
+ *
+ * Return true if OCMEM is supported, false if not.
+ */
+bool qcom_scm_ocmem_secure_available(void)
+{
+	int ret = qcom_scm_clk_enable();
+
+	if (ret)
+		goto clk_err;
+
+	ret = __qcom_scm_is_call_available(QCOM_SCM_OCMEM_SECURE_SVC,
+			QCOM_SCM_OCMEM_SECURE_CFG);
+
+	qcom_scm_clk_disable();
+
+clk_err:
+	return (ret > 0) ? true : false;
+}
+EXPORT_SYMBOL(qcom_scm_ocmem_secure_available);
+
+int qcom_scm_ocmem_secure_cfg(unsigned sec_id)
+{
+	int ret = qcom_scm_clk_enable();
+
+	if (ret)
+		return ret;
+
+	ret = __qcom_scm_ocmem_secure_cfg(sec_id);
+	qcom_scm_clk_disable();
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_ocmem_secure_cfg);
+
+/**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
  *			      available for the given peripherial
  * @peripheral:	peripheral id

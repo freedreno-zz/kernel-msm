@@ -23,9 +23,14 @@ struct qcom_scm_hdcp_req {
 	u32 val;
 };
 
+extern bool qcom_scm_is_available(void);
+
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 		u32 *resp);
+
+extern bool qcom_scm_ocmem_secure_available(void);
+extern int qcom_scm_ocmem_secure_cfg(unsigned sec_id);
 
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata, size_t size);

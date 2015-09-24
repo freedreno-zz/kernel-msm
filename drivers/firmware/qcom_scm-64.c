@@ -62,6 +62,11 @@ int __qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 	return -ENOTSUPP;
 }
 
+int __qcom_scm_ocmem_secure_cfg(unsigned sec_id)
+{
+	return -ENOTSUPP;
+}
+
 bool __qcom_scm_pas_supported(u32 peripheral)
 {
 	return false;

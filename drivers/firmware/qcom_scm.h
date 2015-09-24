@@ -36,6 +36,17 @@ extern int __qcom_scm_is_call_available(u32 svc_id, u32 cmd_id);
 extern int __qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 		u32 *resp);
 
+#define QCOM_SCM_OCMEM_SECURE_SVC		0xc
+#define QCOM_SCM_OCMEM_SECURE_CFG		0x2
+
+extern int __qcom_scm_ocmem_secure_cfg(unsigned sec_id);
+
+//#define QCOM_SCM_OCMEM_SVC			0xf
+//#define QCOM_SCM_OCMEM_LOCK_CMD		0x1
+//#define QCOM_SCM_OCMEM_UNLOCK_CMD		0x2
+//#define QCOM_SCM_OCMEM_ENABLE_DUMP_CMD		0x3
+//#define QCOM_SCM_OCMEM_DISABLE_DUMP_CMD	0x4
+
 #define QCOM_SCM_SVC_PIL		0x2
 #define QCOM_SCM_PAS_INIT_IMAGE_CMD	0x1
 #define QCOM_SCM_PAS_MEM_SETUP_CMD	0x2
