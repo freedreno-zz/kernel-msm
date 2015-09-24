@@ -500,6 +500,26 @@ int __qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 		req, req_cnt * sizeof(*req), resp, sizeof(*resp));
 }
 
+int __qcom_scm_restore_sec_config(u32 sec_id, u32 ctx_bank_num)
+{
+	int ret, scm_ret = 0;
+	struct msm_scm_sec_cfg {
+		__le32 id;
+		__le32 ctx_bank_num;
+	} cfg;
+
+	cfg.id = cpu_to_le32(sec_id);
+	cfg.ctx_bank_num = cpu_to_le32(sec_id);
+
+	ret = qcom_scm_call(QCOM_SCM_MP_SVC, QCOM_SCM_MP_RESTORE_SEC_CFG,
+			&cfg, sizeof(cfg), &scm_ret, sizeof(scm_ret));
+
+	if (ret || scm_ret)
+		return ret ? ret : -EINVAL;
+
+	return 0;
+}
+
 bool __qcom_scm_pas_supported(u32 peripheral)
 {
 	__le32 out;

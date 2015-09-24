@@ -32,6 +32,19 @@ extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 		u32 *resp);
 
+enum qcom_scm_sec_dev_id {
+	QCOM_SCM_MDSS_DEV_ID	= 1,
+	QCOM_SCM_OCMEM_DEV_ID	= 5,
+	QCOM_SCM_PCIE0_DEV_ID	= 11,
+	QCOM_SCM_PCIE1_DEV_ID	= 12,
+	QCOM_SCM_GFX_DEV_ID	= 18,
+	QCOM_SCM_UFS_DEV_ID	= 19,
+	QCOM_SCM_ICE_DEV_ID	= 20,
+};
+
+extern bool qcom_scm_restore_sec_config_available(void);
+extern int qcom_scm_restore_sec_config(enum qcom_scm_sec_dev_id sec_id);
+
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata, size_t size);
 extern int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr, phys_addr_t size);

@@ -154,6 +154,28 @@ int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 EXPORT_SYMBOL(qcom_scm_hdcp_req);
 
 /**
+ * qcom_scm_restore_sec_config_available() - Check if secure environment
+ * supports restore security config interface.
+ *
+ * Return true if restore-cfg interface is supported, false if not.
+ */
+bool qcom_scm_restore_sec_config_available(void)
+{
+	return __qcom_scm_is_call_available(QCOM_SCM_MP_SVC,
+			QCOM_SCM_MP_RESTORE_SEC_CFG);
+}
+EXPORT_SYMBOL(qcom_scm_restore_sec_config_available);
+
+/**
+ * qcom_scm_restore_sec_config() - call restore-cfg interface
+ */
+int qcom_scm_restore_sec_config(enum qcom_scm_sec_dev_id sec_id)
+{
+	return __qcom_scm_restore_sec_config(sec_id, 0);
+}
+EXPORT_SYMBOL(qcom_scm_restore_sec_config);
+
+/**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
  *			      available for the given peripherial
  * @peripheral:	peripheral id

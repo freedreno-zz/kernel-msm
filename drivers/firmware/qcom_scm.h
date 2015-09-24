@@ -36,6 +36,11 @@ extern int __qcom_scm_is_call_available(u32 svc_id, u32 cmd_id);
 extern int __qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 		u32 *resp);
 
+#define QCOM_SCM_MP_SVC			0xc
+#define QCOM_SCM_MP_RESTORE_SEC_CFG		0x2
+
+extern int __qcom_scm_restore_sec_config(u32 sec_id, u32 ctx_bank_num);
+
 #define QCOM_SCM_SVC_PIL		0x2
 #define QCOM_SCM_PAS_INIT_IMAGE_CMD	0x1
 #define QCOM_SCM_PAS_MEM_SETUP_CMD	0x2
