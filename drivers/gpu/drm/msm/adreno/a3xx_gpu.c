@@ -17,10 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef CONFIG_MSM_OCMEM
-#  include <mach/ocmem.h>
-#endif
-
+#include "ocmem/ocmem.h"
 #include "a3xx_gpu.h"
 
 #define A3XX_INT0_MASK \
@@ -322,10 +319,8 @@ static void a3xx_destroy(struct msm_gpu *gpu)
 
 	adreno_gpu_cleanup(adreno_gpu);
 
-#ifdef CONFIG_MSM_OCMEM
 	if (a3xx_gpu->ocmem_base)
 		ocmem_free(OCMEM_GRAPHICS, a3xx_gpu->ocmem_hdl);
-#endif
 
 	kfree(a3xx_gpu);
 }
@@ -539,6 +534,7 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 	struct msm_gpu *gpu;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct platform_device *pdev = priv->gpu_pdev;
+	struct ocmem_buf *ocmem_hdl;
 	int ret;
 
 	if (!pdev) {
@@ -569,18 +565,13 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 		goto fail;
 
 	/* if needed, allocate gmem: */
-	if (adreno_is_a330(adreno_gpu)) {
-#ifdef CONFIG_MSM_OCMEM
-		/* TODO this is different/missing upstream: */
-		struct ocmem_buf *ocmem_hdl =
-				ocmem_allocate(OCMEM_GRAPHICS, adreno_gpu->gmem);
-
+	ocmem_hdl = ocmem_allocate(OCMEM_GRAPHICS, adreno_gpu->gmem);
+	if (!IS_ERR(ocmem_hdl)) {
 		a3xx_gpu->ocmem_hdl = ocmem_hdl;
 		a3xx_gpu->ocmem_base = ocmem_hdl->addr;
 		adreno_gpu->gmem = ocmem_hdl->len;
 		DBG("using %dK of OCMEM at 0x%08x", adreno_gpu->gmem / 1024,
 				a3xx_gpu->ocmem_base);
-#endif
 	}
 
 	if (!gpu->mmu) {

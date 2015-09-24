@@ -172,4 +172,7 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
 void __init adreno_register(void);
 void __exit adreno_unregister(void);
 
+void __init ocmem_register(void);
+void __exit ocmem_unregister(void);
+
 #endif /* __MSM_GPU_H__ */

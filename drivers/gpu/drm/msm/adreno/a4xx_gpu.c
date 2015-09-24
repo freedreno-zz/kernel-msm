@@ -10,10 +10,9 @@
  * GNU General Public License for more details.
  *
  */
+
+#include "ocmem/ocmem.h"
 #include "a4xx_gpu.h"
-#ifdef CONFIG_MSM_OCMEM
-#  include <soc/qcom/ocmem.h>
-#endif
 
 #define A4XX_INT0_MASK \
 	(A4XX_INT0_RBBM_AHB_ERROR |        \
@@ -289,10 +288,8 @@ static void a4xx_destroy(struct msm_gpu *gpu)
 
 	adreno_gpu_cleanup(adreno_gpu);
 
-#ifdef CONFIG_MSM_OCMEM
-	if (a4xx_gpu->ocmem_base)
+	if (a4xx_gpu->ocmem_hdl)
 		ocmem_free(OCMEM_GRAPHICS, a4xx_gpu->ocmem_hdl);
-#endif
 
 	kfree(a4xx_gpu);
 }
@@ -538,6 +535,7 @@ struct msm_gpu *a4xx_gpu_init(struct drm_device *dev)
 	struct msm_gpu *gpu;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct platform_device *pdev = priv->gpu_pdev;
+	struct ocmem_buf *ocmem_hdl;
 	int ret;
 
 	if (!pdev) {
@@ -568,18 +566,13 @@ struct msm_gpu *a4xx_gpu_init(struct drm_device *dev)
 		goto fail;
 
 	/* if needed, allocate gmem: */
-	if (adreno_is_a4xx(adreno_gpu)) {
-#ifdef CONFIG_MSM_OCMEM
-		/* TODO this is different/missing upstream: */
-		struct ocmem_buf *ocmem_hdl =
-				ocmem_allocate(OCMEM_GRAPHICS, adreno_gpu->gmem);
-
+	ocmem_hdl = ocmem_allocate(OCMEM_GRAPHICS, adreno_gpu->gmem);
+	if (!IS_ERR(ocmem_hdl)) {
 		a4xx_gpu->ocmem_hdl = ocmem_hdl;
 		a4xx_gpu->ocmem_base = ocmem_hdl->addr;
 		adreno_gpu->gmem = ocmem_hdl->len;
 		DBG("using %dK of OCMEM at 0x%08x", adreno_gpu->gmem / 1024,
 				a4xx_gpu->ocmem_base);
-#endif
 	}
 
 	if (!gpu->mmu) {

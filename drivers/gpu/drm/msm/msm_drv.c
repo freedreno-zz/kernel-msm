@@ -1165,6 +1165,7 @@ static int __init msm_drm_register(void)
 	msm_dsi_register();
 	msm_edp_register();
 	hdmi_register();
+	ocmem_register();
 	adreno_register();
 	return platform_driver_register(&msm_platform_driver);
 }
@@ -1175,6 +1176,7 @@ static void __exit msm_drm_unregister(void)
 	platform_driver_unregister(&msm_platform_driver);
 	hdmi_unregister();
 	adreno_unregister();
+	ocmem_unregister();
 	msm_edp_unregister();
 	msm_dsi_unregister();
 }
