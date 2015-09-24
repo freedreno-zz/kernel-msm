@@ -13,6 +13,10 @@
 	smd {
 		rpm {
 			rpm_requests {
+				rpmcc: qcom,rpmcc {
+					compatible = "qcom,rpmcc-msm8974";
+					#clock-cells = <1>;
+				};
 				pm8941-regulators {
 					vdd_l1_l3-supply = <&pm8941_s1>;
 					vdd_l2_lvs1_2_3-supply = <&pm8941_s3>;
