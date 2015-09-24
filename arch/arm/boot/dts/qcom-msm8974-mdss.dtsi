@@ -130,7 +130,7 @@
 		// XXX this should be in device specific dts file..
 		panel@0 {
 			reg = <0>;
-			compatible = "sharp,novatek-1080p-vid";
+			compatible = "auo,novatek-1080p-vid";
 			power-supply = <&vreg_vsp>;
 			reset-gpios = <&pm8941_gpios 19 GPIO_ACTIVE_HIGH>;
 			backlight = <&pm8941_wled>;
