@@ -13,8 +13,11 @@
 #ifndef __QCOM_SCM_H
 #define __QCOM_SCM_H
 
-extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
-extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
+#include <linux/types.h>
+
+struct cpumask;
+extern int qcom_scm_set_cold_boot_addr(void *entry, const struct cpumask *cpus);
+extern int qcom_scm_set_warm_boot_addr(void *entry, const struct cpumask *cpus);
 
 #define QCOM_SCM_HDCP_MAX_REQ_CNT	5
 

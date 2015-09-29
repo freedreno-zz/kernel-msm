@@ -76,7 +76,7 @@ static void qcom_scm_clk_disable(void)
  * Set the cold boot address of the cpus. Any cpu outside the supported
  * range would be removed from the cpu present mask.
  */
-int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus)
+int qcom_scm_set_cold_boot_addr(void *entry, const struct cpumask *cpus)
 {
 	return __qcom_scm_set_cold_boot_addr(entry, cpus);
 }
@@ -90,7 +90,7 @@ EXPORT_SYMBOL(qcom_scm_set_cold_boot_addr);
  * Set the Linux entry point for the SCM to transfer control to when coming
  * out of a power down. CPU power down may be executed on cpuidle or hotplug.
  */
-int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
+int qcom_scm_set_warm_boot_addr(void *entry, const struct cpumask *cpus)
 {
 	return __qcom_scm_set_warm_boot_addr(entry, cpus);
 }
