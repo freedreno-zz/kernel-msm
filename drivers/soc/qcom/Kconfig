@@ -74,3 +74,9 @@ config QCOM_WCNSS_CTRL
 	help
 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
 	  firmware to a newly booted WCNSS chip.
+
+config QCOM_OCMEM
+	tristate "Qualcomm OCMEM driver"
+	depends on QCOM_SMD
+	help
+	  Allocator for OCMEM (On Chip MEMory).
