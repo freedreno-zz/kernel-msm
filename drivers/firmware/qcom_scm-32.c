@@ -520,6 +520,40 @@ int __qcom_scm_restore_sec_config(u32 sec_id, u32 ctx_bank_num)
 	return 0;
 }
 
+int __qcom_scm_ocmem_lock(u32 id, u32 offset, u32 size, u32 mode)
+{
+	struct ocmem_tz_lock {
+		__le32 id;
+		__le32 offset;
+		__le32 size;
+		__le32 mode;
+	} request;
+
+	request.id     = cpu_to_le32(id);
+	request.offset = cpu_to_le32(offset);
+	request.size   = cpu_to_le32(size);
+	request.mode   = cpu_to_le32(mode);
+
+	return qcom_scm_call(QCOM_SCM_OCMEM_SVC, QCOM_SCM_OCMEM_LOCK_CMD,
+			&request, sizeof(request), NULL, 0);
+}
+
+int __qcom_scm_ocmem_unlock(u32 id, u32 offset, u32 size)
+{
+	struct ocmem_tz_unlock {
+		__le32 id;
+		__le32 offset;
+		__le32 size;
+	} request;
+
+	request.id     = cpu_to_le32(id);
+	request.offset = cpu_to_le32(offset);
+	request.size   = cpu_to_le32(size);
+
+	return qcom_scm_call(QCOM_SCM_OCMEM_SVC, QCOM_SCM_OCMEM_UNLOCK_CMD,
+			&request, sizeof(request), NULL, 0);
+}
+
 bool __qcom_scm_pas_supported(u32 peripheral)
 {
 	__le32 out;
