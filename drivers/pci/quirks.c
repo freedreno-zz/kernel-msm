@@ -3138,7 +3138,9 @@ clear:
 	return 0;
 }
 
-#include "../gpu/drm/i915/i915_reg.h"
+#define SOUTH_CHICKEN2		0xc2004
+#define PCH_PP_STATUS		0xc7200
+#define PCH_PP_CONTROL		0xc7204
 #define MSG_CTL			0x45010
 #define NSDE_PWR_STATE		0xd0100
 #define IGD_OPERATION_TIMEOUT	10000     /* set timeout 10 seconds */
