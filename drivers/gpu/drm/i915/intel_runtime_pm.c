@@ -2726,7 +2726,7 @@ void intel_runtime_pm_enable(struct drm_i915_private *dev_priv)
 	struct drm_device *dev = dev_priv->dev;
 	struct device *device = &dev->pdev->dev;
 
-	pm_runtime_set_autosuspend_delay(device, 10000); /* 10s */
+	pm_runtime_set_autosuspend_delay(device, 100);
 	pm_runtime_mark_last_busy(device);
 
 	/*
@@ -2741,6 +2741,8 @@ void intel_runtime_pm_enable(struct drm_i915_private *dev_priv)
 	} else {
 		pm_runtime_use_autosuspend(device);
 	}
+
+	pm_runtime_allow(device);
 
 	/*
 	 * The core calls the driver load handler with an RPM reference held.
