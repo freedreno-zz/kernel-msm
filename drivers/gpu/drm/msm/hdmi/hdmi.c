@@ -21,7 +21,7 @@
 
 #include "hdmi.h"
 
-void hdmi_set_mode(struct hdmi *hdmi, bool power_on)
+void msm_hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 {
 	uint32_t ctrl = 0;
 	unsigned long flags;
@@ -46,26 +46,26 @@ void hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 			power_on ? "Enable" : "Disable", ctrl);
 }
 
-static irqreturn_t hdmi_irq(int irq, void *dev_id)
+static irqreturn_t msm_hdmi_irq(int irq, void *dev_id)
 {
 	struct hdmi *hdmi = dev_id;
 
 	/* Process HPD: */
-	hdmi_connector_irq(hdmi->connector);
+	msm_hdmi_connector_irq(hdmi->connector);
 
 	/* Process DDC: */
-	hdmi_i2c_irq(hdmi->i2c);
+	msm_hdmi_i2c_irq(hdmi->i2c);
 
 	/* Process HDCP: */
 	if (hdmi->hdcp_ctrl)
-		hdmi_hdcp_irq(hdmi->hdcp_ctrl);
+		msm_hdmi_hdcp_irq(hdmi->hdcp_ctrl);
 
 	/* TODO audio.. */
 
 	return IRQ_HANDLED;
 }
 
-static void hdmi_destroy(struct hdmi *hdmi)
+static void msm_hdmi_destroy(struct hdmi *hdmi)
 {
 	struct hdmi_phy *phy = hdmi->phy;
 
@@ -77,12 +77,12 @@ static void hdmi_destroy(struct hdmi *hdmi)
 		flush_workqueue(hdmi->workq);
 		destroy_workqueue(hdmi->workq);
 	}
-	hdmi_hdcp_destroy(hdmi);
+	msm_hdmi_hdcp_destroy(hdmi);
 	if (phy)
 		phy->funcs->destroy(phy);
 
 	if (hdmi->i2c)
-		hdmi_i2c_destroy(hdmi->i2c);
+		msm_hdmi_i2c_destroy(hdmi->i2c);
 
 	platform_set_drvdata(hdmi->pdev, NULL);
 }
@@ -91,7 +91,7 @@ static void hdmi_destroy(struct hdmi *hdmi)
  * we are to EPROBE_DEFER we want to do it here, rather than later
  * at modeset_init() time
  */
-static struct hdmi *hdmi_init(struct platform_device *pdev)
+static struct hdmi *msm_hdmi_init(struct platform_device *pdev)
 {
 	struct hdmi_platform_config *config = pdev->dev.platform_data;
 	struct hdmi *hdmi = NULL;
@@ -222,7 +222,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 
 	hdmi->workq = alloc_ordered_workqueue("msm_hdmi", 0);
 
-	hdmi->i2c = hdmi_i2c_init(hdmi);
+	hdmi->i2c = msm_hdmi_i2c_init(hdmi);
 	if (IS_ERR(hdmi->i2c)) {
 		ret = PTR_ERR(hdmi->i2c);
 		dev_err(&pdev->dev, "failed to get i2c: %d\n", ret);
@@ -230,7 +230,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		goto fail;
 	}
 
-	hdmi->hdcp_ctrl = hdmi_hdcp_init(hdmi);
+	hdmi->hdcp_ctrl = msm_hdmi_hdcp_init(hdmi);
 	if (IS_ERR(hdmi->hdcp_ctrl)) {
 		dev_warn(&pdev->dev, "failed to init hdcp: disabled\n");
 		hdmi->hdcp_ctrl = NULL;
@@ -240,7 +240,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 
 fail:
 	if (hdmi)
-		hdmi_destroy(hdmi);
+		msm_hdmi_destroy(hdmi);
 
 	return ERR_PTR(ret);
 }
@@ -250,10 +250,10 @@ fail:
  * driver (not hdmi sub-device's probe/bind!)
  *
  * Any resource (regulator/clk/etc) which could be missing at boot
- * should be handled in hdmi_init() so that failure happens from
+ * should be handled in msm_hdmi_init() so that failure happens from
  * hdmi sub-device's probe.
  */
-int hdmi_modeset_init(struct hdmi *hdmi,
+int msm_hdmi_modeset_init(struct hdmi *hdmi,
 		struct drm_device *dev, struct drm_encoder *encoder)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -265,7 +265,7 @@ int hdmi_modeset_init(struct hdmi *hdmi,
 
 	hdmi_audio_infoframe_init(&hdmi->audio.infoframe);
 
-	hdmi->bridge = hdmi_bridge_init(hdmi);
+	hdmi->bridge = msm_hdmi_bridge_init(hdmi);
 	if (IS_ERR(hdmi->bridge)) {
 		ret = PTR_ERR(hdmi->bridge);
 		dev_err(dev->dev, "failed to create HDMI bridge: %d\n", ret);
@@ -273,7 +273,7 @@ int hdmi_modeset_init(struct hdmi *hdmi,
 		goto fail;
 	}
 
-	hdmi->connector = hdmi_connector_init(hdmi);
+	hdmi->connector = msm_hdmi_connector_init(hdmi);
 	if (IS_ERR(hdmi->connector)) {
 		ret = PTR_ERR(hdmi->connector);
 		dev_err(dev->dev, "failed to create HDMI connector: %d\n", ret);
@@ -289,7 +289,7 @@ int hdmi_modeset_init(struct hdmi *hdmi,
 	}
 
 	ret = devm_request_irq(&pdev->dev, hdmi->irq,
-			hdmi_irq, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			msm_hdmi_irq, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 			"hdmi_isr", hdmi);
 	if (ret < 0) {
 		dev_err(dev->dev, "failed to request IRQ%u: %d\n",
@@ -309,7 +309,7 @@ int hdmi_modeset_init(struct hdmi *hdmi,
 fail:
 	/* bridge is normally destroyed by drm: */
 	if (hdmi->bridge) {
-		hdmi_bridge_destroy(hdmi->bridge);
+		msm_hdmi_bridge_destroy(hdmi->bridge);
 		hdmi->bridge = NULL;
 	}
 	if (hdmi->connector) {
@@ -403,7 +403,7 @@ static int get_gpio(struct device *dev, struct device_node *of_node, const char 
 	return gpio;
 }
 
-static int hdmi_bind(struct device *dev, struct device *master, void *data)
+static int msm_hdmi_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm = dev_get_drvdata(master);
 	struct msm_drm_private *priv = drm->dev_private;
@@ -429,7 +429,7 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	dev->platform_data = hdmi_cfg;
 
-	hdmi = hdmi_init(to_platform_device(dev));
+	hdmi = msm_hdmi_init(to_platform_device(dev));
 	if (IS_ERR(hdmi))
 		return PTR_ERR(hdmi);
 	priv->hdmi = hdmi;
@@ -437,34 +437,34 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 	return 0;
 }
 
-static void hdmi_unbind(struct device *dev, struct device *master,
+static void msm_hdmi_unbind(struct device *dev, struct device *master,
 		void *data)
 {
 	struct drm_device *drm = dev_get_drvdata(master);
 	struct msm_drm_private *priv = drm->dev_private;
 	if (priv->hdmi) {
-		hdmi_destroy(priv->hdmi);
+		msm_hdmi_destroy(priv->hdmi);
 		priv->hdmi = NULL;
 	}
 }
 
-static const struct component_ops hdmi_ops = {
-		.bind   = hdmi_bind,
-		.unbind = hdmi_unbind,
+static const struct component_ops msm_hdmi_ops = {
+		.bind   = msm_hdmi_bind,
+		.unbind = msm_hdmi_unbind,
 };
 
-static int hdmi_dev_probe(struct platform_device *pdev)
+static int msm_hdmi_dev_probe(struct platform_device *pdev)
 {
-	return component_add(&pdev->dev, &hdmi_ops);
+	return component_add(&pdev->dev, &msm_hdmi_ops);
 }
 
-static int hdmi_dev_remove(struct platform_device *pdev)
+static int msm_hdmi_dev_remove(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &hdmi_ops);
+	component_del(&pdev->dev, &msm_hdmi_ops);
 	return 0;
 }
 
-static const struct of_device_id dt_match[] = {
+static const struct of_device_id msm_hdmi_dt_match[] = {
 	{ .compatible = "qcom,hdmi-tx", .data = &hdmi_tx_8084_config }, /* compat w/ downstream android dtbs */
 	{ .compatible = "qcom,hdmi-tx-8996", .data = &hdmi_tx_8996_config },
 	{ .compatible = "qcom,hdmi-tx-8994", .data = &hdmi_tx_8994_config },
@@ -475,21 +475,21 @@ static const struct of_device_id dt_match[] = {
 	{}
 };
 
-static struct platform_driver hdmi_driver = {
-	.probe = hdmi_dev_probe,
-	.remove = hdmi_dev_remove,
+static struct platform_driver msm_hdmi_driver = {
+	.probe = msm_hdmi_dev_probe,
+	.remove = msm_hdmi_dev_remove,
 	.driver = {
 		.name = "hdmi_msm",
-		.of_match_table = dt_match,
+		.of_match_table = msm_hdmi_dt_match,
 	},
 };
 
-void __init hdmi_register(void)
+void __init msm_hdmi_register(void)
 {
-	platform_driver_register(&hdmi_driver);
+	platform_driver_register(&msm_hdmi_driver);
 }
 
-void __exit hdmi_unregister(void)
+void __exit msm_hdmi_unregister(void)
 {
-	platform_driver_unregister(&hdmi_driver);
+	platform_driver_unregister(&msm_hdmi_driver);
 }

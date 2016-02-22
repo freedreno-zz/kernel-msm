@@ -114,7 +114,7 @@ struct hdmi_platform_config {
 	int mux_lpm_gpio;
 };
 
-void hdmi_set_mode(struct hdmi *hdmi, bool power_on);
+void msm_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
 
 static inline void hdmi_write(struct hdmi *hdmi, u32 reg, u32 data)
 {
@@ -155,42 +155,42 @@ struct hdmi_phy *hdmi_phy_8x74_init(struct hdmi *hdmi);
  * audio:
  */
 
-int hdmi_audio_update(struct hdmi *hdmi);
-int hdmi_audio_info_setup(struct hdmi *hdmi, bool enabled,
+int msm_hdmi_audio_update(struct hdmi *hdmi);
+int msm_hdmi_audio_info_setup(struct hdmi *hdmi, bool enabled,
 	uint32_t num_of_channels, uint32_t channel_allocation,
 	uint32_t level_shift, bool down_mix);
-void hdmi_audio_set_sample_rate(struct hdmi *hdmi, int rate);
+void msm_hdmi_audio_set_sample_rate(struct hdmi *hdmi, int rate);
 
 
 /*
  * hdmi bridge:
  */
 
-struct drm_bridge *hdmi_bridge_init(struct hdmi *hdmi);
-void hdmi_bridge_destroy(struct drm_bridge *bridge);
+struct drm_bridge *msm_hdmi_bridge_init(struct hdmi *hdmi);
+void msm_hdmi_bridge_destroy(struct drm_bridge *bridge);
 
 /*
  * hdmi connector:
  */
 
-void hdmi_connector_irq(struct drm_connector *connector);
-struct drm_connector *hdmi_connector_init(struct hdmi *hdmi);
+void msm_hdmi_connector_irq(struct drm_connector *connector);
+struct drm_connector *msm_hdmi_connector_init(struct hdmi *hdmi);
 
 /*
  * i2c adapter for ddc:
  */
 
-void hdmi_i2c_irq(struct i2c_adapter *i2c);
-void hdmi_i2c_destroy(struct i2c_adapter *i2c);
-struct i2c_adapter *hdmi_i2c_init(struct hdmi *hdmi);
+void msm_hdmi_i2c_irq(struct i2c_adapter *i2c);
+void msm_hdmi_i2c_destroy(struct i2c_adapter *i2c);
+struct i2c_adapter *msm_hdmi_i2c_init(struct hdmi *hdmi);
 
 /*
  * hdcp
  */
-struct hdmi_hdcp_ctrl *hdmi_hdcp_init(struct hdmi *hdmi);
-void hdmi_hdcp_destroy(struct hdmi *hdmi);
-void hdmi_hdcp_on(struct hdmi_hdcp_ctrl *hdcp_ctrl);
-void hdmi_hdcp_off(struct hdmi_hdcp_ctrl *hdcp_ctrl);
-void hdmi_hdcp_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+struct hdmi_hdcp_ctrl *msm_hdmi_hdcp_init(struct hdmi *hdmi);
+void msm_hdmi_hdcp_destroy(struct hdmi *hdmi);
+void msm_hdmi_hdcp_on(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+void msm_hdmi_hdcp_off(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+void msm_hdmi_hdcp_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl);
 
 #endif /* __HDMI_CONNECTOR_H__ */
