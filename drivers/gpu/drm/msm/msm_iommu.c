@@ -31,7 +31,8 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 	return 0;
 }
 
-static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
+static int msm_iommu_attach(struct msm_mmu *mmu, const char * const *names,
+			    int cnt)
 {
 	struct device *dev = mmu->dev;
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
@@ -54,7 +55,8 @@ static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	return 0;
 }
 
-static void msm_iommu_detach(struct msm_mmu *mmu, const char **names, int cnt)
+static void msm_iommu_detach(struct msm_mmu *mmu, const char * const *names,
+			     int cnt)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	int i;
