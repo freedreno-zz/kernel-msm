@@ -1023,6 +1023,10 @@ nv50_crtc_cursor_show_hide(struct nouveau_crtc *nv_crtc, bool show, bool update)
 static void
 nv50_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
+	if (mode == DRM_MODE_DPMS_ON)
+		drm_crtc_vblank_on(crtc);
+	else
+		drm_crtc_vblank_off(crtc);
 }
 
 static void
@@ -1062,6 +1066,8 @@ nv50_crtc_prepare(struct drm_crtc *crtc)
 	}
 
 	nv50_crtc_cursor_show_hide(nv_crtc, false, false);
+
+	drm_crtc_vblank_on(crtc);
 }
 
 static void
@@ -1070,6 +1076,8 @@ nv50_crtc_commit(struct drm_crtc *crtc)
 	struct nouveau_crtc *nv_crtc = nouveau_crtc(crtc);
 	struct nv50_mast *mast = nv50_mast(crtc->dev);
 	u32 *push;
+
+	drm_crtc_vblank_on(crtc);
 
 	push = evo_wait(mast, 32);
 	if (push) {
