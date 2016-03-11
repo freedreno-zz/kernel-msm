@@ -1276,6 +1276,7 @@ int drm_universal_plane_init(struct drm_device *dev, struct drm_plane *plane,
 
 	if (drm_core_check_feature(dev, DRIVER_ATOMIC)) {
 		drm_object_attach_property(&plane->base, config->prop_fb_id, 0);
+		drm_object_attach_property(&plane->base, config->prop_fence_fd, -1);
 		drm_object_attach_property(&plane->base, config->prop_crtc_id, 0);
 		drm_object_attach_property(&plane->base, config->prop_crtc_x, 0);
 		drm_object_attach_property(&plane->base, config->prop_crtc_y, 0);
@@ -1508,6 +1509,12 @@ static int drm_mode_create_standard_properties(struct drm_device *dev)
 	if (!prop)
 		return -ENOMEM;
 	dev->mode_config.prop_fb_id = prop;
+
+	prop = drm_property_create_signed_range(dev, DRM_MODE_PROP_ATOMIC,
+			"FENCE_FD", -1, INT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.prop_fence_fd = prop;
 
 	prop = drm_property_create_object(dev, DRM_MODE_PROP_ATOMIC,
 			"CRTC_ID", DRM_MODE_OBJECT_CRTC);

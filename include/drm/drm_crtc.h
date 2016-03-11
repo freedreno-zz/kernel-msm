@@ -2370,6 +2370,7 @@ struct drm_mode_config {
 	struct drm_property *prop_crtc_w;
 	struct drm_property *prop_crtc_h;
 	struct drm_property *prop_fb_id;
+	struct drm_property *prop_fence_fd;
 	struct drm_property *prop_crtc_id;
 	struct drm_property *prop_active;
 	struct drm_property *prop_mode_id;
