@@ -31,6 +31,7 @@
 #include <drm/drm_mode.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_print.h>
+#include <linux/sync_file.h>
 
 #include "drm_crtc_internal.h"
 
@@ -709,6 +710,17 @@ int drm_atomic_plane_set_property(struct drm_plane *plane,
 		drm_atomic_set_fb_for_plane(state, fb);
 		if (fb)
 			drm_framebuffer_unreference(fb);
+	} else if (property == config->prop_in_fence_fd) {
+		if (U642I64(val) == -1)
+			return 0;
+
+		if (state->fence)
+			dma_fence_put(state->fence);
+
+		state->fence = sync_file_get_fence(val);
+		if (!state->fence)
+			return -EINVAL;
+
 	} else if (property == config->prop_crtc_id) {
 		struct drm_crtc *crtc = drm_crtc_find(dev, val);
 		return drm_atomic_set_crtc_for_plane(state, crtc);
@@ -770,6 +782,8 @@ drm_atomic_plane_get_property(struct drm_plane *plane,
 
 	if (property == config->prop_fb_id) {
 		*val = (state->fb) ? state->fb->base.id : 0;
+	} else if (property == config->prop_in_fence_fd) {
+		*val = -1;
 	} else if (property == config->prop_crtc_id) {
 		*val = (state->crtc) ? state->crtc->base.id : 0;
 	} else if (property == config->prop_crtc_x) {

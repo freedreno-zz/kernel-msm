@@ -1034,8 +1034,6 @@ int drm_atomic_helper_wait_for_fences(struct drm_device *dev,
 		if (!plane_state->fence)
 			continue;
 
-		WARN_ON(!plane_state->fb);
-
 		/*
 		 * If waiting for fences pre-swap (ie: nonblock), userspace can
 		 * still interrupt the operation. Instead of blocking until the
@@ -3114,6 +3112,9 @@ void __drm_atomic_helper_plane_destroy_state(struct drm_plane_state *state)
 {
 	if (state->fb)
 		drm_framebuffer_unreference(state->fb);
+
+	if (state->fence)
+		dma_fence_put(state->fence);
 }
 EXPORT_SYMBOL(__drm_atomic_helper_plane_destroy_state);
 
