@@ -454,6 +454,7 @@ void msm_gem_move_to_inactive(struct drm_gem_object *obj)
 int msm_gem_cpu_prep(struct drm_gem_object *obj, uint32_t op, ktime_t *timeout)
 {
 	struct drm_device *dev = obj->dev;
+	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 	int ret = 0;
 
@@ -463,7 +464,8 @@ int msm_gem_cpu_prep(struct drm_gem_object *obj, uint32_t op, ktime_t *timeout)
 		if (op & MSM_PREP_NOSYNC)
 			timeout = NULL;
 
-		ret = msm_wait_fence(dev, fence, timeout, true);
+		if (priv->gpu)
+			ret = msm_wait_fence(priv->gpu->fctx, fence, timeout, true);
 	}
 
 	/* TODO cache maintenance */

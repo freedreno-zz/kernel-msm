@@ -49,6 +49,7 @@ struct msm_mmu;
 struct msm_rd_state;
 struct msm_perf_state;
 struct msm_gem_submit;
+struct msm_fence_context;
 struct msm_fence_cb;
 
 #define NUM_DOMAINS 2    /* one for KMS, then one per gpu core (?) */
@@ -101,9 +102,6 @@ struct msm_drm_private {
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence, completed_fence;
-	wait_queue_head_t fence_event;
-
 	struct msm_rd_state *rd;
 	struct msm_perf_state *perf;
 
@@ -111,9 +109,6 @@ struct msm_drm_private {
 	struct list_head inactive_list;
 
 	struct workqueue_struct *wq;
-
-	/* callbacks deferred until bo is inactive: */
-	struct list_head fence_cbs;
 
 	/* crtcs pending async atomic updates: */
 	uint32_t pending_crtcs;
