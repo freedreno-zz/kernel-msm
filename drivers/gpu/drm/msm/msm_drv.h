@@ -30,13 +30,9 @@
 #include <linux/list.h>
 #include <linux/iommu.h>
 #include <linux/types.h>
+#include <linux/of_graph.h>
+#include <linux/of_device.h>
 #include <asm/sizes.h>
-
-#ifndef CONFIG_OF
-#include <mach/board.h>
-#include <mach/socinfo.h>
-#include <mach/iommu_domains.h>
-#endif
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
@@ -62,6 +58,19 @@ struct msm_file_private {
 	 * the context's page-tables here.
 	 */
 	int dummy;
+};
+
+enum msm_mdp_plane_property {
+	PLANE_PROP_ZPOS,
+	PLANE_PROP_ALPHA,
+	PLANE_PROP_PREMULTIPLIED,
+	PLANE_PROP_MAX_NUM
+};
+
+struct msm_vblank_ctrl {
+	struct work_struct work;
+	struct list_head event_list;
+	spinlock_t lock;
 };
 
 struct msm_drm_private {
@@ -128,6 +137,9 @@ struct msm_drm_private {
 	unsigned int num_connectors;
 	struct drm_connector *connectors[8];
 
+	/* Properties */
+	struct drm_property *plane_property[PLANE_PROP_MAX_NUM];
+
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
 		unsigned long size;
@@ -137,6 +149,8 @@ struct msm_drm_private {
 		 */
 		struct drm_mm mm;
 	} vram;
+
+	struct msm_vblank_ctrl vblank_ctrl;
 };
 
 struct msm_format {
@@ -164,8 +178,8 @@ int msm_atomic_commit(struct drm_device *dev,
 
 int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
-int msm_wait_fence_interruptable(struct drm_device *dev, uint32_t fence,
-		ktime_t *timeout);
+int msm_wait_fence(struct drm_device *dev, uint32_t fence,
+		ktime_t *timeout, bool interruptible);
 int msm_queue_fence_cb(struct drm_device *dev,
 		struct msm_fence_cb *cb, uint32_t fence);
 void msm_update_fence(struct drm_device *dev, uint32_t fence);
@@ -221,9 +235,9 @@ uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb, int id, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
 struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
-		struct drm_mode_fb_cmd2 *mode_cmd, struct drm_gem_object **bos);
+		const struct drm_mode_fb_cmd2 *mode_cmd, struct drm_gem_object **bos);
 struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
-		struct drm_file *file, struct drm_mode_fb_cmd2 *mode_cmd);
+		struct drm_file *file, const struct drm_mode_fb_cmd2 *mode_cmd);
 
 struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
 

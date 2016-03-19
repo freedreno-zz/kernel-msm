@@ -15,21 +15,22 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <linux/completion.h>
+#include <linux/delay.h>
+#include <linux/dma-mapping.h>
+#include <linux/errno.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/list.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/platform_device.h> /* platform_device() */
-#include <linux/errno.h>
 #include <linux/sched.h>
-#include <linux/wait.h>
-#include <linux/interrupt.h>
-#include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <linux/vmalloc.h>
-#include <linux/delay.h>
-#include <linux/mm.h>
 #include <linux/time.h>
-#include <linux/list.h>
-#include <linux/completion.h>
+#include <linux/vmalloc.h>
+#include <linux/wait.h>
 
 #include "omap_dmm_tiler.h"
 #include "omap_dmm_priv.h"
@@ -284,7 +285,7 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 
 	if (wait) {
 		if (!wait_for_completion_timeout(&engine->compl,
-				msecs_to_jiffies(1))) {
+				msecs_to_jiffies(100))) {
 			dev_err(dmm->dev, "timed out waiting for done\n");
 			ret = -ETIMEDOUT;
 		}
@@ -362,6 +363,7 @@ struct tiler_block *tiler_reserve_2d(enum tiler_fmt fmt, uint16_t w,
 	u32 min_align = 128;
 	int ret;
 	unsigned long flags;
+	size_t slot_bytes;
 
 	BUG_ON(!validfmt(fmt));
 
@@ -370,13 +372,15 @@ struct tiler_block *tiler_reserve_2d(enum tiler_fmt fmt, uint16_t w,
 	h = DIV_ROUND_UP(h, geom[fmt].slot_h);
 
 	/* convert alignment to slots */
-	min_align = max(min_align, (geom[fmt].slot_w * geom[fmt].cpp));
-	align = ALIGN(align, min_align);
-	align /= geom[fmt].slot_w * geom[fmt].cpp;
+	slot_bytes = geom[fmt].slot_w * geom[fmt].cpp;
+	min_align = max(min_align, slot_bytes);
+	align = (align > min_align) ? ALIGN(align, min_align) : min_align;
+	align /= slot_bytes;
 
 	block->fmt = fmt;
 
-	ret = tcm_reserve_2d(containers[fmt], w, h, align, &block->area);
+	ret = tcm_reserve_2d(containers[fmt], w, h, align, -1, slot_bytes,
+			&block->area);
 	if (ret) {
 		kfree(block);
 		return ERR_PTR(-ENOMEM);
@@ -738,8 +742,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 	   programming during reill operations */
 	for (i = 0; i < omap_dmm->num_lut; i++) {
 		omap_dmm->tcm[i] = sita_init(omap_dmm->container_width,
-						omap_dmm->container_height,
-						NULL);
+						omap_dmm->container_height);
 
 		if (!omap_dmm->tcm[i]) {
 			dev_err(&dev->dev, "failed to allocate container\n");
@@ -1029,4 +1032,3 @@ struct platform_driver omap_dmm_driver = {
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Andy Gross <andy.gross@ti.com>");
 MODULE_DESCRIPTION("OMAP DMM/Tiler Driver");
-MODULE_ALIAS("platform:" DMM_DRIVER_NAME);

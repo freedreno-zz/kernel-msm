@@ -29,6 +29,14 @@
 
 #include <linux/vmalloc.h>
 
+static inline void kvfree(const void *addr)
+{
+	if (is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
+}
+
 static __inline__ void *drm_calloc_large(size_t nmemb, size_t size)
 {
 	if (size != 0 && nmemb > SIZE_MAX / size)
@@ -56,10 +64,7 @@ static __inline__ void *drm_malloc_ab(size_t nmemb, size_t size)
 
 static __inline void drm_free_large(void *ptr)
 {
-	if (!is_vmalloc_addr(ptr))
-		return kfree(ptr);
-
-	vfree(ptr);
+	kvfree(ptr);
 }
 
 #endif

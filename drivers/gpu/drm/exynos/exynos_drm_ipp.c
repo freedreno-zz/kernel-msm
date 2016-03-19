@@ -45,9 +45,6 @@
 #define get_ipp_context(dev)	platform_get_drvdata(to_platform_device(dev))
 #define ipp_is_m2m_cmd(c)	(c == IPP_CMD_M2M)
 
-/* platform device pointer for ipp device. */
-static struct platform_device *exynos_drm_ipp_pdev;
-
 /*
  * A structure of event.
  *
@@ -101,30 +98,6 @@ struct ipp_context {
 static LIST_HEAD(exynos_drm_ippdrv_list);
 static DEFINE_MUTEX(exynos_drm_ippdrv_lock);
 static BLOCKING_NOTIFIER_HEAD(exynos_drm_ippnb_list);
-
-int exynos_platform_device_ipp_register(void)
-{
-	struct platform_device *pdev;
-
-	if (exynos_drm_ipp_pdev)
-		return -EEXIST;
-
-	pdev = platform_device_register_simple("exynos-drm-ipp", -1, NULL, 0);
-	if (IS_ERR(pdev))
-		return PTR_ERR(pdev);
-
-	exynos_drm_ipp_pdev = pdev;
-
-	return 0;
-}
-
-void exynos_platform_device_ipp_unregister(void)
-{
-	if (exynos_drm_ipp_pdev) {
-		platform_device_unregister(exynos_drm_ipp_pdev);
-		exynos_drm_ipp_pdev = NULL;
-	}
-}
 
 int exynos_drm_ippdrv_register(struct exynos_drm_ippdrv *ippdrv)
 {
@@ -235,7 +208,7 @@ static struct exynos_drm_ippdrv *ipp_find_drv_by_handle(u32 prop_id)
 	 * e.g PAUSE state, queue buf, command control.
 	 */
 	list_for_each_entry(ippdrv, &exynos_drm_ippdrv_list, drv_list) {
-		DRM_DEBUG_KMS("count[%d]ippdrv[0x%x]\n", count++, (int)ippdrv);
+		DRM_DEBUG_KMS("count[%d]ippdrv[%p]\n", count++, ippdrv);
 
 		mutex_lock(&ippdrv->cmd_lock);
 		list_for_each_entry(c_node, &ippdrv->cmd_list, list) {
@@ -415,8 +388,8 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 	}
 	property->prop_id = ret;
 
-	DRM_DEBUG_KMS("created prop_id[%d]cmd[%d]ippdrv[0x%x]\n",
-		property->prop_id, property->cmd, (int)ippdrv);
+	DRM_DEBUG_KMS("created prop_id[%d]cmd[%d]ippdrv[%p]\n",
+		property->prop_id, property->cmd, ippdrv);
 
 	/* stored property information and ippdrv in private data */
 	c_node->property = *property;
@@ -482,12 +455,11 @@ static int ipp_validate_mem_node(struct drm_device *drm_dev,
 {
 	struct drm_exynos_ipp_config *ipp_cfg;
 	unsigned int num_plane;
-	unsigned long min_size, size;
-	unsigned int bpp;
+	unsigned long size, buf_size = 0, plane_size, img_size = 0;
+	unsigned int bpp, width, height;
 	int i;
 
-	/* The property id should already be varified */
-	ipp_cfg = &c_node->property.config[m_node->prop_id];
+	ipp_cfg = &c_node->property.config[m_node->ops_id];
 	num_plane = drm_format_num_planes(ipp_cfg->fmt);
 
 	/**
@@ -498,20 +470,45 @@ static int ipp_validate_mem_node(struct drm_device *drm_dev,
 	 * but it seems more than enough
 	 */
 	for (i = 0; i < num_plane; ++i) {
-		if (!m_node->buf_info.handles[i]) {
-			DRM_ERROR("invalid handle for plane %d\n", i);
-			return -EINVAL;
-		}
+		width = ipp_cfg->sz.hsize;
+		height = ipp_cfg->sz.vsize;
 		bpp = drm_format_plane_cpp(ipp_cfg->fmt, i);
-		min_size = (ipp_cfg->sz.hsize * ipp_cfg->sz.vsize * bpp) >> 3;
-		size = exynos_drm_gem_get_size(drm_dev,
-					       m_node->buf_info.handles[i],
-					       c_node->filp);
-		if (min_size > size) {
-			DRM_ERROR("invalid size for plane %d\n", i);
-			return -EINVAL;
+
+		/*
+		 * The result of drm_format_plane_cpp() for chroma planes must
+		 * be used with drm_format_xxxx_chroma_subsampling() for
+		 * correct result.
+		 */
+		if (i > 0) {
+			width /= drm_format_horz_chroma_subsampling(
+								ipp_cfg->fmt);
+			height /= drm_format_vert_chroma_subsampling(
+								ipp_cfg->fmt);
+		}
+		plane_size = width * height * bpp;
+		img_size += plane_size;
+
+		if (m_node->buf_info.handles[i]) {
+			size = exynos_drm_gem_get_size(drm_dev,
+					m_node->buf_info.handles[i],
+					c_node->filp);
+			if (plane_size > size) {
+				DRM_ERROR(
+					"buffer %d is smaller than required\n",
+					i);
+				return -EINVAL;
+			}
+
+			buf_size += size;
 		}
 	}
+
+	if (buf_size < img_size) {
+		DRM_ERROR("size of buffers(%lu) is smaller than image(%lu)\n",
+			buf_size, img_size);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -521,7 +518,7 @@ static int ipp_put_mem_node(struct drm_device *drm_dev,
 {
 	int i;
 
-	DRM_DEBUG_KMS("node[0x%x]\n", (int)m_node);
+	DRM_DEBUG_KMS("node[%p]\n", m_node);
 
 	if (!m_node) {
 		DRM_ERROR("invalid dequeue node.\n");
@@ -565,7 +562,7 @@ static struct drm_exynos_ipp_mem_node
 	m_node->buf_id = qbuf->buf_id;
 	INIT_LIST_HEAD(&m_node->list);
 
-	DRM_DEBUG_KMS("m_node[0x%x]ops_id[%d]\n", (int)m_node, qbuf->ops_id);
+	DRM_DEBUG_KMS("m_node[%p]ops_id[%d]\n", m_node, qbuf->ops_id);
 	DRM_DEBUG_KMS("prop_id[%d]buf_id[%d]\n", qbuf->prop_id, m_node->buf_id);
 
 	for_each_ipp_planar(i) {
@@ -585,8 +582,8 @@ static struct drm_exynos_ipp_mem_node
 
 			buf_info->handles[i] = qbuf->handle[i];
 			buf_info->base[i] = *addr;
-			DRM_DEBUG_KMS("i[%d]base[0x%x]hd[0x%lx]\n", i,
-				      buf_info->base[i], buf_info->handles[i]);
+			DRM_DEBUG_KMS("i[%d]base[%pad]hd[0x%lx]\n", i,
+				      &buf_info->base[i], buf_info->handles[i]);
 		}
 	}
 
@@ -667,7 +664,7 @@ static void ipp_put_event(struct drm_exynos_ipp_cmd_node *c_node,
 
 	mutex_lock(&c_node->event_lock);
 	list_for_each_entry_safe(e, te, &c_node->event_list, base.link) {
-		DRM_DEBUG_KMS("count[%d]e[0x%x]\n", count++, (int)e);
+		DRM_DEBUG_KMS("count[%d]e[%p]\n", count++, e);
 
 		/*
 		 * qbuf == NULL condition means all event deletion.
@@ -758,7 +755,7 @@ static struct drm_exynos_ipp_mem_node
 
 	/* find memory node from memory list */
 	list_for_each_entry(m_node, head, list) {
-		DRM_DEBUG_KMS("count[%d]m_node[0x%x]\n", count++, (int)m_node);
+		DRM_DEBUG_KMS("count[%d]m_node[%p]\n", count++, m_node);
 
 		/* compare buffer id */
 		if (m_node->buf_id == qbuf->buf_id)
@@ -775,7 +772,7 @@ static int ipp_set_mem_node(struct exynos_drm_ippdrv *ippdrv,
 	struct exynos_drm_ipp_ops *ops = NULL;
 	int ret = 0;
 
-	DRM_DEBUG_KMS("node[0x%x]\n", (int)m_node);
+	DRM_DEBUG_KMS("node[%p]\n", m_node);
 
 	if (!m_node) {
 		DRM_ERROR("invalid queue node.\n");
@@ -1240,7 +1237,7 @@ static int ipp_start_property(struct exynos_drm_ippdrv *ippdrv,
 			m_node = list_first_entry(head,
 				struct drm_exynos_ipp_mem_node, list);
 
-			DRM_DEBUG_KMS("m_node[0x%x]\n", (int)m_node);
+			DRM_DEBUG_KMS("m_node[%p]\n", m_node);
 
 			ret = ipp_set_mem_node(ippdrv, c_node, m_node);
 			if (ret) {
@@ -1613,8 +1610,8 @@ static int ipp_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
 		}
 		ippdrv->prop_list.ipp_id = ret;
 
-		DRM_DEBUG_KMS("count[%d]ippdrv[0x%x]ipp_id[%d]\n",
-			count++, (int)ippdrv, ret);
+		DRM_DEBUG_KMS("count[%d]ippdrv[%p]ipp_id[%d]\n",
+			count++, ippdrv, ret);
 
 		/* store parent device for node */
 		ippdrv->parent_dev = dev;
@@ -1625,12 +1622,10 @@ static int ipp_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
 		INIT_LIST_HEAD(&ippdrv->cmd_list);
 		mutex_init(&ippdrv->cmd_lock);
 
-		if (is_drm_iommu_supported(drm_dev)) {
-			ret = drm_iommu_attach_device(drm_dev, ippdrv->dev);
-			if (ret) {
-				DRM_ERROR("failed to activate iommu\n");
-				goto err;
-			}
+		ret = drm_iommu_attach_device(drm_dev, ippdrv->dev);
+		if (ret) {
+			DRM_ERROR("failed to activate iommu\n");
+			goto err;
 		}
 	}
 
@@ -1640,8 +1635,7 @@ err:
 	/* get ipp driver entry */
 	list_for_each_entry_continue_reverse(ippdrv, &exynos_drm_ippdrv_list,
 						drv_list) {
-		if (is_drm_iommu_supported(drm_dev))
-			drm_iommu_detach_device(drm_dev, ippdrv->dev);
+		drm_iommu_detach_device(drm_dev, ippdrv->dev);
 
 		ipp_remove_id(&ctx->ipp_idr, &ctx->ipp_lock,
 				ippdrv->prop_list.ipp_id);
@@ -1657,8 +1651,7 @@ static void ipp_subdrv_remove(struct drm_device *drm_dev, struct device *dev)
 
 	/* get ipp driver entry */
 	list_for_each_entry_safe(ippdrv, t, &exynos_drm_ippdrv_list, drv_list) {
-		if (is_drm_iommu_supported(drm_dev))
-			drm_iommu_detach_device(drm_dev, ippdrv->dev);
+		drm_iommu_detach_device(drm_dev, ippdrv->dev);
 
 		ipp_remove_id(&ctx->ipp_idr, &ctx->ipp_lock,
 				ippdrv->prop_list.ipp_id);
@@ -1675,7 +1668,7 @@ static int ipp_subdrv_open(struct drm_device *drm_dev, struct device *dev,
 
 	file_priv->ipp_dev = dev;
 
-	DRM_DEBUG_KMS("done priv[0x%x]\n", (int)dev);
+	DRM_DEBUG_KMS("done priv[%p]\n", dev);
 
 	return 0;
 }
@@ -1692,8 +1685,8 @@ static void ipp_subdrv_close(struct drm_device *drm_dev, struct device *dev,
 		mutex_lock(&ippdrv->cmd_lock);
 		list_for_each_entry_safe(c_node, tc_node,
 			&ippdrv->cmd_list, list) {
-			DRM_DEBUG_KMS("count[%d]ippdrv[0x%x]\n",
-				count++, (int)ippdrv);
+			DRM_DEBUG_KMS("count[%d]ippdrv[%p]\n",
+				count++, ippdrv);
 
 			if (c_node->filp == file) {
 				/*

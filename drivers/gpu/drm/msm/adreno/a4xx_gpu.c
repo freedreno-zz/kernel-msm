@@ -12,7 +12,7 @@
  */
 #include "a4xx_gpu.h"
 #ifdef CONFIG_MSM_OCMEM
-#  include <mach/ocmem.h>
+#  include <soc/qcom/ocmem.h>
 #endif
 
 #define A4XX_INT0_MASK \

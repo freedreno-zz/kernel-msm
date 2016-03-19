@@ -100,6 +100,7 @@ struct kparam_array
  */
 #define module_param(name, type, perm)				\
 	module_param_named(name, name, type, perm)
+#define module_param_unsafe(name, type, perm) module_param(name, type, perm)
 
 /**
  * module_param_named - typesafe helper for a renamed module/cmdline parameter

@@ -24,7 +24,7 @@
  * Power Management:
  */
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
 #include <mach/board.h>
 static void bs_init(struct msm_gpu *gpu)
 {
@@ -651,6 +651,14 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	if (iommu) {
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
 		gpu->mmu = msm_iommu_new(&pdev->dev, iommu);
+		if (IS_ERR(gpu->mmu)) {
+			ret = PTR_ERR(gpu->mmu);
+			dev_err(drm->dev, "failed to init iommu: %d\n", ret);
+			gpu->mmu = NULL;
+			iommu_domain_free(iommu);
+			goto fail;
+		}
+
 	} else {
 		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
 	}

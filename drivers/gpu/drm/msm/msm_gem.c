@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
+#include <linux/pfn_t.h>
 
 #include "msm_drv.h"
 #include "msm_gem.h"
@@ -222,7 +223,8 @@ int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	VERB("Inserting %p pfn %lx, pa %lx", vmf->virtual_address,
 			pfn, pfn << PAGE_SHIFT);
 
-	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, pfn);
+	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
+			__pfn_to_pfn_t(pfn, PFN_DEV));
 
 out_unlock:
 	mutex_unlock(&dev->struct_mutex);
@@ -460,7 +462,7 @@ int msm_gem_cpu_prep(struct drm_gem_object *obj, uint32_t op, ktime_t *timeout)
 		if (op & MSM_PREP_NOSYNC)
 			timeout = NULL;
 
-		ret = msm_wait_fence_interruptable(dev, fence, timeout);
+		ret = msm_wait_fence(dev, fence, timeout, true);
 	}
 
 	/* TODO cache maintenance */

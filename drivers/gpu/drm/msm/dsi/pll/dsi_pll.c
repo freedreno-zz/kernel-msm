@@ -72,30 +72,13 @@ long msm_dsi_pll_helper_clk_round_rate(struct clk_hw *hw,
 int msm_dsi_pll_helper_clk_prepare(struct clk_hw *hw)
 {
 	struct msm_dsi_pll *pll = hw_clk_to_pll(hw);
-	int ret;
 
-	/*
-	 * Certain PLLs need to update the same VCO rate and registers
-	 * after resume in suspend/resume scenario.
-	 */
-	if (pll->restore_state) {
-		ret = pll->restore_state(pll);
-		if (ret)
-			goto error;
-	}
-
-	ret = dsi_pll_enable(pll);
-
-error:
-	return ret;
+	return dsi_pll_enable(pll);
 }
 
 void msm_dsi_pll_helper_clk_unprepare(struct clk_hw *hw)
 {
 	struct msm_dsi_pll *pll = hw_clk_to_pll(hw);
-
-	if (pll->save_state)
-		pll->save_state(pll);
 
 	dsi_pll_disable(pll);
 }
@@ -134,6 +117,29 @@ void msm_dsi_pll_destroy(struct msm_dsi_pll *pll)
 		pll->destroy(pll);
 }
 
+void msm_dsi_pll_save_state(struct msm_dsi_pll *pll)
+{
+	if (pll->save_state) {
+		pll->save_state(pll);
+		pll->state_saved = true;
+	}
+}
+
+int msm_dsi_pll_restore_state(struct msm_dsi_pll *pll)
+{
+	int ret;
+
+	if (pll->restore_state && pll->state_saved) {
+		ret = pll->restore_state(pll);
+		if (ret)
+			return ret;
+
+		pll->state_saved = false;
+	}
+
+	return 0;
+}
+
 struct msm_dsi_pll *msm_dsi_pll_init(struct platform_device *pdev,
 			enum msm_dsi_phy_type type, int id)
 {
@@ -144,6 +150,9 @@ struct msm_dsi_pll *msm_dsi_pll_init(struct platform_device *pdev,
 	case MSM_DSI_PHY_28NM_HPM:
 	case MSM_DSI_PHY_28NM_LP:
 		pll = msm_dsi_pll_28nm_init(pdev, type, id);
+		break;
+	case MSM_DSI_PHY_28NM_8960:
+		pll = msm_dsi_pll_28nm_8960_init(pdev, id);
 		break;
 	default:
 		pll = ERR_PTR(-ENXIO);
