@@ -18,7 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
-#include <linux/pfn_t.h>
+#define __pfn_to_pfn_t(pfn, flags) (pfn)
 
 #include "msm_drv.h"
 #include "msm_gem.h"
