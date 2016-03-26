@@ -32,6 +32,8 @@
 #include <linux/fb.h>
 #include <linux/hdmi.h>
 #include <linux/media-bus-format.h>
+#include <linux/srcu.h>
+#include <linux/dma-fence.h>
 #include <uapi/drm/drm_mode.h>
 #include <uapi/drm/drm_fourcc.h>
 #include <drm/drm_modeset_lock.h>
@@ -739,7 +741,50 @@ struct drm_crtc {
 	 */
 	struct drm_crtc_crc crc;
 #endif
+
+	/**
+	 * @fence_context:
+	 *
+	 * timeline context used for fence operations.
+	 */
+	unsigned int fence_context;
+
+	/**
+	 * @fence_lock:
+	 *
+	 * spinlock to protect the fences in the fence_context.
+	 */
+
+	spinlock_t fence_lock;
+	/**
+	 * @fence_seqno:
+	 *
+	 * Seqno variable used as monotonic counter for the fences
+	 * created on the CRTC's timeline.
+	 */
+	unsigned long fence_seqno;
+
+	/**
+	 * @timeline_name:
+	 *
+	 * The name of the CRTC's fence timeline.
+	 */
+	char timeline_name[32];
 };
+
+/**
+ * dma_crtc_fence_ops - fence ops for the drm_crtc timeline
+ *
+ * It contains the dma_fence_ops that should be called by the dma_fence
+ * code. CRTC core should use this ops when initializing fences.
+ */
+extern const struct dma_fence_ops drm_crtc_fence_ops;
+
+static inline struct drm_crtc *fence_to_crtc(struct dma_fence *fence)
+{
+	BUG_ON(fence->ops != &drm_crtc_fence_ops);
+	return container_of(fence->lock, struct drm_crtc, fence_lock);
+}
 
 /**
  * struct drm_mode_set - new values for a CRTC config change
