@@ -1455,11 +1455,9 @@ EXPORT_SYMBOL(drm_atomic_nonblocking_commit);
  */
 
 static struct drm_pending_vblank_event *create_vblank_event(
-		struct drm_device *dev, struct drm_file *file_priv,
-		struct fence *fence, uint64_t user_data)
+		struct drm_device *dev, uint64_t user_data)
 {
 	struct drm_pending_vblank_event *e = NULL;
-	int ret;
 
 	e = kzalloc(sizeof *e, GFP_KERNEL);
 	if (!e)
@@ -1468,17 +1466,6 @@ static struct drm_pending_vblank_event *create_vblank_event(
 	e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
 	e->event.base.length = sizeof(e->event);
 	e->event.user_data = user_data;
-
-	if (file_priv) {
-		ret = drm_event_reserve_init(dev, file_priv, &e->base,
-					     &e->event.base);
-		if (ret) {
-			kfree(e);
-			return NULL;
-		}
-	}
-
-	e->base.fence = fence;
 
 	return e;
 }
@@ -1650,6 +1637,147 @@ unlock:
 	return ret;
 }
 
+static struct drm_out_fence_state *get_out_fence(struct drm_device *dev,
+						 struct drm_atomic_state *state,
+						 uint32_t __user *out_fences_ptr,
+						 uint64_t count_out_fences,
+						 uint64_t user_data)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	struct drm_out_fences *out_fences;
+	struct drm_out_fence_state *fence_state;
+	int i, ret;
+
+	if (count_out_fences > dev->mode_config.num_crtc)
+		return ERR_PTR(-EINVAL);
+
+	out_fences = kcalloc(count_out_fences, sizeof(*out_fences),
+			     GFP_KERNEL);
+	if (!out_fences)
+		return ERR_PTR(-ENOMEM);
+
+	if (copy_from_user(out_fences, out_fences_ptr,
+			   count_out_fences * sizeof(*out_fences))) {
+		kfree(out_fences);
+		return ERR_PTR(-EFAULT);
+	}
+
+	fence_state = kcalloc(count_out_fences, sizeof(*fence_state),
+			     GFP_KERNEL);
+	if (!fence_state) {
+		kfree(out_fences);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	for (i = 0 ; i < count_out_fences ; i++)
+		fence_state[i].fd = -1;
+
+	for (i = 0 ; i < count_out_fences ; i++) {
+		struct fence *fence;
+
+		if (out_fences[i].fd != -1) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		crtc = drm_crtc_find(dev, out_fences[i].crtc_id);
+		if (!crtc) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		crtc_state = drm_atomic_get_crtc_state(state, crtc);
+		if (IS_ERR(crtc_state)) {
+			ret = PTR_ERR(crtc_state);
+			goto out;
+		}
+
+		fence = kzalloc(sizeof(*fence), GFP_KERNEL);
+		if (!fence) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		fence_init(fence, &drm_crtc_fence_ops, &crtc->fence_lock,
+			   crtc->fence_context, crtc->fence_seqno);
+
+		fence_state[i].fd = get_unused_fd_flags(O_CLOEXEC);
+		if (fence_state[i].fd < 0) {
+			fence_put(fence);
+			ret = fence_state[i].fd;
+			goto out;
+		}
+
+		fence_state[i].sync_file = sync_file_create(fence);
+		if(!fence_state[i].sync_file) {
+			fence_put(fence);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		crtc_state->event->base.fence = fence;
+
+		out_fences[i].fd = fence_state[i].fd;
+	}
+
+	if (copy_to_user(out_fences_ptr, out_fences,
+			 count_out_fences * sizeof(*out_fences))) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	kfree(out_fences);
+
+	return fence_state;
+
+out:
+	for (i = 0 ; i < count_out_fences ; i++) {
+		if (fence_state[i].sync_file)
+			fput(fence_state[i].sync_file->file);
+		if (fence_state[i].fd >= 0)
+			put_unused_fd(fence_state[i].fd);
+	}
+
+	kfree(fence_state);
+	kfree(out_fences);
+
+	return ERR_PTR(ret);
+}
+
+static void install_out_fence(struct drm_atomic_state *state,
+			      uint64_t count_out_fences,
+			      struct drm_out_fence_state *fence_state)
+{
+	struct drm_crtc_state *crtc_state;
+	struct drm_crtc *crtc;
+	int i;
+
+	for (i = 0 ; i < count_out_fences ; i++) {
+		if (fence_state[i].sync_file)
+			fd_install(fence_state[i].fd,
+				   fence_state[i].sync_file->file);
+	}
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		if (crtc_state->event->base.fence)
+			fence_get(crtc_state->event->base.fence);
+	}
+}
+
+static void release_out_fence(uint64_t count_out_fences,
+			      struct drm_out_fence_state *state)
+{
+	int i;
+
+	for (i = 0 ; i < count_out_fences ; i++) {
+		if (state->sync_file)
+			fput(state->sync_file->file);
+		if (state->fd >= 0)
+			put_unused_fd(state->fd);
+	}
+}
+
 int drm_mode_atomic_ioctl(struct drm_device *dev,
 			  void *data, struct drm_file *file_priv)
 {
@@ -1658,12 +1786,14 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 	uint32_t __user *count_props_ptr = (uint32_t __user *)(unsigned long)(arg->count_props_ptr);
 	uint32_t __user *props_ptr = (uint32_t __user *)(unsigned long)(arg->props_ptr);
 	uint64_t __user *prop_values_ptr = (uint64_t __user *)(unsigned long)(arg->prop_values_ptr);
+	uint32_t __user *out_fences_ptr = (uint32_t __user *)(unsigned long)(arg->out_fences_ptr);
 	unsigned int copied_objs, copied_props;
 	struct drm_atomic_state *state;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_plane *plane;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
+	struct drm_out_fence_state *fence_state = NULL;
 	unsigned plane_mask;
 	int ret = 0;
 	unsigned int i, j;
@@ -1689,9 +1819,12 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 			!dev->mode_config.async_page_flip)
 		return -EINVAL;
 
+	if ((arg->flags & DRM_MODE_ATOMIC_OUT_FENCE) && !arg->count_out_fences)
+		return -EINVAL;
+
 	/* can't test and expect an event at the same time. */
 	if ((arg->flags & DRM_MODE_ATOMIC_TEST_ONLY) &&
-			(arg->flags & DRM_MODE_PAGE_FLIP_EVENT))
+			(arg->flags & DRM_MODE_ATOMIC_EVENT_MASK))
 		return -EINVAL;
 
 	drm_modeset_acquire_init(&ctx, 0);
@@ -1781,12 +1914,11 @@ retry:
 		drm_mode_object_unreference(obj);
 	}
 
-	if (arg->flags & DRM_MODE_PAGE_FLIP_EVENT) {
+	if (arg->flags & DRM_MODE_ATOMIC_EVENT_MASK) {
 		for_each_crtc_in_state(state, crtc, crtc_state, i) {
 			struct drm_pending_vblank_event *e;
 
-			e = create_vblank_event(dev, file_priv, NULL,
-						arg->user_data);
+			e = create_vblank_event(dev, arg->user_data);
 			if (!e) {
 				ret = -ENOMEM;
 				goto out;
@@ -1796,16 +1928,48 @@ retry:
 		}
 	}
 
+	if (arg->flags & DRM_MODE_PAGE_FLIP_EVENT) {
+		for_each_crtc_in_state(state, crtc, crtc_state, i) {
+			struct drm_pending_vblank_event *e = crtc_state->event;
+
+			if (!file_priv)
+				continue;
+
+			ret = drm_event_reserve_init(dev, file_priv, &e->base,
+						     &e->event.base);
+			if (ret) {
+				kfree(e);
+				crtc_state->event = NULL;
+				return ret;
+			}
+		}
+	}
+
+	if (arg->flags & DRM_MODE_ATOMIC_OUT_FENCE) {
+		fence_state = get_out_fence(dev, state, out_fences_ptr,
+					    arg->count_out_fences,
+					    arg->user_data);
+		if (IS_ERR(fence_state)) {
+			ret = PTR_ERR(fence_state);
+			goto out;
+		}
+	}
+
 	if (arg->flags & DRM_MODE_ATOMIC_TEST_ONLY) {
 		/*
 		 * Unlike commit, check_only does not clean up state.
 		 * Below we call drm_atomic_state_free for it.
 		 */
 		ret = drm_atomic_check_only(state);
-	} else if (arg->flags & DRM_MODE_ATOMIC_NONBLOCK) {
-		ret = drm_atomic_nonblocking_commit(state);
 	} else {
-		ret = drm_atomic_commit(state);
+		if (arg->flags & DRM_MODE_ATOMIC_OUT_FENCE)
+			install_out_fence(state, arg->count_out_fences,
+					  fence_state);
+
+		if (arg->flags & DRM_MODE_ATOMIC_NONBLOCK)
+			ret = drm_atomic_nonblocking_commit(state);
+		else
+			ret = drm_atomic_commit(state);
 	}
 
 out:
@@ -1824,6 +1988,14 @@ out:
 
 			drm_event_cancel_free(dev, &crtc_state->event->base);
 		}
+	}
+
+	if ((arg->flags & DRM_MODE_ATOMIC_OUT_FENCE) &&
+	    !IS_ERR_OR_NULL(fence_state)) {
+		if (ret)
+			release_out_fence(arg->count_out_fences, fence_state);
+
+		kfree(fence_state);
 	}
 
 	if (ret == -EDEADLK) {
