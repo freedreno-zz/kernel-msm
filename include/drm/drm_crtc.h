@@ -786,7 +786,7 @@ static inline struct drm_crtc *fence_to_crtc(struct dma_fence *fence)
 	return container_of(fence->lock, struct drm_crtc, fence_lock);
 }
 
-/**
+/*
  * struct drm_mode_set - new values for a CRTC config change
  * @fb: framebuffer to use for new config
  * @crtc: CRTC whose configuration we're about to change
@@ -1263,6 +1263,11 @@ struct drm_mode_config {
 	 * for a Plane.
 	 */
 	struct drm_property *prop_in_fence_fd;
+	/**
+	 * @prop_out_fence_ptr: Sync File fd pointer representing the
+	 * outgoing fences for a CRTC. Userspace should provide a u64 pointer.
+	 */
+	struct drm_property *prop_out_fence_ptr;
 	/**
 	 * @prop_crtc_id: Default atomic plane property to specify the
 	 * &drm_crtc.
