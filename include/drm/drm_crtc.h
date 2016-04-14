@@ -1913,6 +1913,7 @@ struct __drm_connnectors_state {
  * @allow_modeset: allow full modeset
  * @legacy_cursor_update: hint to enforce legacy cursor IOCTL semantics
  * @legacy_set_config: Disable conflicting encoders instead of failing with -EINVAL.
+ * @swapped: hint to inform if the state was swapped with the device state
  * @planes: pointer to array of structures with per-plane data
  * @crtcs: pointer to array of CRTC pointers
  * @num_connector: size of the @connectors and @connector_states arrays
@@ -1924,6 +1925,7 @@ struct drm_atomic_state {
 	bool allow_modeset : 1;
 	bool legacy_cursor_update : 1;
 	bool legacy_set_config : 1;
+	bool swapped : 1;
 	struct __drm_planes_state *planes;
 	struct __drm_crtcs_state *crtcs;
 	int num_connector;
