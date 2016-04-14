@@ -1013,20 +1013,31 @@ int drm_atomic_helper_wait_for_fences(struct drm_device *dev,
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state;
+	struct fence *fence;
 	int i, ret;
 
 	for_each_plane_in_state(state, plane, plane_state, i) {
-		if (!plane->state->fence)
+		if (!plane->state->fence && !plane_state->fence)
 			continue;
 
-		WARN_ON(!plane->state->fb);
+		if (state->swapped) {
+			fence = plane->state->fence;
+			WARN_ON(!plane->state->fb);
+		} else {
+			fence = plane_state->fence;
+			WARN_ON(!plane_state->fb);
+		}
 
-		ret = fence_wait(plane->state->fence, intr);
+		ret = fence_wait(fence, intr);
 		if (ret)
 			return ret;
 
-		fence_put(plane->state->fence);
-		plane->state->fence = NULL;
+		fence_put(fence);
+
+		if (state->swapped)
+			plane->state->fence = NULL;
+		else
+			plane_state->fence = NULL;
 	}
 
 	return 0;
@@ -1234,6 +1245,12 @@ int drm_atomic_helper_commit(struct drm_device *dev,
 	ret = drm_atomic_helper_prepare_planes(dev, state);
 	if (ret)
 		return ret;
+
+	if (!nonblock) {
+		ret = drm_atomic_helper_wait_for_fences(dev, state, true);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * This is the point of no return - everything below never fails except
@@ -1996,6 +2013,8 @@ void drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 		swap(state->planes[i].state, plane->state);
 		plane->state->state = NULL;
 	}
+
+	state->swapped = true;
 }
 EXPORT_SYMBOL(drm_atomic_helper_swap_state);
 
