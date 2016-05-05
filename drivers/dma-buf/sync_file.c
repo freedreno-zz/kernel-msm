@@ -86,8 +86,6 @@ struct sync_file *sync_file_create(struct fence *fence)
 		 fence->ops->get_timeline_name(fence), fence->context,
 		 fence->seqno);
 
-	fence_add_callback(fence, &sync_file->cb, fence_check_cb_func);
-
 	return sync_file;
 }
 EXPORT_SYMBOL(sync_file_create);
@@ -269,9 +267,6 @@ static struct sync_file *sync_file_merge(const char *name, struct sync_file *a,
 		goto err;
 	}
 
-	fence_add_callback(sync_file->fence, &sync_file->cb,
-			   fence_check_cb_func);
-
 	strlcpy(sync_file->name, name, sizeof(sync_file->name));
 	return sync_file;
 
@@ -286,7 +281,8 @@ static void sync_file_free(struct kref *kref)
 	struct sync_file *sync_file = container_of(kref, struct sync_file,
 						     kref);
 
-	fence_remove_callback(sync_file->fence, &sync_file->cb);
+	if (atomic_read(&sync_file->enabled))
+		fence_remove_callback(sync_file->fence, &sync_file->cb);
 	fence_put(sync_file->fence);
 	kfree(sync_file);
 }
@@ -306,13 +302,21 @@ static unsigned int sync_file_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &sync_file->wq, wait);
 
+	if (!atomic_xchg(&sync_file->enabled, 1)) {
+		if (fence_add_callback(sync_file->fence, &sync_file->cb,
+				   fence_check_cb_func) < 0)
+			wake_up_all(&sync_file->wq);
+	}
+
 	status = fence_is_signaled(sync_file->fence);
 
-	if (status)
-		return POLLIN;
+	if (!status)
+		return 0;
+
 	if (status < 0)
 		return POLLERR;
-	return 0;
+
+	return POLLIN;
 }
 
 static long sync_file_ioctl_merge(struct sync_file *sync_file,
