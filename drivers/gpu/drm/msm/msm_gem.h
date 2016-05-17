@@ -77,6 +77,11 @@ static inline bool is_active(struct msm_gem_object *msm_obj)
 	return msm_obj->gpu != NULL;
 }
 
+static inline bool is_purgeable(struct msm_gem_object *msm_obj)
+{
+	return (msm_obj->madv == MSM_MADV_DONTNEED) && msm_obj->sgt;
+}
+
 #define MAX_CMDS 4
 
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,

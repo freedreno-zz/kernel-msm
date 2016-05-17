@@ -431,6 +431,24 @@ int msm_gem_madvise(struct drm_gem_object *obj, unsigned madv)
 	return (msm_obj->madv != __MSM_MADV_PURGED);
 }
 
+void msm_gem_purge(struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+
+	WARN_ON(!mutex_is_locked(&obj->dev->struct_mutex));
+	WARN_ON(!is_purgeable(msm_obj));
+
+	vunmap(msm_obj->vaddr);
+	msm_obj->vaddr = NULL;
+
+	put_pages(obj);
+
+	msm_obj->madv = __MSM_MADV_PURGED;
+
+	/* kill the mmap offset and backing shmem file: */
+	drm_gem_object_release(obj);
+}
+
 /* must be called before _move_to_active().. */
 int msm_gem_sync_object(struct drm_gem_object *obj,
 		struct msm_fence_context *fctx, bool exclusive)
@@ -649,7 +667,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	if (msm_obj->resv == &msm_obj->_resv)
 		reservation_object_fini(msm_obj->resv);
 
-	drm_gem_object_release(obj);
+	if (msm_obj->madv != __MSM_MADV_PURGED)
+		drm_gem_object_release(obj);
 
 	kfree(msm_obj);
 }
