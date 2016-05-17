@@ -3266,6 +3266,13 @@ enum {
 #define   EDP_PSR_TP1_TIME_0us			(3<<4)
 #define   EDP_PSR_IDLE_FRAME_SHIFT		0
 
+/* Bspec claims those aren't shifted but stay at 0x64800 */
+#define EDP_PSR_IMR				_MMIO(0x64834)
+#define EDP_PSR_IIR				_MMIO(0x64838)
+#define   EDP_PSR_ERROR				(1<<2)
+#define   EDP_PSR_POST_EXIT			(1<<1)
+#define   EDP_PSR_PRE_ENTRY			(1<<0)
+
 #define EDP_PSR_AUX_CTL				_MMIO(dev_priv->psr_mmio_base + 0x10)
 #define EDP_PSR_AUX_DATA(i)			_MMIO(dev_priv->psr_mmio_base + 0x14 + (i) * 4) /* 5 registers */
 
@@ -3300,6 +3307,7 @@ enum {
 #define   EDP_PSR_DEBUG_MASK_LPSP	(1<<27)
 #define   EDP_PSR_DEBUG_MASK_MEMUP	(1<<26)
 #define   EDP_PSR_DEBUG_MASK_HPD	(1<<25)
+#define   EDP_PSR_DEBUG_MASK_REG_WRITE	(1<<16)
 
 #define EDP_PSR2_CTL			_MMIO(0x6f900)
 #define   EDP_PSR2_ENABLE		(1<<31)
@@ -5927,6 +5935,7 @@ enum {
 #define DE_PCH_EVENT_IVB		(1<<28)
 #define DE_DP_A_HOTPLUG_IVB		(1<<27)
 #define DE_AUX_CHANNEL_A_IVB		(1<<26)
+#define DE_EDP_PSR_INT_HSW		(1<<19)
 #define DE_SPRITEC_FLIP_DONE_IVB	(1<<14)
 #define DE_PLANEC_FLIP_DONE_IVB		(1<<13)
 #define DE_PIPEC_VBLANK_IVB		(1<<10)
@@ -6039,6 +6048,7 @@ enum {
 #define GEN8_DE_MISC_IIR _MMIO(0x44468)
 #define GEN8_DE_MISC_IER _MMIO(0x4446c)
 #define  GEN8_DE_MISC_GSE		(1 << 27)
+#define  GEN8_DE_EDP_PSR		(1 << 19)
 
 #define GEN8_PCU_ISR _MMIO(0x444e0)
 #define GEN8_PCU_IMR _MMIO(0x444e4)
