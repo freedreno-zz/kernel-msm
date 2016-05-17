@@ -298,6 +298,9 @@ static void hsw_psr_enable_source(struct intel_dp *intel_dp)
 	else
 		val |= EDP_PSR_TP1_TP2_SEL;
 
+	if (!dev_priv->vbt.psr.require_aux_wakeup)
+		val |= EDP_PSR_SKIP_AUX_EXIT;
+
 	I915_WRITE(EDP_PSR_CTL, val);
 
 	if (!dev_priv->psr.psr2_support)
