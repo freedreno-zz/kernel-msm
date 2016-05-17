@@ -377,7 +377,9 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	if (!submit)
 		return -ENOMEM;
 
-	mutex_lock(&dev->struct_mutex);
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		goto out;
 
 	ret = submit_lookup_objects(submit, args, file);
 	if (ret)
