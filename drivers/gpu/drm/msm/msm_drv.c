@@ -197,6 +197,8 @@ static int msm_unload(struct drm_device *dev)
 		kfree(vbl_ev);
 	}
 
+	msm_gem_shrinker_cleanup(dev);
+
 	drm_kms_helper_poll_fini(dev);
 
 #ifdef CONFIG_DRM_FBDEV_EMULATION
@@ -340,6 +342,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	dev->dev_private = priv;
+	priv->dev = dev;
 
 	priv->wq = alloc_ordered_workqueue("msm", 0);
 	priv->atomic_wq = alloc_ordered_workqueue("msm:atomic", 0);
@@ -362,6 +365,8 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	ret = msm_init_vram(dev);
 	if (ret)
 		goto fail;
+
+	msm_gem_shrinker_init(dev);
 
 	switch (get_mdp_ver(pdev)) {
 	case 4:
