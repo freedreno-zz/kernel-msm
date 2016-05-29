@@ -411,18 +411,6 @@ void *msm_gem_vaddr(struct drm_gem_object *obj)
 	return ret;
 }
 
-/* setup callback for when bo is no longer busy..
- * TODO probably want to differentiate read vs write..
- */
-int msm_gem_queue_inactive_cb(struct drm_gem_object *obj,
-		struct msm_fence_cb *cb)
-{
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	uint32_t fence = msm_gem_fence(msm_obj,
-			MSM_PREP_READ | MSM_PREP_WRITE);
-	return msm_queue_fence_cb(obj->dev, cb, fence);
-}
-
 /* must be called before _move_to_active().. */
 int msm_gem_sync_object(struct drm_gem_object *obj,
 		struct msm_fence_context *fctx, bool exclusive)
