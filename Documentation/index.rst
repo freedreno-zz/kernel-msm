@@ -6,13 +6,14 @@
 Welcome to The Linux Kernel's documentation!
 ============================================
 
-Nothing for you to see here *yet*. Please move along.
+The GPU documentation for starters.
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
+   gpu
 
 Indices and tables
 ==================
