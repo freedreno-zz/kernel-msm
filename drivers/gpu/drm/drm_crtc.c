@@ -1906,7 +1906,6 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 
 	/* mode_config.mutex protects the connector list against e.g. DP MST
 	 * connector hot-adding. CRTC/Plane lists are invariant. */
-	mutex_lock(&dev->mode_config.mutex);
 	card_res->max_height = dev->mode_config.max_height;
 	card_res->min_height = dev->mode_config.min_height;
 	card_res->max_width = dev->mode_config.max_width;
@@ -1958,7 +1957,6 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 	card_res->count_connectors = connector_count;
 
 out:
-	mutex_unlock(&dev->mode_config.mutex);
 	return ret;
 }
 
