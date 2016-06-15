@@ -32,6 +32,7 @@
 #include <linux/fb.h>
 #include <linux/hdmi.h>
 #include <linux/media-bus-format.h>
+#include <linux/srcu.h>
 #include <uapi/drm/drm_mode.h>
 #include <uapi/drm/drm_fourcc.h>
 #include <drm/drm_modeset_lock.h>
@@ -1186,6 +1187,7 @@ struct drm_encoder {
  * @kdev: kernel device for sysfs attributes
  * @attr: sysfs attributes
  * @head: list management
+ * @free_head: rcu delayed freeing management
  * @base: base KMS object
  * @name: human readable name, can be overwritten by the driver
  * @connector_id: compacted connector id useful indexing arrays
@@ -1241,6 +1243,7 @@ struct drm_connector {
 	struct device *kdev;
 	struct device_attribute *attr;
 	struct list_head head;
+	struct rcu_head free_head;
 
 	struct drm_mode_object base;
 
@@ -2309,7 +2312,7 @@ struct drm_mode_config {
 	 * @tile_idr:
 	 *
 	 * Use this idr for allocating new IDs for tiled sinks like use in some
-	 * high-res DP MST screens.
+	 * high-res DP MST screens. Protected by @idr_mutex.
 	 */
 	struct idr tile_idr;
 
@@ -2320,6 +2323,14 @@ struct drm_mode_config {
 	int num_connector;
 	struct ida connector_ida;
 	struct list_head connector_list;
+
+	/**
+	 * @connector_list_lock:
+	 *
+	 * Protects @connector_list, @connector_ida and * @num_conncetors.
+	 */
+	struct mutex connector_list_lock;
+
 	int num_encoder;
 	struct list_head encoder_list;
 
@@ -2426,6 +2437,8 @@ struct drm_mode_config {
 	struct drm_mode_config_helper_funcs *helper_private;
 };
 
+extern struct srcu_struct drm_connector_list_srcu;
+
 /**
  * drm_for_each_plane_mask - iterate over planes specified by bitmask
  * @plane: the loop cursor
@@ -2505,6 +2518,7 @@ int drm_connector_register(struct drm_connector *connector);
 void drm_connector_unregister(struct drm_connector *connector);
 
 extern void drm_connector_cleanup(struct drm_connector *connector);
+extern void drm_connector_free(struct drm_connector *connector);
 static inline unsigned drm_connector_index(struct drm_connector *connector)
 {
 	return connector->connector_id;
@@ -2835,31 +2849,57 @@ static inline void drm_connector_unreference(struct drm_connector *connector)
 #define drm_for_each_crtc(crtc, dev) \
 	list_for_each_entry(crtc, &(dev)->mode_config.crtc_list, head)
 
-static inline void
-assert_drm_connector_list_read_locked(struct drm_mode_config *mode_config)
-{
-	/*
-	 * The connector hotadd/remove code currently grabs both locks when
-	 * updating lists. Hence readers need only hold either of them to be
-	 * safe and the check amounts to
-	 *
-	 * WARN_ON(not_holding(A) && not_holding(B)).
-	 */
-	WARN_ON(!mutex_is_locked(&mode_config->mutex) &&
-		!drm_modeset_is_locked(&mode_config->connection_mutex));
-}
-
 struct drm_connector_iter {
 	struct drm_mode_config *mode_config;
+	struct drm_connector *connector;
+	int srcu_ret;
 };
 
-#define drm_for_each_connector(connector, dev, iter) \
-	for ((iter).mode_config = NULL,						\
-	     assert_drm_connector_list_read_locked(&(dev)->mode_config),	\
-	     connector = list_first_entry(&(dev)->mode_config.connector_list,	\
-					  struct drm_connector, head);		\
-	     &connector->head != (&(dev)->mode_config.connector_list);		\
-	     connector = list_next_entry(connector, head))
+static inline void
+__drm_connector_iter_init(struct drm_mode_config *mode_config,
+			  struct drm_connector_iter *iter)
+{
+	iter->mode_config = mode_config;
+	iter->srcu_ret = srcu_read_lock(&drm_connector_list_srcu);
+	iter->connector = list_entry_rcu(mode_config->connector_list.next,
+					 struct drm_connector, head);
+}
+
+static inline struct drm_connector *
+__drm_connector_iter_check(struct drm_connector_iter *iter)
+{
+retry:
+	if (&iter->connector->head == &iter->mode_config->connector_list) {
+		/* last iteration, clean up */
+		srcu_read_unlock(&drm_connector_list_srcu, iter->srcu_ret);
+		return NULL;
+	}
+
+	/* srcu protects against iter->connector disappearing */
+	if (!kref_get_unless_zero(&iter->connector->base.refcount)) {
+		iter->connector = list_entry_rcu(iter->connector->head.next,
+						 struct drm_connector, head);
+		goto retry;
+	}
+
+	return iter->connector;
+}
+
+static inline void
+__drm_connector_iter_next(struct drm_connector_iter *iter)
+{
+	/* _next() is only called when _check() succeeded on iter->connector,
+	 * and _check() only succeeds if kref_get_unless_zero() succeeded.
+	 * Therefore dropping the reference here is the correct place. */
+	drm_connector_unreference(iter->connector);
+	iter->connector = list_entry_rcu(iter->connector->head.next,
+					 struct drm_connector, head);
+}
+
+#define drm_for_each_connector(connector, dev, iter) 			\
+	for (__drm_connector_iter_init(&(dev)->mode_config, &(iter));	\
+	     (connector = __drm_connector_iter_check(&(iter)));		\
+	     __drm_connector_iter_next(&(iter)))
 
 #define drm_for_each_encoder(encoder, dev) \
 	list_for_each_entry(encoder, &(dev)->mode_config.encoder_list, head)

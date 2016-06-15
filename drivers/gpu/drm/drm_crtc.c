@@ -44,6 +44,9 @@
 #include "drm_crtc_internal.h"
 #include "drm_internal.h"
 
+DEFINE_SRCU(drm_connector_list_srcu);
+EXPORT_SYMBOL(drm_connector_list_srcu);
+
 static struct drm_framebuffer *
 internal_framebuffer_create(struct drm_device *dev,
 			    const struct drm_mode_fb_cmd2 *r,
@@ -825,7 +828,7 @@ static void drm_connector_get_cmdline_mode(struct drm_connector *connector)
 		      mode->interlace ?  " interlaced" : "");
 }
 
-static void drm_connector_free(struct kref *kref)
+static void drm_connector_kref_release(struct kref *kref)
 {
 	struct drm_connector *connector =
 		container_of(kref, struct drm_connector, base.refcount);
@@ -858,11 +861,10 @@ int drm_connector_init(struct drm_device *dev,
 	struct ida *connector_ida =
 		&drm_connector_enum_list[connector_type].ida;
 
-	drm_modeset_lock_all(dev);
-
+	mutex_lock(&dev->mode_config.connector_list_lock);
 	ret = drm_mode_object_get_reg(dev, &connector->base,
 				      DRM_MODE_OBJECT_CONNECTOR,
-				      false, drm_connector_free);
+				      false, drm_connector_kref_release);
 	if (ret)
 		goto out_unlock;
 
@@ -899,11 +901,6 @@ int drm_connector_init(struct drm_device *dev,
 
 	drm_connector_get_cmdline_mode(connector);
 
-	/* We should add connectors at the end to avoid upsetting the connector
-	 * index too much. */
-	list_add_tail(&connector->head, &config->connector_list);
-	config->num_connector++;
-
 	if (connector_type != DRM_MODE_CONNECTOR_VIRTUAL)
 		drm_object_attach_property(&connector->base,
 					      config->edid_property,
@@ -917,6 +914,11 @@ int drm_connector_init(struct drm_device *dev,
 	}
 
 	connector->debugfs_entry = NULL;
+
+	/* We must add the connector to the list last. */
+	list_add_tail_rcu(&connector->head, &config->connector_list);
+	config->num_connector++;
+
 out_put_type_id:
 	if (ret)
 		ida_remove(connector_ida, connector->connector_type_id);
@@ -928,7 +930,7 @@ out_put:
 		drm_mode_object_unregister(dev, &connector->base);
 
 out_unlock:
-	drm_modeset_unlock_all(dev);
+	mutex_unlock(&dev->mode_config.connector_list_lock);
 
 	return ret;
 }
@@ -951,6 +953,7 @@ void drm_connector_cleanup(struct drm_connector *connector)
 	if (WARN_ON(connector->registered))
 		drm_connector_unregister(connector);
 
+	mutex_lock(&dev->mode_config.connector_list_lock);
 	if (connector->tile_group) {
 		drm_mode_put_tile_group(dev, connector->tile_group);
 		connector->tile_group = NULL;
@@ -981,8 +984,41 @@ void drm_connector_cleanup(struct drm_connector *connector)
 						       connector->state);
 
 	memset(connector, 0, sizeof(*connector));
+	mutex_unlock(&dev->mode_config.connector_list_lock);
 }
 EXPORT_SYMBOL(drm_connector_cleanup);
+
+static void drm_connector_free_cb(struct rcu_head *head)
+{
+	struct drm_connector *connector = container_of(head,
+						       struct drm_connector,
+						       free_head);
+
+	kfree(connector);
+}
+
+/**
+ * drm_connector_free - frees a connector structure
+ * @connector: connector to free
+ *
+ * This frees @connector using call_srcu() and kfree(). If the driver subclasses
+ * the connector, then the embedded struct &drm_connector must be the first
+ * element, and @connector must have been allocated using kmalloc() or one of
+ * the functions wrapping that.
+ *
+ * Delayed freeing is required to avoid use-after-free when walking the
+ * connector list, which is srcu protected. Hence drivers must use this function
+ * for connectors which can be removed while the driver is loaded. Currently
+ * that's only true for DP MST connectors. For any other connectors it is valid
+ * to call kfree directly.
+ */
+void drm_connector_free(struct drm_connector *connector)
+{
+	call_srcu(&drm_connector_list_srcu,
+		  &connector->free_head,
+		  drm_connector_free_cb);
+}
+EXPORT_SYMBOL(drm_connector_free);
 
 /**
  * drm_connector_register - register a connector
@@ -5554,6 +5590,7 @@ void drm_mode_config_init(struct drm_device *dev)
 	mutex_init(&dev->mode_config.idr_mutex);
 	mutex_init(&dev->mode_config.fb_lock);
 	mutex_init(&dev->mode_config.blob_lock);
+	mutex_init(&dev->mode_config.connector_list_lock);
 	INIT_LIST_HEAD(&dev->mode_config.fb_list);
 	INIT_LIST_HEAD(&dev->mode_config.crtc_list);
 	INIT_LIST_HEAD(&dev->mode_config.connector_list);

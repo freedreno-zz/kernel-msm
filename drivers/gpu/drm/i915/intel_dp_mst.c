@@ -327,7 +327,7 @@ intel_dp_mst_connector_destroy(struct drm_connector *connector)
 		kfree(intel_connector->edid);
 
 	drm_connector_cleanup(connector);
-	kfree(connector);
+	drm_connector_free(connector);
 }
 
 static const struct drm_connector_funcs intel_dp_mst_connector_funcs = {
