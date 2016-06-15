@@ -4364,13 +4364,11 @@ static ssize_t i915_displayport_test_active_write(struct file *file,
 	int status = 0;
 	struct drm_device *dev;
 	struct drm_connector *connector;
-	struct list_head *connector_list;
+	struct drm_connector_iter iter;
 	struct intel_dp *intel_dp;
 	int val = 0;
 
 	dev = ((struct seq_file *)file->private_data)->private;
-
-	connector_list = &dev->mode_config.connector_list;
 
 	if (len == 0)
 		return 0;
@@ -4387,8 +4385,7 @@ static ssize_t i915_displayport_test_active_write(struct file *file,
 	input_buffer[len] = '\0';
 	DRM_DEBUG_DRIVER("Copied %d bytes from user\n", (unsigned int)len);
 
-	list_for_each_entry(connector, connector_list, head) {
-
+	drm_for_each_connector(connector, dev, iter) {
 		if (connector->connector_type !=
 		    DRM_MODE_CONNECTOR_DisplayPort)
 			continue;
@@ -4422,11 +4419,10 @@ static int i915_displayport_test_active_show(struct seq_file *m, void *data)
 {
 	struct drm_device *dev = m->private;
 	struct drm_connector *connector;
-	struct list_head *connector_list = &dev->mode_config.connector_list;
 	struct intel_dp *intel_dp;
+	struct drm_connector_iter iter;
 
-	list_for_each_entry(connector, connector_list, head) {
-
+	drm_for_each_connector(connector, dev, iter) {
 		if (connector->connector_type !=
 		    DRM_MODE_CONNECTOR_DisplayPort)
 			continue;
@@ -4466,11 +4462,10 @@ static int i915_displayport_test_data_show(struct seq_file *m, void *data)
 {
 	struct drm_device *dev = m->private;
 	struct drm_connector *connector;
-	struct list_head *connector_list = &dev->mode_config.connector_list;
+	struct drm_connector_iter iter;
 	struct intel_dp *intel_dp;
 
-	list_for_each_entry(connector, connector_list, head) {
-
+	drm_for_each_connector(connector, dev, iter) {
 		if (connector->connector_type !=
 		    DRM_MODE_CONNECTOR_DisplayPort)
 			continue;
@@ -4505,11 +4500,10 @@ static int i915_displayport_test_type_show(struct seq_file *m, void *data)
 {
 	struct drm_device *dev = m->private;
 	struct drm_connector *connector;
-	struct list_head *connector_list = &dev->mode_config.connector_list;
 	struct intel_dp *intel_dp;
+	struct drm_connector_iter iter;
 
-	list_for_each_entry(connector, connector_list, head) {
-
+	drm_for_each_connector(connector, dev, iter) {
 		if (connector->connector_type !=
 		    DRM_MODE_CONNECTOR_DisplayPort)
 			continue;
