@@ -118,6 +118,7 @@ bool drm_helper_encoder_in_use(struct drm_encoder *encoder)
 {
 	struct drm_connector *connector;
 	struct drm_device *dev = encoder->dev;
+	struct drm_connector_iter iter;
 
 	/*
 	 * We can expect this mutex to be locked if we are not panicking.
@@ -128,7 +129,7 @@ bool drm_helper_encoder_in_use(struct drm_encoder *encoder)
 		WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 	}
 
-	drm_for_each_connector(connector, dev)
+	drm_for_each_connector(connector, dev, iter)
 		if (connector->encoder == encoder)
 			return true;
 	return false;
@@ -462,13 +463,14 @@ drm_crtc_helper_disable(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_connector *connector;
 	struct drm_encoder *encoder;
+	struct drm_connector_iter iter;
 
 	/* Decouple all encoders and their attached connectors from this crtc */
 	drm_for_each_encoder(encoder, dev) {
 		if (encoder->crtc != crtc)
 			continue;
 
-		drm_for_each_connector(connector, dev) {
+		drm_for_each_connector(connector, dev, iter) {
 			if (connector->encoder != encoder)
 				continue;
 
@@ -539,6 +541,7 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
 	int count = 0, ro, fail = 0;
 	const struct drm_crtc_helper_funcs *crtc_funcs;
 	struct drm_mode_set save_set;
+	struct drm_connector_iter iter;
 	int ret;
 	int i;
 
@@ -600,7 +603,7 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
 	}
 
 	count = 0;
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		save_connector_encoders[count++] = connector->encoder;
 	}
 
@@ -645,7 +648,7 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
 
 	/* a) traverse passed in connector list and get encoders for them */
 	count = 0;
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		const struct drm_connector_helper_funcs *connector_funcs =
 			connector->helper_private;
 		new_encoder = connector->encoder;
@@ -685,7 +688,7 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
 	}
 
 	count = 0;
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		if (!connector->encoder)
 			continue;
 
@@ -773,7 +776,7 @@ fail:
 	}
 
 	count = 0;
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		connector->encoder = save_connector_encoders[count++];
 	}
 
@@ -803,8 +806,9 @@ static int drm_helper_choose_encoder_dpms(struct drm_encoder *encoder)
 	int dpms = DRM_MODE_DPMS_OFF;
 	struct drm_connector *connector;
 	struct drm_device *dev = encoder->dev;
+	struct drm_connector_iter iter;
 
-	drm_for_each_connector(connector, dev)
+	drm_for_each_connector(connector, dev, iter)
 		if (connector->encoder == encoder)
 			if (connector->dpms < dpms)
 				dpms = connector->dpms;
@@ -840,8 +844,9 @@ static int drm_helper_choose_crtc_dpms(struct drm_crtc *crtc)
 	int dpms = DRM_MODE_DPMS_OFF;
 	struct drm_connector *connector;
 	struct drm_device *dev = crtc->dev;
+	struct drm_connector_iter iter;
 
-	drm_for_each_connector(connector, dev)
+	drm_for_each_connector(connector, dev, iter)
 		if (connector->encoder && connector->encoder->crtc == crtc)
 			if (connector->dpms < dpms)
 				dpms = connector->dpms;

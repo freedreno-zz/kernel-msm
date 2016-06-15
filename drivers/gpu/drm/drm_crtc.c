@@ -1068,11 +1068,12 @@ EXPORT_SYMBOL(drm_connector_unregister);
 int drm_connector_register_all(struct drm_device *dev)
 {
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 	int ret;
 
 	mutex_lock(&dev->mode_config.mutex);
 
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		ret = drm_connector_register(connector);
 		if (ret)
 			goto err;
@@ -1841,6 +1842,7 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 	struct drm_connector *connector;
 	struct drm_crtc *crtc;
 	struct drm_encoder *encoder;
+	struct drm_connector_iter iter;
 	int ret = 0;
 	int connector_count = READ_ONCE(dev->mode_config.num_connector);
 	int crtc_count = dev->mode_config.num_crtc;
@@ -1921,7 +1923,7 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 	if (card_res->count_connectors >= connector_count) {
 		copied = 0;
 		connector_id = (uint32_t __user *)(unsigned long)card_res->connector_id_ptr;
-		drm_for_each_connector(connector, dev) {
+		drm_for_each_connector(connector, dev, iter) {
 			if (put_user(connector->base.id,
 				     connector_id + copied)) {
 				ret = -EFAULT;
@@ -2188,11 +2190,12 @@ static struct drm_crtc *drm_encoder_get_crtc(struct drm_encoder *encoder)
 {
 	struct drm_connector *connector;
 	struct drm_device *dev = encoder->dev;
+	struct drm_connector_iter iter;
 	bool uses_atomic = false;
 
 	/* For atomic drivers only state objects are synchronously updated and
 	 * protected by modeset locks, so check those first. */
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		if (!connector->state)
 			continue;
 
@@ -5379,6 +5382,7 @@ void drm_mode_config_reset(struct drm_device *dev)
 	struct drm_plane *plane;
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
 	drm_for_each_plane(plane, dev)
 		if (plane->funcs->reset)
@@ -5393,7 +5397,7 @@ void drm_mode_config_reset(struct drm_device *dev)
 			encoder->funcs->reset(encoder);
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(connector, dev)
+	drm_for_each_connector(connector, dev, iter)
 		if (connector->funcs->reset)
 			connector->funcs->reset(connector);
 	mutex_unlock(&dev->mode_config.mutex);

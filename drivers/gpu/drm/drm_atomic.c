@@ -1224,6 +1224,7 @@ drm_atomic_add_affected_connectors(struct drm_atomic_state *state,
 	struct drm_mode_config *config = &state->dev->mode_config;
 	struct drm_connector *connector;
 	struct drm_connector_state *conn_state;
+	struct drm_connector_iter iter;
 	int ret;
 
 	ret = drm_modeset_lock(&config->connection_mutex, state->acquire_ctx);
@@ -1237,7 +1238,7 @@ drm_atomic_add_affected_connectors(struct drm_atomic_state *state,
 	 * Changed connectors are already in @state, so only need to look at the
 	 * current configuration.
 	 */
-	drm_for_each_connector(connector, state->dev) {
+	drm_for_each_connector(connector, state->dev, iter) {
 		if (connector->state->crtc != crtc)
 			continue;
 

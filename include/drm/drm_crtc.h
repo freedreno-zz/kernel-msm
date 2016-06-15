@@ -2849,8 +2849,13 @@ assert_drm_connector_list_read_locked(struct drm_mode_config *mode_config)
 		!drm_modeset_is_locked(&mode_config->connection_mutex));
 }
 
-#define drm_for_each_connector(connector, dev) \
-	for (assert_drm_connector_list_read_locked(&(dev)->mode_config),	\
+struct drm_connector_iter {
+	struct drm_mode_config *mode_config;
+};
+
+#define drm_for_each_connector(connector, dev, iter) \
+	for ((iter).mode_config = NULL,						\
+	     assert_drm_connector_list_read_locked(&(dev)->mode_config),	\
 	     connector = list_first_entry(&(dev)->mode_config.connector_list,	\
 					  struct drm_connector, head);		\
 	     &connector->head != (&(dev)->mode_config.connector_list);		\

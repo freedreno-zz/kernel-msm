@@ -12412,6 +12412,7 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 	unsigned int used_ports = 0;
 
 	/*
@@ -12419,7 +12420,7 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 	 * list to detect the problem on ddi platforms
 	 * where there's just one encoder per digital port.
 	 */
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		struct drm_connector_state *connector_state;
 		struct intel_encoder *encoder;
 
@@ -12997,8 +12998,9 @@ static void
 verify_connector_state(struct drm_device *dev, struct drm_crtc *crtc)
 {
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		struct drm_encoder *encoder = connector->encoder;
 		struct drm_connector_state *state = connector->state;
 

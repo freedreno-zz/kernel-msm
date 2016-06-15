@@ -129,13 +129,14 @@ void drm_kms_helper_poll_enable_locked(struct drm_device *dev)
 {
 	bool poll = false;
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
 
 	if (!dev->mode_config.poll_enabled || !drm_kms_helper_poll)
 		return;
 
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 		if (connector->polled & (DRM_CONNECTOR_POLL_CONNECT |
 					 DRM_CONNECTOR_POLL_DISCONNECT))
 			poll = true;
@@ -368,6 +369,7 @@ static void output_poll_execute(struct work_struct *work)
 	struct delayed_work *delayed_work = to_delayed_work(work);
 	struct drm_device *dev = container_of(delayed_work, struct drm_device, mode_config.output_poll_work);
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 	enum drm_connector_status old_status;
 	bool repoll = false, changed;
 
@@ -379,7 +381,7 @@ static void output_poll_execute(struct work_struct *work)
 		goto out;
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 
 		/* Ignore forced connectors. */
 		if (connector->force)
@@ -545,13 +547,14 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 {
 	struct drm_connector *connector;
 	enum drm_connector_status old_status;
+	struct drm_connector_iter iter;
 	bool changed = false;
 
 	if (!dev->mode_config.poll_enabled)
 		return false;
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(connector, dev) {
+	drm_for_each_connector(connector, dev, iter) {
 
 		/* Only handle HPD capable connectors. */
 		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))

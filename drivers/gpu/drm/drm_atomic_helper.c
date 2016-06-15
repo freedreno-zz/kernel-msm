@@ -93,6 +93,7 @@ static int handle_conflicting_encoders(struct drm_atomic_state *state,
 	struct drm_connector_state *conn_state;
 	struct drm_connector *connector;
 	struct drm_encoder *encoder;
+	struct drm_connector_iter iter;
 	unsigned encoder_mask = 0;
 	int i, ret;
 
@@ -142,7 +143,7 @@ static int handle_conflicting_encoders(struct drm_atomic_state *state,
 	 * and the crtc is disabled if no encoder is left. This preserves
 	 * compatibility with the legacy set_config behavior.
 	 */
-	drm_for_each_connector(connector, state->dev) {
+	drm_for_each_connector(connector, state->dev, iter) {
 		struct drm_crtc_state *crtc_state;
 
 		if (drm_atomic_get_existing_connector_state(state, connector))
@@ -2390,6 +2391,7 @@ int drm_atomic_helper_disable_all(struct drm_device *dev,
 {
 	struct drm_atomic_state *state;
 	struct drm_connector *conn;
+	struct drm_connector_iter iter;
 	int err;
 
 	state = drm_atomic_state_alloc(dev);
@@ -2398,7 +2400,7 @@ int drm_atomic_helper_disable_all(struct drm_device *dev,
 
 	state->acquire_ctx = ctx;
 
-	drm_for_each_connector(conn, dev) {
+	drm_for_each_connector(conn, dev, iter) {
 		struct drm_crtc *crtc = conn->state->crtc;
 		struct drm_crtc_state *crtc_state;
 
@@ -2811,6 +2813,7 @@ int drm_atomic_helper_connector_dpms(struct drm_connector *connector,
 	struct drm_crtc_state *crtc_state;
 	struct drm_crtc *crtc;
 	struct drm_connector *tmp_connector;
+	struct drm_connector_iter iter;
 	int ret;
 	bool active = false;
 	int old_mode = connector->dpms;
@@ -2838,7 +2841,7 @@ retry:
 
 	WARN_ON(!drm_modeset_is_locked(&config->connection_mutex));
 
-	drm_for_each_connector(tmp_connector, connector->dev) {
+	drm_for_each_connector(tmp_connector, connector->dev, iter) {
 		if (tmp_connector->state->crtc != crtc)
 			continue;
 
@@ -3225,6 +3228,7 @@ drm_atomic_helper_duplicate_state(struct drm_device *dev,
 	struct drm_connector *conn;
 	struct drm_plane *plane;
 	struct drm_crtc *crtc;
+	struct drm_connector_iter iter;
 	int err = 0;
 
 	state = drm_atomic_state_alloc(dev);
@@ -3253,7 +3257,7 @@ drm_atomic_helper_duplicate_state(struct drm_device *dev,
 		}
 	}
 
-	drm_for_each_connector(conn, dev) {
+	drm_for_each_connector(conn, dev, iter) {
 		struct drm_connector_state *conn_state;
 
 		conn_state = drm_atomic_get_connector_state(state, conn);

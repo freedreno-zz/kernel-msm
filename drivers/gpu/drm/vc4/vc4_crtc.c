@@ -218,8 +218,9 @@ static u32 vc4_get_fifo_full_level(u32 format)
 static int vc4_get_clock_select(struct drm_crtc *crtc)
 {
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
-	drm_for_each_connector(connector, crtc->dev) {
+	drm_for_each_connector(connector, crtc->dev, iter) {
 		if (connector->state->crtc == crtc) {
 			struct drm_encoder *encoder = connector->encoder;
 			struct vc4_encoder *vc4_encoder =

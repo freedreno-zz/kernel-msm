@@ -439,12 +439,13 @@ static int exynos_drm_suspend(struct device *dev)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
 	if (pm_runtime_suspended(dev) || !drm_dev)
 		return 0;
 
 	drm_modeset_lock_all(drm_dev);
-	drm_for_each_connector(connector, drm_dev) {
+	drm_for_each_connector(connector, drm_dev, iter) {
 		int old_dpms = connector->dpms;
 
 		if (connector->funcs->dpms)
@@ -462,12 +463,13 @@ static int exynos_drm_resume(struct device *dev)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
 	if (pm_runtime_suspended(dev) || !drm_dev)
 		return 0;
 
 	drm_modeset_lock_all(drm_dev);
-	drm_for_each_connector(connector, drm_dev) {
+	drm_for_each_connector(connector, drm_dev, iter) {
 		if (connector->funcs->dpms) {
 			int dpms = connector->dpms;
 
