@@ -1107,20 +1107,15 @@ int drm_connector_register_all(struct drm_device *dev)
 	struct drm_connector_iter iter;
 	int ret;
 
-	mutex_lock(&dev->mode_config.mutex);
-
 	drm_for_each_connector(connector, dev, iter) {
 		ret = drm_connector_register(connector);
 		if (ret)
 			goto err;
 	}
 
-	mutex_unlock(&dev->mode_config.mutex);
-
 	return 0;
 
 err:
-	mutex_unlock(&dev->mode_config.mutex);
 	drm_connector_unregister_all(dev);
 	return ret;
 }
@@ -1139,9 +1134,9 @@ EXPORT_SYMBOL(drm_connector_register_all);
 void drm_connector_unregister_all(struct drm_device *dev)
 {
 	struct drm_connector *connector;
+	struct drm_connector_iter iter;
 
-	/* FIXME: taking the mode config mutex ends up in a clash with sysfs */
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head)
+	drm_for_each_connector(connector, dev, iter)
 		drm_connector_unregister(connector);
 }
 EXPORT_SYMBOL(drm_connector_unregister_all);
