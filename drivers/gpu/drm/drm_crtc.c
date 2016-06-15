@@ -5416,11 +5416,9 @@ void drm_mode_config_reset(struct drm_device *dev)
 		if (encoder->funcs->reset)
 			encoder->funcs->reset(encoder);
 
-	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(connector, dev, iter)
 		if (connector->funcs->reset)
 			connector->funcs->reset(connector);
-	mutex_unlock(&dev->mode_config.mutex);
 }
 EXPORT_SYMBOL(drm_mode_config_reset);
 
