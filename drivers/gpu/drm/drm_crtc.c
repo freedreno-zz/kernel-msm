@@ -1842,10 +1842,10 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc;
 	struct drm_encoder *encoder;
 	int ret = 0;
-	int connector_count = 0;
-	int crtc_count = 0;
+	int connector_count = READ_ONCE(dev->mode_config.num_connector);
+	int crtc_count = dev->mode_config.num_crtc;
 	int fb_count = 0;
-	int encoder_count = 0;
+	int encoder_count = dev->mode_config.num_encoder;
 	int copied = 0;
 	uint32_t __user *fb_id;
 	uint32_t __user *crtc_id;
@@ -1883,15 +1883,6 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 	/* mode_config.mutex protects the connector list against e.g. DP MST
 	 * connector hot-adding. CRTC/Plane lists are invariant. */
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_crtc(crtc, dev)
-		crtc_count++;
-
-	drm_for_each_connector(connector, dev)
-		connector_count++;
-
-	drm_for_each_encoder(encoder, dev)
-		encoder_count++;
-
 	card_res->max_height = dev->mode_config.max_height;
 	card_res->min_height = dev->mode_config.min_height;
 	card_res->max_width = dev->mode_config.max_width;
@@ -1938,6 +1929,7 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 			}
 			copied++;
 		}
+		connector_count = copied;
 	}
 	card_res->count_connectors = connector_count;
 
