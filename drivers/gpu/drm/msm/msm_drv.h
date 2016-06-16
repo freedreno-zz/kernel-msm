@@ -209,7 +209,7 @@ int msm_gem_madvise(struct drm_gem_object *obj, unsigned madv);
 void msm_gem_purge(struct drm_gem_object *obj);
 void msm_gem_vunmap(struct drm_gem_object *obj);
 int msm_gem_sync_object(struct drm_gem_object *obj,
-		struct msm_fence_context *fctx, bool exclusive);
+		struct msm_fence_context *fctx, bool exclusive, bool explicit);
 void msm_gem_move_to_active(struct drm_gem_object *obj,
 		struct msm_gpu *gpu, bool exclusive, struct fence *fence);
 void msm_gem_move_to_inactive(struct drm_gem_object *obj);

@@ -506,9 +506,15 @@ void msm_gem_vunmap(struct drm_gem_object *obj)
 	msm_obj->vaddr = NULL;
 }
 
-/* must be called before _move_to_active().. */
+/**
+ * must be called before _move_to_active()..
+ *
+ * @exclusive: exclusive (ie. write) fence on object
+ * @explicit: if explicit fencing used, we don't wait, just reserve
+ *    shared fence space in resv obj
+ */
 int msm_gem_sync_object(struct drm_gem_object *obj,
-		struct msm_fence_context *fctx, bool exclusive)
+		struct msm_fence_context *fctx, bool exclusive, bool explicit)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 	struct reservation_object_list *fobj;
@@ -525,6 +531,9 @@ int msm_gem_sync_object(struct drm_gem_object *obj,
 		if (ret)
 			return ret;
 	}
+
+	if (explicit)
+		return 0;
 
 	fobj = reservation_object_get_list(msm_obj->resv);
 	if (!fobj || (fobj->shared_count == 0)) {

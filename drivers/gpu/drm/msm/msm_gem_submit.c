@@ -15,6 +15,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/sync_file.h>
+
 #include "msm_drv.h"
 #include "msm_gpu.h"
 #include "msm_gem.h"
@@ -198,7 +200,7 @@ fail:
 	return ret;
 }
 
-static int submit_fence_sync(struct msm_gem_submit *submit)
+static int submit_fence_sync(struct msm_gem_submit *submit, bool explicit_sync)
 {
 	int i, ret = 0;
 
@@ -206,7 +208,8 @@ static int submit_fence_sync(struct msm_gem_submit *submit)
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
 		bool write = submit->bos[i].flags & MSM_SUBMIT_BO_WRITE;
 
-		ret = msm_gem_sync_object(&msm_obj->base, submit->gpu->fctx, write);
+		ret = msm_gem_sync_object(&msm_obj->base, submit->gpu->fctx,
+				write, explicit_sync);
 		if (ret)
 			break;
 	}
@@ -361,6 +364,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	struct msm_file_private *ctx = file->driver_priv;
 	struct msm_gem_submit *submit;
 	struct msm_gpu *gpu = priv->gpu;
+	struct fence *in_fence = NULL;
 	unsigned i;
 	int ret;
 
@@ -375,6 +379,29 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 
 	if (MSM_PIPE_FLAGS(args->flags) & ~MSM_SUBMIT_FLAGS)
 		return -EINVAL;
+
+	/* wait on in-fence before acquiring struct_mutex, otherwise we can
+	 * block retire_worker which might be the thing signaling the fence
+	 * (or the thing signaling the thing that signals the fence, and so
+	 * on)
+	 */
+	if (args->flags & MSM_SUBMIT_FENCE_FD_IN) {
+		in_fence = sync_file_get_fence(args->fence_fd);
+
+		if (!in_fence)
+			return -EINVAL;
+
+		/* TODO if we get an array-fence due to userspace merging multiple
+		 * fences, we need a way to determine if all the backing fences
+		 * are from our own context..
+		 */
+
+		if (in_fence->context != gpu->fctx->context) {
+			ret = fence_wait(in_fence, true);
+			if (ret)
+				return ret;
+		}
+	}
 
 	ret = mutex_lock_interruptible(&dev->struct_mutex);
 	if (ret)
@@ -394,7 +421,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	if (ret)
 		goto out;
 
-	ret = submit_fence_sync(submit);
+	ret = submit_fence_sync(submit, !!(args->flags & MSM_SUBMIT_FENCE_FD_IN));
 	if (ret)
 		goto out;
 
@@ -467,6 +494,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	args->fence = submit->fence->seqno;
 
 out:
+	if (in_fence)
+		fence_put(in_fence);
 	submit_cleanup(submit);
 	if (ret)
 		msm_gem_submit_free(submit);
