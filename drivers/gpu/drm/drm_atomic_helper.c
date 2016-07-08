@@ -998,18 +998,22 @@ EXPORT_SYMBOL(drm_atomic_helper_commit_modeset_enables);
  * drm_atomic_helper_wait_for_fences - wait for fences stashed in plane state
  * @dev: DRM device
  * @state: atomic state object with old state structures
+ * @intr: if true, do an interruptible wait
  *
  * For implicit sync, driver should fish the exclusive fence out from the
  * incoming fb's and stash it in the drm_plane_state.  This is called after
  * drm_atomic_helper_swap_state() so it uses the current plane state (and
  * just uses the atomic state to find the changed planes)
+ *
+ * Returns zero if sucess or < 0 if fence_wait() fails.
  */
-void drm_atomic_helper_wait_for_fences(struct drm_device *dev,
-			    struct drm_atomic_state *state)
+int drm_atomic_helper_wait_for_fences(struct drm_device *dev,
+				       struct drm_atomic_state *state,
+				       bool intr)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state;
-	int i;
+	int i, ret;
 
 	for_each_plane_in_state(state, plane, plane_state, i) {
 		if (!plane->state->fence)
@@ -1017,10 +1021,15 @@ void drm_atomic_helper_wait_for_fences(struct drm_device *dev,
 
 		WARN_ON(!plane->state->fb);
 
-		fence_wait(plane->state->fence, false);
+		ret = fence_wait(plane->state->fence, intr);
+		if (ret)
+			return ret;
+
 		fence_put(plane->state->fence);
 		plane->state->fence = NULL;
 	}
+
+	return 0;
 }
 EXPORT_SYMBOL(drm_atomic_helper_wait_for_fences);
 
@@ -1167,7 +1176,7 @@ static void commit_tail(struct drm_atomic_state *state)
 
 	funcs = dev->mode_config.helper_private;
 
-	drm_atomic_helper_wait_for_fences(dev, state);
+	drm_atomic_helper_wait_for_fences(dev, state, false);
 
 	drm_atomic_helper_wait_for_dependencies(state);
 
