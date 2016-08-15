@@ -4608,7 +4608,7 @@ static void free_all_cpu_cached_iovas(unsigned int cpu)
 			continue;
 
 		for (did = 0; did < cap_ndoms(iommu->cap); did++) {
-			domain = get_iommu_domain(iommu, (u16)did);
+			domain = get_iommu_domain(iommu, did);
 
 			if (!domain)
 				continue;

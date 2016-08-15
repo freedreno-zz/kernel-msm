@@ -235,7 +235,7 @@ static const struct file_operations vgem_driver_fops = {
 
 static struct drm_driver vgem_driver = {
 	.driver_features		= DRIVER_GEM,
-	.gem_free_object		= vgem_gem_free_object,
+	.gem_free_object_unlocked	= vgem_gem_free_object,
 	.gem_vm_ops			= &vgem_gem_vm_ops,
 	.ioctls				= vgem_ioctls,
 	.fops				= &vgem_driver_fops,
@@ -259,8 +259,6 @@ static int __init vgem_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
-
-	drm_dev_set_unique(vgem_device, "vgem");
 
 	ret  = drm_dev_register(vgem_device, 0);
 

@@ -64,6 +64,7 @@ static DEFINE_RAW_SPINLOCK(latency_lock);
 static struct latency_record latency_record[MAXLR];
 
 int latencytop_enabled;
+EXPORT_SYMBOL_GPL(latencytop_enabled);
 
 void clear_all_latency_tracing(struct task_struct *p)
 {
@@ -234,6 +235,7 @@ __account_scheduler_latency(struct task_struct *tsk, int usecs, int inter)
 out_unlock:
 	raw_spin_unlock_irqrestore(&latency_lock, flags);
 }
+EXPORT_SYMBOL_GPL(__account_scheduler_latency);
 
 static int lstats_show(struct seq_file *m, void *v)
 {
