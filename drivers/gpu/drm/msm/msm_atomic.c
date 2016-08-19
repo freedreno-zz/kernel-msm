@@ -214,7 +214,9 @@ int msm_atomic_commit(struct drm_device *dev,
 	 * Figure out what fence to wait for:
 	 */
 	for_each_plane_in_state(state, plane, plane_state, i) {
-		if ((plane->state->fb != plane_state->fb) && plane_state->fb) {
+		if ((plane->state->fb != plane_state->fb) &&
+				plane_state->fb &&
+				!plane_state->fence) {
 			struct drm_gem_object *obj = msm_framebuffer_bo(plane_state->fb, 0);
 			struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
