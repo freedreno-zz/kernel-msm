@@ -426,6 +426,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	if (ret)
 		return ret;
 
+	priv->struct_mutex_task = current;
+
 	if (args->flags & MSM_SUBMIT_FENCE_FD_OUT) {
 		out_fence_fd = get_unused_fd_flags(O_CLOEXEC);
 		if (out_fence_fd < 0) {
@@ -549,6 +551,7 @@ out:
 out_unlock:
 	if (ret && (out_fence_fd >= 0))
 		put_unused_fd(out_fence_fd);
+	priv->struct_mutex_task = NULL;
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
 }
