@@ -42,6 +42,7 @@ enum adreno_regs {
 	REG_ADRENO_CP_PFP_UCODE_ADDR,
 	REG_ADRENO_CP_WFI_PEND_CTR,
 	REG_ADRENO_CP_RB_BASE,
+	REG_ADRENO_CP_RB_BASE_HI,
 	REG_ADRENO_CP_RB_RPTR_ADDR,
 	REG_ADRENO_CP_RB_RPTR,
 	REG_ADRENO_CP_RB_WPTR,
@@ -49,8 +50,10 @@ enum adreno_regs {
 	REG_ADRENO_CP_ME_CNTL,
 	REG_ADRENO_CP_RB_CNTL,
 	REG_ADRENO_CP_IB1_BASE,
+	REG_ADRENO_CP_IB1_BASE_HI,
 	REG_ADRENO_CP_IB1_BUFSZ,
 	REG_ADRENO_CP_IB2_BASE,
+	REG_ADRENO_CP_IB2_BASE_HI,
 	REG_ADRENO_CP_IB2_BUFSZ,
 	REG_ADRENO_CP_TIMESTAMP,
 	REG_ADRENO_CP_ME_RAM_RADDR,
@@ -71,6 +74,7 @@ enum adreno_regs {
 	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD0,
 	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD1,
 	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD2,
+	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD3,
 	REG_ADRENO_RBBM_PERFCTR_PWR_1_LO,
 	REG_ADRENO_RBBM_INT_0_MASK,
 	REG_ADRENO_RBBM_INT_0_STATUS,
@@ -112,6 +116,37 @@ struct adreno_rev {
 #define ADRENO_REV(core, major, minor, patchid) \
 	((struct adreno_rev){ core, major, minor, patchid })
 
+enum adreno_features {
+	/* The core uses OCMEM for GMEM/binning memory */
+	ADRENO_USES_OCMEM     = BIT(0),
+	/* The core supports an accelerated warm start */
+	ADRENO_WARM_START     = BIT(1),
+	/* The core supports the microcode bootstrap functionality */
+	ADRENO_USE_BOOTSTRAP  = BIT(2),
+	/* The core supports SP/TP hw controlled power collapse */
+	ADRENO_SPTP_PC        = BIT(3),
+	/* The core supports Peak Power Detection(PPD)*/
+	ADRENO_PPD            = BIT(4),
+	/* The GPU supports content protection */
+	ADRENO_CONTENT_PROTECTION = BIT(5),
+	/* The GPU supports preemption */
+	ADRENO_PREEMPTION     = BIT(6),
+	/* The core uses GPMU for power and limit management */
+	ADRENO_GPMU           = BIT(7),
+	/* The GPMU supports Limits Management */
+	ADRENO_LM             = BIT(8),
+	/* The core uses 64 bit GPU addresses */
+	ADRENO_64BIT          = BIT(9),
+
+
+	/* Set TWOPASSUSEWFI in PC_DBG_ECO_CNTL (5XX) */
+	ADRENO_QUIRK_TWO_PASS_USE_WFI = BIT(16),
+	/* Lock/unlock mutex to sync with the IOMMU */
+	ADRENO_QUIRK_IOMMU_SYNC       = BIT(17),
+	/* Submit critical packets at GPU wake up */
+	ADRENO_QUIRK_CRITICAL_PACKETS = BIT(18),
+};
+
 struct adreno_gpu_funcs {
 	struct msm_gpu_funcs base;
 	int (*get_timestamp)(struct msm_gpu *gpu, uint64_t *value);
@@ -122,7 +157,11 @@ struct adreno_info {
 	uint32_t revn;
 	const char *name;
 	const char *pm4fw, *pfpfw;
+	const char *zapfw;
+	const char *gpmufw;
+	uint32_t gpmu_major, gpmu_minor;
 	uint32_t gmem;
+	enum adreno_features features;
 	struct msm_gpu *(*init)(struct drm_device *dev);
 };
 
@@ -231,7 +270,17 @@ static inline int adreno_is_a420(struct adreno_gpu *gpu)
 
 static inline int adreno_is_a430(struct adreno_gpu *gpu)
 {
-       return gpu->revn == 430;
+	return gpu->revn == 430;
+}
+
+static inline bool adreno_is_a5xx(struct adreno_gpu *gpu)
+{
+	return (gpu->revn >= 500) && (gpu->revn < 600);
+}
+
+static inline int adreno_is_a530(struct adreno_gpu *gpu)
+{
+	return gpu->revn == 530;
 }
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value);
@@ -276,6 +325,47 @@ OUT_PKT3(struct msm_ringbuffer *ring, uint8_t opcode, uint16_t cnt)
 {
 	adreno_wait_ring(ring->gpu, cnt+1);
 	OUT_RING(ring, CP_TYPE3_PKT | ((cnt-1) << 16) | ((opcode & 0xFF) << 8));
+}
+
+/*
+ * For a5xx:
+ */
+
+static inline unsigned
+_odd_parity_bit(unsigned val)
+{
+	/* See: http://graphics.stanford.edu/~seander/bithacks.html#ParityParallel
+	 * note that we want odd parity so 0x6996 is inverted.
+	 */
+	val ^= val >> 16;
+	val ^= val >> 8;
+	val ^= val >> 4;
+	val &= 0xf;
+	return (~0x6996 >> val) & 1;
+}
+
+static inline void
+OUT_PKT4(struct msm_ringbuffer *ring, uint8_t regindx, uint16_t cnt)
+{
+	BUG_ON(cnt & ~0x7f);
+	BUG_ON(regindx & ~0x3ffff);
+	adreno_wait_ring(ring->gpu, cnt+1);
+	OUT_RING(ring, CP_TYPE4_PKT | cnt |
+			(_odd_parity_bit(cnt) << 7) |
+			((regindx & 0x3ffff) << 8) |
+			((_odd_parity_bit(regindx) << 27)));
+}
+
+static inline void
+OUT_PKT7(struct msm_ringbuffer *ring, uint8_t opcode, uint16_t cnt)
+{
+	BUG_ON(cnt & ~0x3fff);
+	BUG_ON(opcode & ~0x7f);
+	adreno_wait_ring(ring->gpu, cnt+1);
+	OUT_RING(ring, CP_TYPE7_PKT | cnt |
+			(_odd_parity_bit(cnt) << 15) |
+			((opcode & 0x7f) << 16) |
+			((_odd_parity_bit(opcode) << 23)));
 }
 
 /*

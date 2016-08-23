@@ -27,6 +27,7 @@ module_param_named(hang_debug, hang_debug, bool, 0600);
 
 struct msm_gpu *a3xx_gpu_init(struct drm_device *dev);
 struct msm_gpu *a4xx_gpu_init(struct drm_device *dev);
+struct msm_gpu *a5xx_gpu_init(struct drm_device *dev);
 
 static const struct adreno_info gpulist[] = {
 	{
@@ -68,6 +69,8 @@ static const struct adreno_info gpulist[] = {
 		.pm4fw = "a420_pm4.fw",
 		.pfpfw = "a420_pfp.fw",
 		.gmem  = (SZ_1M + SZ_512K),
+		.features = ADRENO_USES_OCMEM | ADRENO_WARM_START |
+			ADRENO_USE_BOOTSTRAP,
 		.init  = a4xx_gpu_init,
 	}, {
 		.rev   = ADRENO_REV(4, 3, 0, ANY_ID),
@@ -76,7 +79,35 @@ static const struct adreno_info gpulist[] = {
 		.pm4fw = "a420_pm4.fw",
 		.pfpfw = "a420_pfp.fw",
 		.gmem  = (SZ_1M + SZ_512K),
+		.features = ADRENO_USES_OCMEM  | ADRENO_WARM_START |
+			ADRENO_USE_BOOTSTRAP | ADRENO_SPTP_PC | ADRENO_PPD |
+			ADRENO_CONTENT_PROTECTION | ADRENO_PREEMPTION,
 		.init  = a4xx_gpu_init,
+	}, {
+		.rev   = ADRENO_REV(5, 3, 0, 0),
+		.revn  = 530,
+		.name  = "A530",
+		.init  = NULL,  /* dummy entry */
+	}, {
+		.rev   = ADRENO_REV(5, 3, 0, 1),
+		.revn  = 530,
+		.name  = "A530",
+		.init  = NULL,  /* dummy entry */
+	}, {
+		.rev   = ADRENO_REV(5, 3, 0, ANY_ID),
+		.revn  = 530,
+		.name  = "A530",
+		.pm4fw = "a530_pm4.fw",
+		.pfpfw = "a530_pfp.fw",
+		.zapfw = "a530_zap",
+		.gpmufw = "a530v3_gpmu.fw2",
+		.gpmu_major = 1,
+		.gpmu_minor = 0,
+		.gmem  = SZ_1M,
+		.features = ADRENO_GPMU | ADRENO_SPTP_PC | ADRENO_LM |
+			ADRENO_PREEMPTION | ADRENO_64BIT |
+			ADRENO_CONTENT_PROTECTION,
+		.init  = a5xx_gpu_init,
 	},
 };
 
@@ -127,7 +158,11 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev)
 	rev = config->rev;
 	info = adreno_info(config->rev);
 
-	if (!info) {
+	/* note: adreno_info table entries w/ null init fxn are used
+	 * to prevent an ANY_ID entry from mistakenly matching an
+	 * earlier revision.
+	 */
+	if (!info || !info->init) {
 		dev_warn(dev->dev, "Unknown GPU revision: %u.%u.%u.%u\n",
 				rev.core, rev.major, rev.minor, rev.patchid);
 		return NULL;
