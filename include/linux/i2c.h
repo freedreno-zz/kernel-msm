@@ -414,6 +414,20 @@ struct i2c_algorithm {
 };
 
 /**
+ * struct i2c_lock_operations - represent I2C locking operations
+ * @lock_bus: Get exclusive access to an I2C bus segment
+ * @trylock_bus: Try to get exclusive access to an I2C bus segment
+ * @unlock_bus: Release exclusive access to an I2C bus segment
+ *
+ * The main operations are wrapped by i2c_lock_bus and i2c_unlock_bus.
+ */
+struct i2c_lock_operations {
+	void (*lock_bus)(struct i2c_adapter *, unsigned int flags);
+	int (*trylock_bus)(struct i2c_adapter *, unsigned int flags);
+	void (*unlock_bus)(struct i2c_adapter *, unsigned int flags);
+};
+
+/**
  * struct i2c_timings - I2C timing information
  * @bus_freq_hz: the bus frequency in Hz
  * @scl_rise_ns: time SCL signal takes to rise in ns; t(r) in the I2C specification
@@ -523,6 +537,7 @@ struct i2c_adapter {
 	void *algo_data;
 
 	/* data fields that are valid for all devices	*/
+	const struct i2c_lock_operations *lock_ops;
 	struct rt_mutex bus_lock;
 	struct rt_mutex mux_lock;
 
@@ -539,10 +554,6 @@ struct i2c_adapter {
 
 	struct i2c_bus_recovery_info *bus_recovery_info;
 	const struct i2c_adapter_quirks *quirks;
-
-	void (*lock_bus)(struct i2c_adapter *, unsigned int flags);
-	int (*trylock_bus)(struct i2c_adapter *, unsigned int flags);
-	void (*unlock_bus)(struct i2c_adapter *, unsigned int flags);
 };
 #define to_i2c_adapter(d) container_of(d, struct i2c_adapter, dev)
 
@@ -584,7 +595,21 @@ int i2c_for_each_dev(void *data, int (*fn)(struct device *, void *));
 static inline void
 i2c_lock_bus(struct i2c_adapter *adapter, unsigned int flags)
 {
-	adapter->lock_bus(adapter, flags);
+	adapter->lock_ops->lock_bus(adapter, flags);
+}
+
+/**
+ * i2c_trylock_bus - Try to get exclusive access to an I2C bus segment
+ * @adapter: Target I2C bus segment
+ * @flags: I2C_LOCK_ROOT_ADAPTER tries to locks the root i2c adapter,
+ *	I2C_LOCK_SEGMENT tries to lock only this branch in the adapter tree
+ *
+ * Return: true if the I2C bus segment is locked, false otherwise
+ */
+static inline int
+i2c_trylock_bus(struct i2c_adapter *adapter, unsigned int flags)
+{
+	return adapter->lock_ops->trylock_bus(adapter, flags);
 }
 
 /**
@@ -596,7 +621,7 @@ i2c_lock_bus(struct i2c_adapter *adapter, unsigned int flags)
 static inline void
 i2c_unlock_bus(struct i2c_adapter *adapter, unsigned int flags)
 {
-	adapter->unlock_bus(adapter, flags);
+	adapter->lock_ops->unlock_bus(adapter, flags);
 }
 
 static inline void

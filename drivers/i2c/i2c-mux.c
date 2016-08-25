@@ -159,7 +159,7 @@ static int i2c_mux_trylock_bus(struct i2c_adapter *adapter, unsigned int flags)
 		return 0;	/* mux_lock not locked, failure */
 	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
 		return 1;	/* we only want mux_lock, success */
-	if (parent->trylock_bus(parent, flags))
+	if (i2c_trylock_bus(parent, flags))
 		return 1;	/* parent locked too, success */
 	rt_mutex_unlock(&parent->mux_lock);
 	return 0;		/* parent not locked, failure */
@@ -193,7 +193,7 @@ static int i2c_parent_trylock_bus(struct i2c_adapter *adapter,
 
 	if (!rt_mutex_trylock(&parent->mux_lock))
 		return 0;	/* mux_lock not locked, failure */
-	if (parent->trylock_bus(parent, flags))
+	if (i2c_trylock_bus(parent, flags))
 		return 1;	/* parent locked too, success */
 	rt_mutex_unlock(&parent->mux_lock);
 	return 0;		/* parent not locked, failure */
@@ -263,6 +263,18 @@ struct i2c_mux_core *i2c_mux_alloc(struct i2c_adapter *parent,
 }
 EXPORT_SYMBOL_GPL(i2c_mux_alloc);
 
+static const struct i2c_lock_operations i2c_mux_lock_ops = {
+	.lock_bus =    i2c_mux_lock_bus,
+	.trylock_bus = i2c_mux_trylock_bus,
+	.unlock_bus =  i2c_mux_unlock_bus,
+};
+
+static const struct i2c_lock_operations i2c_parent_lock_ops = {
+	.lock_bus =    i2c_parent_lock_bus,
+	.trylock_bus = i2c_parent_trylock_bus,
+	.unlock_bus =  i2c_parent_unlock_bus,
+};
+
 int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 			u32 force_nr, u32 chan_id,
 			unsigned int class)
@@ -312,15 +324,10 @@ int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 	priv->adap.retries = parent->retries;
 	priv->adap.timeout = parent->timeout;
 	priv->adap.quirks = parent->quirks;
-	if (muxc->mux_locked) {
-		priv->adap.lock_bus = i2c_mux_lock_bus;
-		priv->adap.trylock_bus = i2c_mux_trylock_bus;
-		priv->adap.unlock_bus = i2c_mux_unlock_bus;
-	} else {
-		priv->adap.lock_bus = i2c_parent_lock_bus;
-		priv->adap.trylock_bus = i2c_parent_trylock_bus;
-		priv->adap.unlock_bus = i2c_parent_unlock_bus;
-	}
+	if (muxc->mux_locked)
+		priv->adap.lock_ops = &i2c_mux_lock_ops;
+	else
+		priv->adap.lock_ops = &i2c_parent_lock_ops;
 
 	/* Sanity check on class */
 	if (i2c_mux_parent_classes(parent) & class)
