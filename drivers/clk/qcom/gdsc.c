@@ -32,6 +32,7 @@
 #define SW_OVERRIDE_MASK	BIT(2)
 #define HW_CONTROL_MASK		BIT(1)
 #define SW_COLLAPSE_MASK	BIT(0)
+#define GMEM_CLAMP_IO_MASK	BIT(0)
 
 /* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
 #define EN_REST_WAIT_VAL	(0x2 << 20)
@@ -142,6 +143,16 @@ static inline void gdsc_clear_mem_on(struct gdsc *sc)
 		regmap_update_bits(sc->regmap, sc->cxcs[i], mask, 0);
 }
 
+static inline void gdsc_deassert_clamp_io(struct gdsc *sc)
+{
+	regmap_update_bits(sc->regmap, sc->clamp_io_ctrl, GMEM_CLAMP_IO_MASK, 0);
+}
+
+static inline void gdsc_assert_clamp_io(struct gdsc *sc)
+{
+	regmap_update_bits(sc->regmap, sc->clamp_io_ctrl, GMEM_CLAMP_IO_MASK, 1);
+}
+
 static int gdsc_enable(struct generic_pm_domain *domain)
 {
 	struct gdsc *sc = domain_to_gdsc(domain);
@@ -152,6 +163,9 @@ static int gdsc_enable(struct generic_pm_domain *domain)
 
 	if (sc->clk)
 		clk_prepare_enable(sc->clk);
+
+	if (sc->clamp_io_ctrl)
+		gdsc_deassert_clamp_io(sc);
 
 	ret = gdsc_toggle_logic(sc, true);
 	if (ret)
@@ -190,6 +204,9 @@ static int gdsc_disable(struct generic_pm_domain *domain)
 		gdsc_clear_mem_on(sc);
 
 	ret = gdsc_toggle_logic(sc, false);
+
+	if (sc->clamp_io_ctrl)
+		gdsc_assert_clamp_io(sc);
 
 	if (sc->clk)
 		clk_disable_unprepare(sc->clk);
