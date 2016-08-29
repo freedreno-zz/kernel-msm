@@ -42,7 +42,7 @@
 #define RETAIN_MEM		BIT(14)
 #define RETAIN_PERIPH		BIT(13)
 
-#define TIMEOUT_US		100
+#define TIMEOUT_US		500
 
 #define domain_to_gdsc(domain) container_of(domain, struct gdsc, pd)
 
@@ -103,6 +103,8 @@ static int gdsc_toggle_logic(struct gdsc *sc, bool en)
 
 	if (gdsc_is_enabled(sc, status_reg) == en)
 		return 0;
+
+	pr_err("Timedout %sabling gdsc %s\n", en ? "en" : "dis", sc->pd.name);
 
 	return -ETIMEDOUT;
 }
@@ -242,11 +244,16 @@ static int gdsc_init(struct gdsc *sc)
 	if (sc->clk_hw)
 		sc->clk = qcom_clk_hw_get_clk(sc->clk_hw);
 
+	if (sc->flags & ENABLE_AT_BOOT)
+		gdsc_enable(&sc->pd);
+
 	reg = sc->gds_hw_ctrl ? sc->gds_hw_ctrl : sc->gdscr;
 	on = gdsc_is_enabled(sc, reg);
 	if (on < 0)
 		return on;
 
+	if (on)
+		pr_err("gdsc %s is ON\n", sc->pd.name);
 	/*
 	 * Votable GDSCs can be ON due to Vote from other masters.
 	 * If a Votable GDSC is ON, make sure we have a Vote.
