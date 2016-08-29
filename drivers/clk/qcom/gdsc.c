@@ -169,6 +169,9 @@ static int gdsc_enable(struct generic_pm_domain *domain)
 	 */
 	udelay(1);
 
+	if (sc->clk && (sc->flags & CLK_TOGGLE))
+		clk_disable_unprepare(sc->clk);
+
 	return 0;
 }
 
@@ -179,6 +182,9 @@ static int gdsc_disable(struct generic_pm_domain *domain)
 
 	if (sc->pwrsts == PWRSTS_ON)
 		return gdsc_assert_reset(sc);
+
+	if (sc->clk && (sc->flags & CLK_TOGGLE))
+		clk_prepare_enable(sc->clk);
 
 	if (sc->pwrsts & PWRSTS_OFF)
 		gdsc_clear_mem_on(sc);
