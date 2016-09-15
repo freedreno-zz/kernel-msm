@@ -253,6 +253,9 @@ static struct sync_file *sync_file_merge(const char *name, struct sync_file *a,
 	for (; i_b < b_num_fences; i_b++)
 		add_fence(fences, &i, b_fences[i_b]);
 
+	if (i == 0)
+		fences[i++] = fence_get(a_fences[0]);
+
 	if (num_fences > i) {
 		nfences = krealloc(fences, i * sizeof(*fences),
 				  GFP_KERNEL);
