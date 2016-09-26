@@ -3410,7 +3410,6 @@ static const struct qcom_reset_map gcc_msm8996_resets[] = {
 	[GCC_SSC_BCR] = { 0x63000 },
 	[GCC_VS_BCR] = { 0x7a000 },
 	[GCC_AGGRE0_NOC_BCR] = { 0x81000 },
-	[GCC_AGGRE1_NOC_BCR] = { 0x82000 },
 	[GCC_AGGRE2_NOC_BCR] = { 0x83000 },
 	[GCC_DCC_BCR] = { 0x84000 },
 	[GCC_IPA_BCR] = { 0x89000 },
