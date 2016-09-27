@@ -173,7 +173,7 @@
 			regulator-boot-on;
 		};
 		mdss@900000 {
-			status = "disabled";
+			status = "okay";
 
 			mdp@901000 {
 				status = "okay";
