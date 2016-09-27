@@ -41,7 +41,7 @@
 
 		serial@75b1000 {
 			label = "LS-UART0";
-			status = "okay";
+			status = "disabled";
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&blsp2_uart2_4pins_default>;
 			pinctrl-1 = <&blsp2_uart2_4pins_sleep>;
@@ -97,7 +97,7 @@
 			perst-gpio = <&msmgpio 130 GPIO_ACTIVE_LOW>;
 		};
 
-		qcom,pcie@00610000 { 
+		qcom,pcie@00610000 {
 			status = "okay";
 			perst-gpio = <&msmgpio 114 GPIO_ACTIVE_LOW>;
 		};
@@ -173,7 +173,7 @@
 			regulator-boot-on;
 		};
 		mdss@900000 {
-			status = "okay";
+			status = "disabled";
 
 			mdp@901000 {
 				status = "okay";

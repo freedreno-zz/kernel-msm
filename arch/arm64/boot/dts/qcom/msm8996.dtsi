@@ -470,6 +470,7 @@
 		mdp_smmu: arm,smmu@d00000 {
 			compatible = "arm,smmu-v2";
 			reg = <0xd00000 0x10000>;
+			status = "disabled";
 
 			#global-interrupts = <1>;
 			interrupts = <0 73 0>,
@@ -493,7 +494,6 @@
 			qcom,skip-init;
 			qcom,no-smr-check;
 
-			status = "okay";
 		};
 
 		anoc0_smmu: arm,smmu-anoc0@1640000 {
