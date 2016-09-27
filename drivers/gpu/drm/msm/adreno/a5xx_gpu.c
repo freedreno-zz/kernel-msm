@@ -217,6 +217,8 @@ static void a5xx_me_init(struct msm_gpu *gpu)
 	gpu->funcs->flush(gpu);
 	gpu->funcs->idle(gpu);
 
+	// XXX critical packets??
+
 	/* GPU comes up in secured mode, make it unsecured by default */
 	if (to_adreno_gpu(gpu)->info->features & ADRENO_CONTENT_PROTECTION) {
 		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
@@ -436,6 +438,63 @@ static void a5xx_recover(struct msm_gpu *gpu)
 	adreno_recover(gpu);
 }
 
+#if 0
+/* I suppose this is really a5xx+ */
+static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
+		struct msm_file_private *ctx)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct msm_drm_private *priv = gpu->dev->dev_private;
+	struct msm_ringbuffer *ring = gpu->rb;
+	unsigned i;
+
+	for (i = 0; i < submit->nr_cmds; i++) {
+		switch (submit->cmd[i].type) {
+		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
+			/* ignore IB-targets */
+			break;
+		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
+			/* ignore if there has not been a ctx switch: */
+			if (priv->lastctx == ctx)
+				break;
+		case MSM_SUBMIT_CMD_BUF:
+			OUT_PKT7(ring, CP_INDIRECT_BUFFER_PFE, 3);
+			OUT_RING(ring, lower_32_bits(submit->cmd[i].iova));
+			OUT_RING(ring, upper_32_bits(submit->cmd[i].iova));
+			OUT_RING(ring, submit->cmd[i].size);
+			break;
+		}
+	}
+
+	OUT_PKT4(ring, REG_AXXX_CP_SCRATCH_REG2, 1);
+	OUT_RING(ring, submit->fence->seqno);
+
+//	if (adreno_is_a3xx(adreno_gpu) || adreno_is_a4xx(adreno_gpu)) {
+//		/* Flush HLSQ lazy updates to make sure there is nothing
+//		 * pending for indirect loads after the timestamp has
+//		 * passed:
+//		 */
+//		OUT_PKT7(ring, CP_EVENT_WRITE, 1);
+//		OUT_RING(ring, HLSQ_FLUSH);
+//
+//		OUT_PKT7(ring, CP_WAIT_FOR_IDLE, 1);
+//		OUT_RING(ring, 0x00000000);
+//	}
+
+// XXX probably wants an extra dword for upper 32b??
+	OUT_PKT7(ring, CP_EVENT_WRITE, 3);
+	OUT_RING(ring, CACHE_FLUSH_TS);
+	OUT_RING(ring, rbmemptr(adreno_gpu, fence));
+	OUT_RING(ring, submit->fence->seqno);
+
+	/* we could maybe be clever and only CP_COND_EXEC the interrupt: */
+	OUT_PKT7(ring, CP_INTERRUPT, 1);
+	OUT_RING(ring, 0x80000000);
+
+	gpu->funcs->flush(gpu);
+}
+#endif
+
 static void a5xx_destroy(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -479,6 +538,8 @@ static irqreturn_t a5xx_irq(struct msm_gpu *gpu)
 	status = gpu_read(gpu, REG_A5XX_RBBM_INT_0_STATUS);
 	DBG("%s: Int status %08x", gpu->name, status);
 
+	// XXX
+	printk("%s: Int status: %08x\n", gpu->name, status);
 
 	gpu_write(gpu, REG_A5XX_RBBM_INT_CLEAR_CMD, status);
 

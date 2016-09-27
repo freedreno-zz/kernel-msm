@@ -212,6 +212,7 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 	int ret;
 
 	ret = of_property_read_u32(node, "qcom,chipid", &val);
+DBG("chipid=%08x, ret=%d", val, ret);
 	if (ret) {
 		dev_err(dev, "could not find chipid: %d\n", ret);
 		return ret;
