@@ -467,6 +467,81 @@
 			};
 		};
 
+		adreno_smmu: arm,smmu@b40000 {
+			compatible = "arm,smmu-v2";
+			reg = <0xb40000 0x10000>;
+
+			#global-interrupts = <1>;
+			interrupts = <0 334 0>,
+				     <0 329 0>,
+				     <0 330 0>;
+			#iommu-cells = <1>;
+
+			clocks = <&mmcc MMSS_MMAGIC_AHB_CLK>,
+				<&mmcc MMSS_MMAGIC_CFG_AHB_CLK>,
+				<&mmcc GPU_AHB_CLK>,
+				<&gcc GCC_MMSS_BIMC_GFX_CLK>,
+				<&gcc GCC_BIMC_GFX_CLK>,
+				<&mmcc MMSS_MISC_AHB_CLK>;
+			clock-names = "mmagic_ahb_clk",
+				"mmagic_cfg_ahb_clk",
+				"gpu_ahb_clk",
+				"gcc_mmss_bimc_gfx_clk",
+				"gcc_bimc_gfx_clk",
+				"mmss_misc_bus_clk";
+
+			power-domains = <&mmcc GPU_GDSC>;   // XXX or GPU_GX_GDSC ??
+
+			qcom,skip-init;
+			qcom,dynamic;
+
+			status = "okay";
+		};
+
+		adreno-3xx@b00000 {
+			compatible = "qcom,adreno-3xx";
+			#stream-id-cells = <16>;
+
+			reg = <0xb00000 0x3f000>;
+			reg-names = "kgsl_3d0_reg_memory";
+
+			interrupts = <0 300 0>;
+			interrupt-names = "kgsl_3d0_irq";
+
+			clocks = <&mmcc GPU_GX_GFX3D_CLK>,
+				<&mmcc GPU_AHB_CLK>,
+				<&mmcc GPU_GX_RBBMTIMER_CLK>,
+				<&gcc GCC_BIMC_GFX_CLK>,
+				<&gcc GCC_MMSS_BIMC_GFX_CLK>,
+				<&mmcc MMSS_MMAGIC_AHB_CLK>;
+			// XXX gpu_mx_clk
+			clock-names = "core_clk",
+				"iface_clk",
+				"rbbmtimer_clk",
+				"mem_clk",
+				"mem_iface_clk",
+				"alt_mem_iface_clk";
+			// XXX "mx_clk";
+
+			power-domains = <&mmcc GPU_GDSC>;   // XXX or GPU_GX_GDSC ??
+			iommus = <&adreno_smmu 0>;
+
+			/* TODO probably should be patchlevel 0 and then overridden somewhere: */
+			qcom,chipid = <0x05030002>;
+			/* TODO this is not max-speed.. we need to get speed-bin (from QFROM?) to
+			 * know which set of pwrlevels to use.
+			 */
+			qcom,gpu-pwrlevels {
+				compatible = "qcom,gpu-pwrlevels";
+				qcom,gpu-pwrlevel@0 {
+					qcom,gpu-freq = <480000000>;
+				};
+				qcom,gpu-pwrlevel@1 {
+					qcom,gpu-freq = <27000000>;
+				};
+			};
+		};
+
 		mdp_smmu: arm,smmu@d00000 {
 			compatible = "arm,smmu-v2";
 			reg = <0xd00000 0x10000>;
