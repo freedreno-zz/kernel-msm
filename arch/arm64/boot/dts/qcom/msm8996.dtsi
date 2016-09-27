@@ -470,7 +470,7 @@
 		mdp_smmu: arm,smmu@d00000 {
 			compatible = "arm,smmu-v2";
 			reg = <0xd00000 0x10000>;
-			status = "disabled";
+			status = "okay";
 
 			#global-interrupts = <1>;
 			interrupts = <0 73 0>,
