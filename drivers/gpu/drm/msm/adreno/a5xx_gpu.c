@@ -384,6 +384,10 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	/* UCHE registers */
 	set_protect(16, 0xE87, 4);
 
+	// XXX are we alive?
+	gpu_write(gpu, REG_AXXX_CP_SCRATCH_REG2, 0x123);
+	DBG("scratch2: %x", gpu_read(gpu, REG_AXXX_CP_SCRATCH_REG2));
+
 	ret = adreno_hw_init(gpu);
 	if (ret)
 		return ret;

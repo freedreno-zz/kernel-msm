@@ -79,8 +79,15 @@ int adreno_hw_init(struct msm_gpu *gpu)
 			(adreno_is_a430(adreno_gpu) ? AXXX_CP_RB_CNTL_NO_UPDATE : 0));
 
 	/* Setup ringbuffer address: */
-	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE, gpu->rb_iova);
+	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE,
+			lower_32_bits(gpu->rb_iova));
 
+	if (adreno_is_64b(adreno_gpu)) {
+		adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE_HI,
+				upper_32_bits(gpu->rb_iova));
+	}
+
+	if (!adreno_is_a5xx(adreno_gpu))   /* XXX does this still exist?? */
 	if (!adreno_is_a430(adreno_gpu))
 		adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
 						rbmemptr(adreno_gpu, rptr));
