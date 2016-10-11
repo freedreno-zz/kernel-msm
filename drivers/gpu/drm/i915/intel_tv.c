@@ -1501,6 +1501,7 @@ out:
 static const struct drm_connector_funcs intel_tv_connector_funcs = {
 	.dpms = drm_atomic_helper_connector_dpms,
 	.detect = intel_tv_detect,
+	.early_unregister = intel_connector_unregister,
 	.destroy = intel_tv_destroy,
 	.set_property = intel_tv_set_property,
 	.atomic_get_property = intel_connector_atomic_get_property,
@@ -1512,7 +1513,6 @@ static const struct drm_connector_funcs intel_tv_connector_funcs = {
 static const struct drm_connector_helper_funcs intel_tv_connector_helper_funcs = {
 	.mode_valid = intel_tv_mode_valid,
 	.get_modes = intel_tv_get_modes,
-	.best_encoder = intel_best_encoder,
 };
 
 static const struct drm_encoder_funcs intel_tv_enc_funcs = {
@@ -1591,7 +1591,7 @@ intel_tv_init(struct drm_device *dev)
 			   DRM_MODE_CONNECTOR_SVIDEO);
 
 	drm_encoder_init(dev, &intel_encoder->base, &intel_tv_enc_funcs,
-			 DRM_MODE_ENCODER_TVDAC, NULL);
+			 DRM_MODE_ENCODER_TVDAC, "TV");
 
 	intel_encoder->compute_config = intel_tv_compute_config;
 	intel_encoder->get_config = intel_tv_get_config;
@@ -1600,7 +1600,6 @@ intel_tv_init(struct drm_device *dev)
 	intel_encoder->disable = intel_disable_tv;
 	intel_encoder->get_hw_state = intel_tv_get_hw_state;
 	intel_connector->get_hw_state = intel_connector_get_hw_state;
-	intel_connector->unregister = intel_connector_unregister;
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 	intel_encoder->type = INTEL_OUTPUT_TVOUT;

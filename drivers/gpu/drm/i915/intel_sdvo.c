@@ -2177,12 +2177,23 @@ done:
 #undef CHECK_PROPERTY
 }
 
+static void
+intel_sdvo_connector_unregister(struct drm_connector *connector)
+{
+	struct intel_sdvo *sdvo = intel_attached_sdvo(connector);
+
+	sysfs_remove_link(&connector->kdev->kobj,
+			  sdvo->ddc.dev.kobj.name);
+	intel_connector_unregister(connector);
+}
+
 static const struct drm_connector_funcs intel_sdvo_connector_funcs = {
 	.dpms = drm_atomic_helper_connector_dpms,
 	.detect = intel_sdvo_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.set_property = intel_sdvo_set_property,
 	.atomic_get_property = intel_connector_atomic_get_property,
+	.early_unregister = intel_sdvo_connector_unregister,
 	.destroy = intel_sdvo_destroy,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
@@ -2191,7 +2202,6 @@ static const struct drm_connector_funcs intel_sdvo_connector_funcs = {
 static const struct drm_connector_helper_funcs intel_sdvo_connector_helper_funcs = {
 	.get_modes = intel_sdvo_get_modes,
 	.mode_valid = intel_sdvo_mode_valid,
-	.best_encoder = intel_best_encoder,
 };
 
 static void intel_sdvo_enc_destroy(struct drm_encoder *encoder)
@@ -2346,20 +2356,6 @@ intel_sdvo_get_slave_addr(struct drm_device *dev, struct intel_sdvo *sdvo)
 		return 0x72;
 }
 
-static void
-intel_sdvo_connector_unregister(struct intel_connector *intel_connector)
-{
-	struct drm_connector *drm_connector;
-	struct intel_sdvo *sdvo_encoder;
-
-	drm_connector = &intel_connector->base;
-	sdvo_encoder = intel_attached_sdvo(&intel_connector->base);
-
-	sysfs_remove_link(&drm_connector->kdev->kobj,
-			  sdvo_encoder->ddc.dev.kobj.name);
-	intel_connector_unregister(intel_connector);
-}
-
 static int
 intel_sdvo_connector_init(struct intel_sdvo_connector *connector,
 			  struct intel_sdvo *encoder)
@@ -2382,7 +2378,6 @@ intel_sdvo_connector_init(struct intel_sdvo_connector *connector,
 	connector->base.base.doublescan_allowed = 0;
 	connector->base.base.display_info.subpixel_order = SubPixelHorizontalRGB;
 	connector->base.get_hw_state = intel_sdvo_connector_get_hw_state;
-	connector->base.unregister = intel_sdvo_connector_unregister;
 
 	intel_connector_attach_encoder(&connector->base, &encoder->base);
 	ret = drm_connector_register(drm_connector);
@@ -2981,7 +2976,7 @@ bool intel_sdvo_init(struct drm_device *dev,
 	intel_encoder = &intel_sdvo->base;
 	intel_encoder->type = INTEL_OUTPUT_SDVO;
 	drm_encoder_init(dev, &intel_encoder->base, &intel_sdvo_enc_funcs, 0,
-			 NULL);
+			 "SDVO %c", port_name(port));
 
 	/* Read the regs to test if we can talk to the device */
 	for (i = 0; i < 0x40; i++) {

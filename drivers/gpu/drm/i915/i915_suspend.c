@@ -43,8 +43,8 @@ static void i915_save_display(struct drm_device *dev)
 	else if (INTEL_INFO(dev)->gen <= 4 && IS_MOBILE(dev) && !IS_I830(dev))
 		dev_priv->regfile.saveLVDS = I915_READ(LVDS);
 
-	/* Panel power sequencer */
-	if (HAS_PCH_SPLIT(dev)) {
+	/* Panel power sequencer, only needed for LVDS */
+	if (HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)) {
 		dev_priv->regfile.savePP_CONTROL = I915_READ(PCH_PP_CONTROL);
 		dev_priv->regfile.savePP_ON_DELAYS = I915_READ(PCH_PP_ON_DELAYS);
 		dev_priv->regfile.savePP_OFF_DELAYS = I915_READ(PCH_PP_OFF_DELAYS);
@@ -78,8 +78,8 @@ static void i915_restore_display(struct drm_device *dev)
 	else if (INTEL_INFO(dev)->gen <= 4 && IS_MOBILE(dev) && !IS_I830(dev))
 		I915_WRITE(LVDS, dev_priv->regfile.saveLVDS & mask);
 
-	/* Panel power sequencer */
-	if (HAS_PCH_SPLIT(dev)) {
+	/* Panel power sequencer, only needed for LVDS */
+	if (HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)) {
 		I915_WRITE(PCH_PP_ON_DELAYS, dev_priv->regfile.savePP_ON_DELAYS);
 		I915_WRITE(PCH_PP_OFF_DELAYS, dev_priv->regfile.savePP_OFF_DELAYS);
 		I915_WRITE(PCH_PP_DIVISOR, dev_priv->regfile.savePP_DIVISOR);

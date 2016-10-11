@@ -217,7 +217,7 @@ static struct drm_driver rcar_du_driver = {
 	.get_vblank_counter	= drm_vblank_no_hw_counter,
 	.enable_vblank		= rcar_du_enable_vblank,
 	.disable_vblank		= rcar_du_disable_vblank,
-	.gem_free_object	= drm_gem_cma_free_object,
+	.gem_free_object_unlocked = drm_gem_cma_free_object,
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
@@ -319,8 +319,6 @@ static int rcar_du_probe(struct platform_device *pdev)
 	ddev = drm_dev_alloc(&rcar_du_driver, &pdev->dev);
 	if (!ddev)
 		return -ENOMEM;
-
-	drm_dev_set_unique(ddev, dev_name(&pdev->dev));
 
 	rcdu->ddev = ddev;
 	ddev->dev_private = rcdu;

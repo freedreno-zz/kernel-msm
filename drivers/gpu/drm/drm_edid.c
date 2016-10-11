@@ -33,6 +33,7 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/vga_switcheroo.h>
+#include <linux/latencytop.h>
 #include <drm/drmP.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_displayid.h>
@@ -1279,14 +1280,17 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 	int i, j = 0, valid_extensions = 0;
 	u8 *block, *new;
 	bool print_bad_edid = !connector->bad_edid_counter || (drm_debug & DRM_UT_KMS);
+	u64 before, after;
 
 	if ((block = kmalloc(EDID_LENGTH, GFP_KERNEL)) == NULL)
 		return NULL;
 
+	before = ktime_get_raw_ns();
+
 	/* base block fetch */
 	for (i = 0; i < 4; i++) {
 		if (get_edid_block(data, block, 0, EDID_LENGTH))
-			goto out;
+			goto none;
 		if (drm_edid_block_valid(block, 0, print_bad_edid,
 					 &connector->edid_corrupt))
 			break;
@@ -1300,11 +1304,11 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 
 	/* if there's no extensions, we're done */
 	if (block[0x7e] == 0)
-		return (struct edid *)block;
+		goto out;
 
 	new = krealloc(block, (block[0x7e] + 1) * EDID_LENGTH, GFP_KERNEL);
 	if (!new)
-		goto out;
+		goto none;
 	block = new;
 
 	for (j = 1; j <= block[0x7e]; j++) {
@@ -1312,7 +1316,7 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 			if (get_edid_block(data,
 				  block + (valid_extensions + 1) * EDID_LENGTH,
 				  j, EDID_LENGTH))
-				goto out;
+				goto none;
 			if (drm_edid_block_valid(block + (valid_extensions + 1)
 						 * EDID_LENGTH, j,
 						 print_bad_edid,
@@ -1336,11 +1340,11 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 		block[0x7e] = valid_extensions;
 		new = krealloc(block, (valid_extensions + 1) * EDID_LENGTH, GFP_KERNEL);
 		if (!new)
-			goto out;
+			goto none;
 		block = new;
 	}
 
-	return (struct edid *)block;
+	goto out;
 
 carp:
 	if (print_bad_edid) {
@@ -1349,9 +1353,16 @@ carp:
 	}
 	connector->bad_edid_counter++;
 
-out:
+none:
 	kfree(block);
-	return NULL;
+	block = NULL;
+
+out:
+	after = ktime_get_raw_ns();
+
+	account_latency(DIV_ROUND_UP_ULL(after - before, 1000));
+
+	return (struct edid *)block;
 }
 EXPORT_SYMBOL_GPL(drm_do_get_edid);
 
@@ -3589,11 +3600,12 @@ struct drm_connector *drm_select_eld(struct drm_encoder *encoder)
 {
 	struct drm_connector *connector;
 	struct drm_device *dev = encoder->dev;
+	struct drm_connector_iter iter;
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
 	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 
-	drm_for_each_connector(connector, dev)
+	drm_for_each_connector(connector, dev, iter)
 		if (connector->encoder == encoder && connector->eld[0])
 			return connector;
 
