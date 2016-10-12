@@ -28,7 +28,6 @@
  * @name:		name of sync_file.  Useful for debugging
  * @sync_file_list:	membership in global file list
  * @wq:			wait queue for fence signaling
- * @enabled:		wether fence signal is enabled or not
  * @fence:		fence with the fences in the sync_file
  * @cb:			fence callback information
  */
@@ -41,11 +40,12 @@ struct sync_file {
 #endif
 
 	wait_queue_head_t	wq;
-	atomic_t		enabled;
 
 	struct fence		*fence;
 	struct fence_cb cb;
 };
+
+#define POLL_ENABLED FENCE_FLAG_USER_BITS
 
 struct sync_file *sync_file_create(struct fence *fence);
 struct fence *sync_file_get_fence(int fd);

@@ -150,6 +150,7 @@ static int sync_file_set_fence(struct sync_file *sync_file,
 	 */
 	if (num_fences == 1) {
 		sync_file->fence = fences[0];
+		kfree(fences);
 	} else {
 		array = fence_array_create(num_fences, fences,
 					   fence_context_alloc(1), 1, false);
@@ -284,7 +285,7 @@ static void sync_file_free(struct kref *kref)
 	struct sync_file *sync_file = container_of(kref, struct sync_file,
 						     kref);
 
-	if (atomic_read(&sync_file->enabled))
+	if (test_bit(POLL_ENABLED, &sync_file->fence->flags))
 		fence_remove_callback(sync_file->fence, &sync_file->cb);
 	fence_put(sync_file->fence);
 	kfree(sync_file);
@@ -301,25 +302,17 @@ static int sync_file_release(struct inode *inode, struct file *file)
 static unsigned int sync_file_poll(struct file *file, poll_table *wait)
 {
 	struct sync_file *sync_file = file->private_data;
-	int status;
 
 	poll_wait(file, &sync_file->wq, wait);
 
-	if (!atomic_xchg(&sync_file->enabled, 1)) {
+	if (!poll_does_not_wait(wait) &&
+	    !test_and_set_bit(POLL_ENABLED, &sync_file->fence->flags)) {
 		if (fence_add_callback(sync_file->fence, &sync_file->cb,
-				   fence_check_cb_func) < 0)
+				       fence_check_cb_func) < 0)
 			wake_up_all(&sync_file->wq);
 	}
 
-	status = fence_is_signaled(sync_file->fence);
-
-	if (!status)
-		return 0;
-
-	if (status < 0)
-		return POLLERR;
-
-	return POLLIN;
+	return fence_is_signaled(sync_file->fence) ? POLLIN : 0;
 }
 
 static long sync_file_ioctl_merge(struct sync_file *sync_file,

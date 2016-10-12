@@ -334,6 +334,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	struct reservation_object *resv = exp_info->resv;
 	struct file *file;
 	size_t alloc_size = sizeof(struct dma_buf);
+	int ret;
 
 	if (!exp_info->resv)
 		alloc_size += sizeof(struct reservation_object);
@@ -357,8 +358,8 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 
 	dmabuf = kzalloc(alloc_size, GFP_KERNEL);
 	if (!dmabuf) {
-		module_put(exp_info->owner);
-		return ERR_PTR(-ENOMEM);
+		ret = -ENOMEM;
+		goto err_module;
 	}
 
 	dmabuf->priv = exp_info->priv;
@@ -379,8 +380,8 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	file = anon_inode_getfile("dmabuf", &dma_buf_fops, dmabuf,
 					exp_info->flags);
 	if (IS_ERR(file)) {
-		kfree(dmabuf);
-		return ERR_CAST(file);
+		ret = PTR_ERR(file);
+		goto err_dmabuf;
 	}
 
 	file->f_mode |= FMODE_LSEEK;
@@ -394,6 +395,12 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	mutex_unlock(&db_list.lock);
 
 	return dmabuf;
+
+err_dmabuf:
+	kfree(dmabuf);
+err_module:
+	module_put(exp_info->owner);
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(dma_buf_export);
 
@@ -579,6 +586,22 @@ void dma_buf_unmap_attachment(struct dma_buf_attachment *attach,
 }
 EXPORT_SYMBOL_GPL(dma_buf_unmap_attachment);
 
+static int __dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+				      enum dma_data_direction direction)
+{
+	bool write = (direction == DMA_BIDIRECTIONAL ||
+		      direction == DMA_TO_DEVICE);
+	struct reservation_object *resv = dmabuf->resv;
+	long ret;
+
+	/* Wait on any implicit rendering fences */
+	ret = reservation_object_wait_timeout_rcu(resv, write, true,
+						  MAX_SCHEDULE_TIMEOUT);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
 
 /**
  * dma_buf_begin_cpu_access - Must be called before accessing a dma_buf from the
@@ -600,6 +623,13 @@ int dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 
 	if (dmabuf->ops->begin_cpu_access)
 		ret = dmabuf->ops->begin_cpu_access(dmabuf, direction);
+
+	/* Ensure that all fences are waited upon - but we first allow
+	 * the native handler the chance to do so more efficiently if it
+	 * chooses. A double invocation here will be reasonably cheap no-op.
+	 */
+	if (ret == 0)
+		ret = __dma_buf_begin_cpu_access(dmabuf, direction);
 
 	return ret;
 }
