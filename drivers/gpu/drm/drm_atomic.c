@@ -1741,7 +1741,7 @@ static struct drm_out_fence_state *get_out_fence(struct drm_device *dev,
 			goto out;
 		}
 
-		crtc_state->event->base.fence = fence;
+		crtc_state->event->base.fence = fence_get(fence);
 
 		out_fences[i].fd = fence_state[i].fd;
 	}

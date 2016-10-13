@@ -526,7 +526,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	if (args->flags & MSM_SUBMIT_FENCE_FD_OUT) {
-		sync_file = sync_file_create(submit->fence);
+		sync_file = sync_file_create(fence_get(submit->fence));
 		if (!sync_file) {
 			ret = -ENOMEM;
 			goto out;
