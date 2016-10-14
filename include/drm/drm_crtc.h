@@ -36,6 +36,7 @@
 #include <uapi/drm/drm_mode.h>
 #include <uapi/drm/drm_fourcc.h>
 #include <drm/drm_modeset_lock.h>
+#include <drm/drm_rect.h>
 
 struct drm_device;
 struct drm_mode_set;
@@ -1395,6 +1396,29 @@ struct drm_plane_state {
 	struct drm_atomic_state *state;
 };
 
+static inline struct drm_rect
+drm_plane_state_src(const struct drm_plane_state *state)
+{
+	struct drm_rect src = {
+		.x1 = state->src_x,
+		.y1 = state->src_y,
+		.x2 = state->src_x + state->src_w,
+		.y2 = state->src_y + state->src_h,
+	};
+	return src;
+}
+
+static inline struct drm_rect
+drm_plane_state_dest(const struct drm_plane_state *state)
+{
+	struct drm_rect dest = {
+		.x1 = state->crtc_x,
+		.y1 = state->crtc_y,
+		.x2 = state->crtc_x + state->crtc_w,
+		.y2 = state->crtc_y + state->crtc_h,
+	};
+	return dest;
+}
 
 /**
  * struct drm_plane_funcs - driver plane control functions

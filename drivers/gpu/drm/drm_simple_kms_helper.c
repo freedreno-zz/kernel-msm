@@ -73,18 +73,8 @@ static const struct drm_crtc_funcs drm_simple_kms_crtc_funcs = {
 static int drm_simple_kms_plane_atomic_check(struct drm_plane *plane,
 					struct drm_plane_state *plane_state)
 {
-	struct drm_rect src = {
-		.x1 = plane_state->src_x,
-		.y1 = plane_state->src_y,
-		.x2 = plane_state->src_x + plane_state->src_w,
-		.y2 = plane_state->src_y + plane_state->src_h,
-	};
-	struct drm_rect dest = {
-		.x1 = plane_state->crtc_x,
-		.y1 = plane_state->crtc_y,
-		.x2 = plane_state->crtc_x + plane_state->crtc_w,
-		.y2 = plane_state->crtc_y + plane_state->crtc_h,
-	};
+	struct drm_rect src = drm_plane_state_src(plane_state);
+	struct drm_rect dest = drm_plane_state_dest(plane_state);
 	struct drm_rect clip = { 0 };
 	struct drm_simple_display_pipe *pipe;
 	struct drm_crtc_state *crtc_state;

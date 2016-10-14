@@ -139,14 +139,8 @@ static int intel_plane_atomic_check(struct drm_plane *plane,
 	 * we want to keep another copy internal to our driver that we can
 	 * clip/modify ourselves.
 	 */
-	intel_state->src.x1 = state->src_x;
-	intel_state->src.y1 = state->src_y;
-	intel_state->src.x2 = state->src_x + state->src_w;
-	intel_state->src.y2 = state->src_y + state->src_h;
-	intel_state->dst.x1 = state->crtc_x;
-	intel_state->dst.y1 = state->crtc_y;
-	intel_state->dst.x2 = state->crtc_x + state->crtc_w;
-	intel_state->dst.y2 = state->crtc_y + state->crtc_h;
+	intel_state->src = drm_plane_state_src(state);
+	intel_state->dst = drm_plane_state_dest(state);
 
 	/* Clip all planes to CRTC size, or 0x0 if CRTC is disabled */
 	intel_state->clip.x1 = 0;

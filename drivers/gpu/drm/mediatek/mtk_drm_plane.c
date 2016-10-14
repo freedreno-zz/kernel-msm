@@ -135,19 +135,8 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_crtc_state *crtc_state;
 	bool visible;
-	struct drm_rect dest = {
-		.x1 = state->crtc_x,
-		.y1 = state->crtc_y,
-		.x2 = state->crtc_x + state->crtc_w,
-		.y2 = state->crtc_y + state->crtc_h,
-	};
-	struct drm_rect src = {
-		/* 16.16 fixed point */
-		.x1 = state->src_x,
-		.y1 = state->src_y,
-		.x2 = state->src_x + state->src_w,
-		.y2 = state->src_y + state->src_h,
-	};
+	struct drm_rect dest = drm_plane_state_dest(state);
+	struct drm_rect src  = drm_plane_state_src(state);  /* 16.16 fixed point */
 	struct drm_rect clip = { 0, };
 
 	if (!fb)
