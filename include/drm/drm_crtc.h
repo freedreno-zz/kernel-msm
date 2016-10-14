@@ -44,6 +44,7 @@ struct drm_framebuffer;
 struct drm_object_properties;
 struct drm_file;
 struct drm_clip_rect;
+struct drm_print;
 struct device_node;
 struct fence;
 struct edid;
@@ -707,6 +708,18 @@ struct drm_crtc_funcs {
 				   const struct drm_crtc_state *state,
 				   struct drm_property *property,
 				   uint64_t *val);
+
+	/**
+	 * @atomic_print_state:
+	 *
+	 * If driver subclasses struct &drm_crtc_state, it should implement
+	 * this optional hook for printing state.
+	 *
+	 * Do not call this directly, use drm_atomic_crtc_print_state()
+	 * instead.
+	 */
+	void (*atomic_print_state)(struct drm_print *p,
+				   const struct drm_crtc_state *state);
 };
 
 /**
@@ -1132,6 +1145,18 @@ struct drm_connector_funcs {
 				   const struct drm_connector_state *state,
 				   struct drm_property *property,
 				   uint64_t *val);
+
+	/**
+	 * @atomic_print_state:
+	 *
+	 * If driver subclasses struct &drm_connector_state, it should
+	 * implement this optional hook for printing state.
+	 *
+	 * Do not call this directly, use drm_atomic_connector_print_state()
+	 * instead.
+	 */
+	void (*atomic_print_state)(struct drm_print *p,
+				   const struct drm_connector_state *state);
 };
 
 /**
@@ -1623,6 +1648,18 @@ struct drm_plane_funcs {
 				   const struct drm_plane_state *state,
 				   struct drm_property *property,
 				   uint64_t *val);
+
+	/**
+	 * @atomic_print_state:
+	 *
+	 * If driver subclasses struct &drm_plane_state, it should implement
+	 * this optional hook for printing state.
+	 *
+	 * Do not call this directly, use drm_atomic_plane_print_state()
+	 * instead.
+	 */
+	void (*atomic_print_state)(struct drm_print *p,
+				   const struct drm_plane_state *state);
 };
 
 enum drm_plane_type {
