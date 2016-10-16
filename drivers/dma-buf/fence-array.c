@@ -19,7 +19,10 @@
 
 #include <linux/export.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <linux/fence-array.h>
+
+static struct workqueue_struct *fence_array_wq;
 
 static void fence_array_cb_func(struct fence *f, struct fence_cb *cb);
 
@@ -33,6 +36,13 @@ static const char *fence_array_get_timeline_name(struct fence *fence)
 	return "unbound";
 }
 
+static void signal_worker(struct work_struct *w)
+{
+	struct fence_array *array =
+		container_of(w, struct fence_array, signal_worker);
+	fence_signal(&array->base);
+}
+
 static void fence_array_cb_func(struct fence *f, struct fence_cb *cb)
 {
 	struct fence_array_cb *array_cb =
@@ -40,7 +50,7 @@ static void fence_array_cb_func(struct fence *f, struct fence_cb *cb)
 	struct fence_array *array = array_cb->array;
 
 	if (atomic_dec_and_test(&array->num_pending))
-		fence_signal(&array->base);
+		queue_work(fence_array_wq, &array->signal_worker);
 	fence_put(&array->base);
 }
 
@@ -140,6 +150,25 @@ struct fence_array *fence_array_create(int num_fences, struct fence **fences,
 	atomic_set(&array->num_pending, signal_on_any ? 1 : num_fences);
 	array->fences = fences;
 
+	INIT_WORK(&array->signal_worker, signal_worker);
+
 	return array;
 }
 EXPORT_SYMBOL(fence_array_create);
+
+static int __init fence_array_init(void)
+{
+	fence_array_wq = alloc_ordered_workqueue("fence-array", 0);
+	if (!fence_array_wq)
+		return -ENOMEM;
+	return 0;
+}
+
+static void __exit fence_array_exit(void)
+{
+	flush_workqueue(fence_array_wq);
+	destroy_workqueue(fence_array_wq);
+}
+
+module_init(fence_array_init);
+module_exit(fence_array_exit);
