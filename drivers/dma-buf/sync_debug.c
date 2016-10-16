@@ -71,13 +71,12 @@ static const char *sync_status_str(int status)
 	return "error";
 }
 
-static void sync_print_fence(struct seq_file *s, struct fence *fence,
-		bool show, unsigned long flags)
+static void sync_print_fence(struct seq_file *s, struct fence *fence, bool show)
 {
 	int status = 1;
 	struct sync_timeline *parent = fence_parent(fence);
 
-	if (fence_is_signaled_locked(fence, flags))
+	if (fence_is_signaled_locked(fence))
 		status = fence->status;
 
 	seq_printf(s, "  %s%sfence %s",
@@ -125,14 +124,13 @@ static void sync_print_obj(struct seq_file *s, struct sync_timeline *obj)
 	list_for_each(pos, &obj->child_list_head) {
 		struct sync_pt *pt =
 			container_of(pos, struct sync_pt, child_list);
-		sync_print_fence(s, &pt->base, false, flags);
+		sync_print_fence(s, &pt->base, false);
 	}
 	spin_unlock_irqrestore(&obj->child_list_lock, flags);
 }
 
 static void sync_print_sync_file(struct seq_file *s,
-				  struct sync_file *sync_file,
-				  unsigned long flags)
+				  struct sync_file *sync_file)
 {
 	int i;
 
@@ -143,9 +141,9 @@ static void sync_print_sync_file(struct seq_file *s,
 		struct fence_array *array = to_fence_array(sync_file->fence);
 
 		for (i = 0; i < array->num_fences; ++i)
-			sync_print_fence(s, array->fences[i], true, flags);
+			sync_print_fence(s, array->fences[i], true);
 	} else {
-		sync_print_fence(s, sync_file->fence, true, flags);
+		sync_print_fence(s, sync_file->fence, true);
 	}
 }
 
@@ -174,7 +172,7 @@ static int sync_debugfs_show(struct seq_file *s, void *unused)
 		struct sync_file *sync_file =
 			container_of(pos, struct sync_file, sync_file_list);
 
-		sync_print_sync_file(s, sync_file, flags);
+		sync_print_sync_file(s, sync_file);
 		seq_puts(s, "\n");
 	}
 	spin_unlock_irqrestore(&sync_file_list_lock, flags);

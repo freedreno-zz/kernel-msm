@@ -63,9 +63,9 @@ EXPORT_SYMBOL(fence_context_alloc);
  *
  * Unlike fence_signal, this function must be called with fence->lock held.
  */
-int fence_signal_locked(struct fence *fence, unsigned long flags)
+int fence_signal_locked(struct fence *fence)
 {
-	struct fence_cb *cur;
+	struct fence_cb *cur, *tmp;
 	int ret = 0;
 
 	lockdep_assert_held(fence->lock);
@@ -88,12 +88,9 @@ int fence_signal_locked(struct fence *fence, unsigned long flags)
 	} else
 		trace_fence_signaled(fence);
 
-	while (!list_empty(&fence->cb_list)) {
-		cur = list_first_entry(&fence->cb_list, struct fence_cb, node);
+	list_for_each_entry_safe(cur, tmp, &fence->cb_list, node) {
 		list_del_init(&cur->node);
-		spin_unlock_irqrestore(fence->lock, flags);
 		cur->func(fence, cur);
-		spin_lock_irqsave(fence->lock, flags);
 	}
 	return ret;
 }
@@ -127,15 +124,12 @@ int fence_signal(struct fence *fence)
 	trace_fence_signaled(fence);
 
 	if (test_bit(FENCE_FLAG_ENABLE_SIGNAL_BIT, &fence->flags)) {
-		struct fence_cb *cur;
+		struct fence_cb *cur, *tmp;
 
 		spin_lock_irqsave(fence->lock, flags);
-		while (!list_empty(&fence->cb_list)) {
-			cur = list_first_entry(&fence->cb_list, struct fence_cb, node);
+		list_for_each_entry_safe(cur, tmp, &fence->cb_list, node) {
 			list_del_init(&cur->node);
-			spin_unlock_irqrestore(fence->lock, flags);
 			cur->func(fence, cur);
-			spin_lock_irqsave(fence->lock, flags);
 		}
 		spin_unlock_irqrestore(fence->lock, flags);
 	}
@@ -217,7 +211,7 @@ void fence_enable_sw_signaling(struct fence *fence)
 		spin_lock_irqsave(fence->lock, flags);
 
 		if (!fence->ops->enable_signaling(fence))
-			fence_signal_locked(fence, flags);
+			fence_signal_locked(fence);
 
 		spin_unlock_irqrestore(fence->lock, flags);
 	}
@@ -272,7 +266,7 @@ int fence_add_callback(struct fence *fence, struct fence_cb *cb,
 		trace_fence_enable_signal(fence);
 
 		if (!fence->ops->enable_signaling(fence)) {
-			fence_signal_locked(fence, flags);
+			fence_signal_locked(fence);
 			ret = -ENOENT;
 		}
 	}
@@ -372,7 +366,7 @@ fence_default_wait(struct fence *fence, bool intr, signed long timeout)
 		trace_fence_enable_signal(fence);
 
 		if (!fence->ops->enable_signaling(fence)) {
-			fence_signal_locked(fence, flags);
+			fence_signal_locked(fence);
 			goto out;
 		}
 	}

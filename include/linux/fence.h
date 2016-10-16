@@ -220,7 +220,7 @@ static inline void fence_put(struct fence *fence)
 }
 
 int fence_signal(struct fence *fence);
-int fence_signal_locked(struct fence *fence, unsigned long flags);
+int fence_signal_locked(struct fence *fence);
 signed long fence_default_wait(struct fence *fence, bool intr, signed long timeout);
 int fence_add_callback(struct fence *fence, struct fence_cb *cb,
 		       fence_func_t func);
@@ -239,13 +239,13 @@ void fence_enable_sw_signaling(struct fence *fence);
  * This function requires fence->lock to be held.
  */
 static inline bool
-fence_is_signaled_locked(struct fence *fence, unsigned long flags)
+fence_is_signaled_locked(struct fence *fence)
 {
 	if (test_bit(FENCE_FLAG_SIGNALED_BIT, &fence->flags))
 		return true;
 
 	if (fence->ops->signaled && fence->ops->signaled(fence)) {
-		fence_signal_locked(fence, flags);
+		fence_signal_locked(fence);
 		return true;
 	}
 
