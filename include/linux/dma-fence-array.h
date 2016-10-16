@@ -35,6 +35,8 @@ struct dma_fence_array_cb {
 /**
  * struct dma_fence_array - fence to represent an array of fences
  * @base: fence base class
+ * @enable_signaling_worker: &work_struct for deferring enable_signaling
+ *    to context not holding fence->lock
  * @lock: spinlock for fence handling
  * @num_fences: number of fences in the array
  * @num_pending: fences in the array still pending
@@ -42,6 +44,8 @@ struct dma_fence_array_cb {
  */
 struct dma_fence_array {
 	struct dma_fence base;
+
+	struct work_struct enable_signaling_worker;
 
 	spinlock_t lock;
 	unsigned num_fences;

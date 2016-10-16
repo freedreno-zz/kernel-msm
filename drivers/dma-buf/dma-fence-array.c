@@ -43,9 +43,10 @@ static void dma_fence_array_cb_func(struct dma_fence *f,
 	dma_fence_put(&array->base);
 }
 
-static bool dma_fence_array_enable_signaling(struct dma_fence *fence)
+static void enable_signaling_worker(struct work_struct *w)
 {
-	struct dma_fence_array *array = to_dma_fence_array(fence);
+	struct dma_fence_array *array =
+		container_of(w, struct dma_fence_array, enable_signaling_worker);
 	struct dma_fence_array_cb *cb = (void *)(&array[1]);
 	unsigned i;
 
@@ -63,11 +64,18 @@ static bool dma_fence_array_enable_signaling(struct dma_fence *fence)
 		if (dma_fence_add_callback(array->fences[i], &cb[i].cb,
 					   dma_fence_array_cb_func)) {
 			dma_fence_put(&array->base);
-			if (atomic_dec_and_test(&array->num_pending))
-				return false;
+			if (atomic_dec_and_test(&array->num_pending)) {
+				dma_fence_signal(&array->base);
+				return;
+			}
 		}
 	}
+}
 
+static bool dma_fence_array_enable_signaling(struct dma_fence *fence)
+{
+	struct dma_fence_array *array = to_dma_fence_array(fence);
+	queue_work(system_unbound_wq, &array->enable_signaling_worker);
 	return true;
 }
 
@@ -140,6 +148,8 @@ struct dma_fence_array *dma_fence_array_create(int num_fences,
 	array->num_fences = num_fences;
 	atomic_set(&array->num_pending, signal_on_any ? 1 : num_fences);
 	array->fences = fences;
+
+	INIT_WORK(&array->enable_signaling_worker, enable_signaling_worker);
 
 	return array;
 }
