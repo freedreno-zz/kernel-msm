@@ -19,7 +19,10 @@
 
 #include <linux/export.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <linux/dma-fence-array.h>
+
+static struct workqueue_struct *dma_fence_array_wq;
 
 static const char *dma_fence_array_get_driver_name(struct dma_fence *fence)
 {
@@ -31,6 +34,14 @@ static const char *dma_fence_array_get_timeline_name(struct dma_fence *fence)
 	return "unbound";
 }
 
+static void signal_worker(struct work_struct *w)
+{
+	struct dma_fence_array *array =
+		container_of(w, struct dma_fence_array, signal_worker);
+	dma_fence_signal(&array->base);
+	dma_fence_put(&array->base);
+}
+
 static void dma_fence_array_cb_func(struct dma_fence *f,
 				    struct dma_fence_cb *cb)
 {
@@ -38,9 +49,16 @@ static void dma_fence_array_cb_func(struct dma_fence *f,
 		container_of(cb, struct dma_fence_array_cb, cb);
 	struct dma_fence_array *array = array_cb->array;
 
-	if (atomic_dec_and_test(&array->num_pending))
-		dma_fence_signal(&array->base);
-	dma_fence_put(&array->base);
+	if (atomic_dec_and_test(&array->num_pending)) {
+		queue_work(dma_fence_array_wq, &array->signal_worker);
+	} else {
+		/* we cannot drop final ref under lock, but we
+		 * should not have final ref if we enter the
+		 * 'else' case:
+		 */
+		WARN_ON(array->base.refcount.refcount.counter <= 1);
+		dma_fence_put(&array->base);
+	}
 }
 
 static bool dma_fence_array_enable_signaling(struct dma_fence *fence)
@@ -141,6 +159,25 @@ struct dma_fence_array *dma_fence_array_create(int num_fences,
 	atomic_set(&array->num_pending, signal_on_any ? 1 : num_fences);
 	array->fences = fences;
 
+	INIT_WORK(&array->signal_worker, signal_worker);
+
 	return array;
 }
 EXPORT_SYMBOL(dma_fence_array_create);
+
+static int __init dma_fence_array_init(void)
+{
+	dma_fence_array_wq = alloc_ordered_workqueue("dma-fence-array", 0);
+	if (!dma_fence_array_wq)
+		return -ENOMEM;
+	return 0;
+}
+
+static void __exit dma_fence_array_exit(void)
+{
+	flush_workqueue(dma_fence_array_wq);
+	destroy_workqueue(dma_fence_array_wq);
+}
+
+module_init(dma_fence_array_init);
+module_exit(dma_fence_array_exit);
