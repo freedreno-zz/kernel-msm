@@ -43,8 +43,6 @@ struct fence_array_cb {
 struct fence_array {
 	struct fence base;
 
-	struct work_struct signal_worker;
-
 	spinlock_t lock;
 	unsigned num_fences;
 	atomic_t num_pending;
