@@ -470,8 +470,16 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	ret = of_platform_populate(np, msm_iommu_ctx_match_table, NULL, dev);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "Failed to create iommu context device\n");
+		return ret;
+	}
+
+	ret = __enable_clocks(drvdata);
+	if (ret) {
+		dev_err(dev, "Failed to enable clocks\n");
+		return ret;
+	}
 
 	return ret;
 }
@@ -485,6 +493,7 @@ static int msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		__disable_clocks(drv);
 		__put_bus_vote_client(drv);
 		msm_iommu_remove_drv(drv);
 		platform_set_drvdata(pdev, NULL);
