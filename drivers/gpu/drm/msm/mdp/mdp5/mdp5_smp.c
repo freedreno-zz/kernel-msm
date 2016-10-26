@@ -388,6 +388,48 @@ void mdp5_smp_commit(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 	}
 }
 
+void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p)
+{
+	struct mdp5_kms *mdp5_kms = get_kms(smp);
+	unsigned long flags;
+	int total_inuse = 0, total_configured = 0, total_pending = 0;
+	int i, j;
+
+	drm_printf(p, "name\tinuse\tconfd\tpending\tplane\n");
+	drm_printf(p, "----\t-----\t-----\t-------\t-----\n");
+
+	spin_lock_irqsave(&smp->state_lock, flags);
+
+	for (i = 0; i < mdp5_kms->num_hwpipes; i++) {
+		struct mdp5_hw_pipe *hwpipe = mdp5_kms->hwpipes[i];
+		enum mdp5_pipe pipe = hwpipe->pipe;
+		for (j = 0; j < pipe2nclients(pipe); j++) {
+			u32 cid = pipe2client(pipe, j);
+			struct mdp5_client_smp_state *ps =
+					&smp->client_state[cid];
+			int inuse, configured, pending;
+
+			inuse      = bitmap_weight(ps->inuse, smp->blk_cnt);
+			configured = bitmap_weight(ps->configured, smp->blk_cnt);
+			pending    = bitmap_weight(ps->pending, smp->blk_cnt);
+
+			drm_printf(p, "%s:%d\t%d\t%d\t\%d\t%s\n",
+				pipe2name(pipe), j, inuse, configured, pending,
+				hwpipe->plane ? hwpipe->plane->name : NULL);
+
+			total_inuse      += inuse;
+			total_configured += configured;
+			total_pending    += pending;
+		}
+	}
+
+	drm_printf(p, "TOTAL:\t%d\t%d\t%d\t(of %d)\n",
+		total_inuse, total_configured, total_pending, smp->blk_cnt);
+	drm_printf(p, "AVAIL:\t%d\n", bitmap_weight(smp->state, smp->blk_cnt));
+
+	spin_unlock_irqrestore(&smp->state_lock, flags);
+}
+
 void mdp5_smp_destroy(struct mdp5_smp *smp)
 {
 	kfree(smp);

@@ -19,6 +19,8 @@
 #ifndef __MDP5_SMP_H__
 #define __MDP5_SMP_H__
 
+#include <drm/drm_print.h>
+
 #include "msm_drv.h"
 
 struct mdp5_client_smp_state {
@@ -39,6 +41,7 @@ struct mdp5_smp;
 struct mdp5_smp *mdp5_smp_init(struct drm_device *dev, const struct mdp5_smp_block *cfg);
 void  mdp5_smp_destroy(struct mdp5_smp *smp);
 
+void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p);
 int  mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe,
 		const struct mdp_format *format, u32 width, bool hdecim);
 void mdp5_smp_configure(struct mdp5_smp *smp, enum mdp5_pipe pipe);
