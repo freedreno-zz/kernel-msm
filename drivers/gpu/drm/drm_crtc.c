@@ -3369,16 +3369,16 @@ internal_framebuffer_create(struct drm_device *dev,
 		return ERR_PTR(-EINVAL);
 	}
 
-	if ((config->min_width > r->width) || (r->width > config->max_width)) {
-		DRM_DEBUG_KMS("bad framebuffer width %d, should be >= %d && <= %d\n",
-			  r->width, config->min_width, config->max_width);
-		return ERR_PTR(-EINVAL);
-	}
-	if ((config->min_height > r->height) || (r->height > config->max_height)) {
-		DRM_DEBUG_KMS("bad framebuffer height %d, should be >= %d && <= %d\n",
-			  r->height, config->min_height, config->max_height);
-		return ERR_PTR(-EINVAL);
-	}
+//	if ((config->min_width > r->width) || (r->width > config->max_width)) {
+//		dev_err(dev->dev, "bad framebuffer width %d, should be >= %d && <= %d\n",
+//			  r->width, config->min_width, config->max_width);
+//		return ERR_PTR(-EINVAL);
+//	}
+//	if ((config->min_height > r->height) || (r->height > config->max_height)) {
+//		dev_err(dev->dev, "bad framebuffer height %d, should be >= %d && <= %d\n",
+//			  r->height, config->min_height, config->max_height);
+//		return ERR_PTR(-EINVAL);
+//	}
 
 	if (r->flags & DRM_MODE_FB_MODIFIERS &&
 	    !dev->mode_config.allow_fb_modifiers) {

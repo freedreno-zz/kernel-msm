@@ -334,6 +334,16 @@ static int mdp5_plane_atomic_check(struct drm_plane *plane,
 
 			return -EINVAL;
 		}
+
+		// XXX temp workaround for drm-hwc.. we have to comment the
+		// fb w/h restriction check in addfb2 since drm-hwc currently
+		// always tries to create an fb when importing a buffer.. we
+		// want to fallback to gpu for layers that display cannot
+		// composite
+		// so we need to re-introduce the check here
+		if ((state->fb->width > mdp5_cfg->lm.max_width) ||
+				(state->fb->height > mdp5_cfg->lm.max_height))
+			return -EINVAL;
 	}
 
 	if (plane_enabled(state) && plane_enabled(old_state)) {
