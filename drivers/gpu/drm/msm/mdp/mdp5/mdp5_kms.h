@@ -26,12 +26,17 @@
 #include "mdp5_ctl.h"
 #include "mdp5_smp.h"
 
+struct mdp5_hw_pipe;
+
 struct mdp5_kms {
 	struct mdp_kms base;
 
 	struct drm_device *dev;
 
 	struct platform_device *pdev;
+
+	unsigned num_hwpipes;
+	struct mdp5_hw_pipe *hwpipes[16];
 
 	struct mdp5_cfg_handler *cfg;
 	uint32_t caps;	/* MDP capabilities (MDP_CAP_XXX bits) */
@@ -212,8 +217,25 @@ void mdp5_plane_complete_commit(struct drm_plane *plane,
 	struct drm_plane_state *state);
 enum mdp5_pipe mdp5_plane_pipe(struct drm_plane *plane);
 struct drm_plane *mdp5_plane_init(struct drm_device *dev,
-		enum mdp5_pipe pipe, bool private_plane,
+		struct mdp5_hw_pipe *hwpipe, bool primary);
+
+/* represents a hw pipe, which is dynamically assigned to a plane */
+struct mdp5_hw_pipe {
+	struct drm_plane *plane;  /* plane currently using hw pipe */
+
+	const char *name;
+	enum mdp5_pipe pipe;
+
+	spinlock_t pipe_lock;     /* protect REG_MDP5_PIPE_* registers */
+	uint32_t reg_offset;
+	uint32_t caps;
+
+	uint32_t flush_mask;      /* used to commit pipe registers */
+};
+
+struct mdp5_hw_pipe *mdp5_pipe_init(enum mdp5_pipe pipe,
 		uint32_t reg_offset, uint32_t caps);
+void mdp5_pipe_destroy(struct mdp5_hw_pipe *hwpipe);
 
 uint32_t mdp5_crtc_vblank(struct drm_crtc *crtc);
 
