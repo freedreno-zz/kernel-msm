@@ -209,14 +209,15 @@ static void set_fifo_thresholds(struct mdp5_smp *smp,
  * decimated width.  Ie. SMP buffering sits downstream of decimation (which
  * presumably happens during the dma from scanout buffer).
  */
-int mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe,
-		const struct mdp_format *format, u32 width, bool hdecim)
+uint32_t mdp5_smp_calculate(struct mdp5_smp *smp,
+		const struct mdp_format *format,
+		u32 width, bool hdecim)
 {
 	struct mdp5_kms *mdp5_kms = get_kms(smp);
-	struct drm_device *dev = mdp5_kms->dev;
 	int rev = mdp5_cfg_get_hw_rev(mdp5_kms->cfg);
-	int i, hsub, nplanes, nlines, nblks, ret;
+	int i, hsub, nplanes, nlines;
 	u32 fmt = format->base.pixel_format;
+	uint32_t blkcfg = 0;
 
 	nplanes = drm_format_num_planes(fmt);
 	hsub = drm_format_horz_chroma_subsampling(fmt);
@@ -239,7 +240,7 @@ int mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe,
 			hsub = 1;
 	}
 
-	for (i = 0, nblks = 0; i < nplanes; i++) {
+	for (i = 0; i < nplanes; i++) {
 		int n, fetch_stride, cpp;
 
 		cpp = drm_format_plane_cpp(fmt, i);
@@ -251,18 +252,38 @@ int mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe,
 		if (rev == 0)
 			n = roundup_pow_of_two(n);
 
+		blkcfg |= (n << (8 * i));
+	}
+
+	return blkcfg;
+}
+
+int mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe, uint32_t blkcfg)
+{
+	struct mdp5_kms *mdp5_kms = get_kms(smp);
+	struct drm_device *dev = mdp5_kms->dev;
+	int i, ret;
+
+	for (i = 0; i < pipe2nclients(pipe); i++) {
+		u32 cid = pipe2client(pipe, i);
+		struct mdp5_client_smp_state *ps = &smp->client_state[cid];
+		int n = blkcfg & 0xff;
+
+		ps->n = n;
+
+		if (!n)
+			continue;
+
 		DBG("%s[%d]: request %d SMP blocks", pipe2name(pipe), i, n);
-		ret = smp_request_block(smp, pipe2client(pipe, i), n);
+		ret = smp_request_block(smp, cid, n);
 		if (ret) {
 			dev_err(dev->dev, "Cannot allocate %d SMP blocks: %d\n",
 					n, ret);
 			return ret;
 		}
 
-		nblks += n;
+		blkcfg >>= 8;
 	}
-
-	set_fifo_thresholds(smp, pipe, nblks);
 
 	return 0;
 }
@@ -273,6 +294,10 @@ void mdp5_smp_release(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 	int i;
 	unsigned long flags;
 	int cnt = smp->blk_cnt;
+
+	// TODO can we avoid touching hw here for testonly step
+	// when we otherwise wouldn't have clks on??
+	mdp5_enable(get_kms(smp));
 
 	for (i = 0; i < pipe2nclients(pipe); i++) {
 		mdp5_smp_state_t assigned;
@@ -298,6 +323,8 @@ void mdp5_smp_release(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 	}
 
 	set_fifo_thresholds(smp, pipe, 0);
+
+	mdp5_disable(get_kms(smp));
 }
 
 static void update_smp_state(struct mdp5_smp *smp,
@@ -338,11 +365,13 @@ void mdp5_smp_configure(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 {
 	int cnt = smp->blk_cnt;
 	mdp5_smp_state_t assigned;
-	int i;
+	int i, nblks = 0;
 
 	for (i = 0; i < pipe2nclients(pipe); i++) {
 		u32 cid = pipe2client(pipe, i);
 		struct mdp5_client_smp_state *ps = &smp->client_state[cid];
+
+		nblks += ps->n;
 
 		/*
 		 * if vblank has not happened since last smp_configure
@@ -355,6 +384,8 @@ void mdp5_smp_configure(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 		bitmap_or(assigned, ps->inuse, ps->configured, cnt);
 		update_smp_state(smp, cid, &assigned);
 	}
+
+	set_fifo_thresholds(smp, pipe, nblks);
 }
 
 /* step #3: after vblank, copy configured -> inuse: */

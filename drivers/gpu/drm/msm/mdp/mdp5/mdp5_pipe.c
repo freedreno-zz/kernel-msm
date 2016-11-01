@@ -19,7 +19,7 @@
 #include "mdp5_kms.h"
 
 struct mdp5_hw_pipe *mdp5_pipe_assign(struct mdp5_kms *mdp5_kms,
-		struct drm_plane *plane, uint32_t caps)
+		struct drm_plane *plane, uint32_t caps, uint32_t blkcfg)
 {
 	struct mdp5_hw_pipe *hwpipe = NULL;
 	int i;
@@ -43,16 +43,29 @@ struct mdp5_hw_pipe *mdp5_pipe_assign(struct mdp5_kms *mdp5_kms,
 			hwpipe = cur;
 	}
 
-	if (hwpipe) {
-		DBG("%s: assign to plane %s for caps %x",
-				hwpipe->name, plane->name, caps);
-		hwpipe->plane = plane;
+	if (!hwpipe)
+		return NULL;
+
+	if (mdp5_kms->smp) {
+		int ret;
+
+		DBG("%s: alloc SMP blocks", hwpipe->name);
+		ret = mdp5_smp_request(mdp5_kms->smp, hwpipe->pipe, blkcfg);
+		if (ret)
+			return NULL;
+
+		hwpipe->blkcfg = blkcfg;
+		hwpipe->blkcfg_changed = true;
 	}
+
+	DBG("%s: assign to plane %s for caps %x",
+			hwpipe->name, plane->name, caps);
+	hwpipe->plane = plane;
 
 	return hwpipe;
 }
 
-void mdp5_pipe_release(struct mdp5_hw_pipe *hwpipe)
+void mdp5_pipe_release(struct mdp5_kms *mdp5_kms, struct mdp5_hw_pipe *hwpipe)
 {
 	if (!hwpipe)
 		return;
@@ -60,7 +73,12 @@ void mdp5_pipe_release(struct mdp5_hw_pipe *hwpipe)
 	if (WARN_ON(!hwpipe->plane))
 		return;
 
-	DBG("%s: release from plane %s", hwpipe->name, hwpipe->plane->name);
+	DBG("%s: release from plane %s\n", hwpipe->name, hwpipe->plane->name);
+
+	if (mdp5_kms->smp) {
+		DBG("%s: free SMP blocks", hwpipe->name);
+		mdp5_smp_release(mdp5_kms->smp, hwpipe->pipe);
+	}
 
 	hwpipe->plane = NULL;
 }

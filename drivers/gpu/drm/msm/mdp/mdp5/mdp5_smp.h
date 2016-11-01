@@ -27,6 +27,7 @@ struct mdp5_client_smp_state {
 	mdp5_smp_state_t inuse;
 	mdp5_smp_state_t configured;
 	mdp5_smp_state_t pending;
+	unsigned n;
 };
 
 struct mdp5_kms;
@@ -42,8 +43,10 @@ struct mdp5_smp *mdp5_smp_init(struct drm_device *dev, const struct mdp5_smp_blo
 void  mdp5_smp_destroy(struct mdp5_smp *smp);
 
 void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_printer *p);
-int  mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe,
-		const struct mdp_format *format, u32 width, bool hdecim);
+uint32_t mdp5_smp_calculate(struct mdp5_smp *smp,
+		const struct mdp_format *format,
+		u32 width, bool hdecim);
+int mdp5_smp_request(struct mdp5_smp *smp, enum mdp5_pipe pipe, uint32_t blkcfg);
 void mdp5_smp_configure(struct mdp5_smp *smp, enum mdp5_pipe pipe);
 void mdp5_smp_commit(struct mdp5_smp *smp, enum mdp5_pipe pipe);
 void mdp5_smp_release(struct mdp5_smp *smp, enum mdp5_pipe pipe);
