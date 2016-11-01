@@ -190,7 +190,6 @@ mdp5_plane_atomic_print_state(struct drm_print *p,
 	drm_printf(p, "\tzpos=%u\n", pstate->zpos);
 	drm_printf(p, "\talpha=%u\n", pstate->alpha);
 	drm_printf(p, "\tstage=%s\n", stage2name(pstate->stage));
-	drm_printf(p, "\tmode_changed=%u\n", pstate->mode_changed);
 	drm_printf(p, "\tpending=%u\n", pstate->pending);
 }
 
@@ -233,7 +232,6 @@ mdp5_plane_duplicate_state(struct drm_plane *plane)
 		drm_framebuffer_reference(mdp5_state->base.fb);
 
 	mdp5_state->pending_hwpipe = NULL;
-	mdp5_state->mode_changed = false;
 	mdp5_state->pending = false;
 	mdp5_state->updated = false;
 
@@ -345,16 +343,12 @@ static int mdp5_plane_atomic_check(struct drm_plane *plane,
 				full_modeset = true;
 			}
 			if (full_modeset) {
-				mdp5_state->mode_changed = true;
-
 				/* cannot change SMP block allocation during
 				 * scanout:
 				 */
 				if (get_kms(plane)->smp)
 					new_hwpipe = true;
 			}
-		} else {
-			mdp5_state->mode_changed = true;
 		}
 
 		/* (re)assign hwpipe if needed, otherwise keep old one: */
@@ -399,11 +393,13 @@ static void mdp5_plane_atomic_update(struct drm_plane *plane,
 	if (mdp5_state->updated)
 		swap(mdp5_state->hwpipe, mdp5_state->pending_hwpipe);
 
-	if (!plane_enabled(state)) {
-		mdp5_state->pending = true;
-	} else if (mdp5_state->mode_changed) {
+	mdp5_state->pending = true;
+
+	if (plane_enabled(state)) {
 		int ret;
-		mdp5_state->pending = true;
+
+		WARN_ON(mdp5_state->hwpipe->plane != plane);
+
 		ret = mdp5_plane_mode_set(plane,
 				state->crtc, state->fb,
 				state->crtc_x, state->crtc_y,
@@ -412,12 +408,6 @@ static void mdp5_plane_atomic_update(struct drm_plane *plane,
 				state->src_w, state->src_h);
 		/* atomic_check should have ensured that this doesn't fail */
 		WARN_ON(ret < 0);
-	} else {
-		struct mdp5_hw_pipe *hwpipe = mdp5_state->hwpipe;
-		unsigned long flags;
-		spin_lock_irqsave(&hwpipe->pipe_lock, flags);
-		set_scanout_locked(plane, state->fb);
-		spin_unlock_irqrestore(&hwpipe->pipe_lock, flags);
 	}
 }
 
