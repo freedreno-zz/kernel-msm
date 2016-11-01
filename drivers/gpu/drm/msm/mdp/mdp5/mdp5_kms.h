@@ -79,6 +79,9 @@ struct mdp5_kms {
 struct mdp5_plane_state {
 	struct drm_plane_state base;
 
+	struct mdp5_hw_pipe *hwpipe;
+	struct mdp5_hw_pipe *pending_hwpipe;
+
 	/* aligned with property */
 	uint8_t premultiplied;
 	uint8_t zpos;
@@ -93,6 +96,7 @@ struct mdp5_plane_state {
 	 */
 	bool mode_changed : 1;
 	bool pending : 1;
+	bool updated : 1;
 };
 #define to_mdp5_plane_state(x) \
 		container_of(x, struct mdp5_plane_state, base)
@@ -222,8 +226,7 @@ uint32_t mdp5_plane_get_flush(struct drm_plane *plane);
 void mdp5_plane_complete_commit(struct drm_plane *plane,
 	struct drm_plane_state *state);
 enum mdp5_pipe mdp5_plane_pipe(struct drm_plane *plane);
-struct drm_plane *mdp5_plane_init(struct drm_device *dev,
-		struct mdp5_hw_pipe *hwpipe, bool primary);
+struct drm_plane *mdp5_plane_init(struct drm_device *dev, bool primary);
 
 /* represents a hw pipe, which is dynamically assigned to a plane */
 struct mdp5_hw_pipe {
@@ -238,6 +241,10 @@ struct mdp5_hw_pipe {
 
 	uint32_t flush_mask;      /* used to commit pipe registers */
 };
+
+struct mdp5_hw_pipe *mdp5_pipe_assign(struct mdp5_kms *mdp5_kms,
+		struct drm_plane *plane, uint32_t caps);
+void mdp5_pipe_release(struct mdp5_hw_pipe *hwpipe);
 
 struct mdp5_hw_pipe *mdp5_pipe_init(enum mdp5_pipe pipe,
 		uint32_t reg_offset, uint32_t caps);
