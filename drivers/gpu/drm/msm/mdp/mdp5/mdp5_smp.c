@@ -390,8 +390,7 @@ void mdp5_smp_commit(struct mdp5_smp *smp, enum mdp5_pipe pipe)
 
 void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_print *p)
 {
-	struct drm_device *dev = smp->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	struct mdp5_kms *mdp5_kms = get_kms(smp);
 	unsigned long flags;
 	int total_inuse = 0, total_configured = 0, total_pending = 0;
 	int i, j;
@@ -401,8 +400,8 @@ void mdp5_smp_dump(struct mdp5_smp *smp, struct drm_print *p)
 
 	spin_lock_irqsave(&smp->state_lock, flags);
 
-	for (i = 0; i < priv->num_planes; i++) {
-		enum mdp5_pipe pipe = mdp5_plane_pipe(priv->planes[i]);
+	for (i = 0; i < mdp5_kms->num_hwpipes; i++) {
+		enum mdp5_pipe pipe = mdp5_kms->hwpipes[i]->pipe;
 		for (j = 0; j < pipe2nclients(pipe); j++) {
 			u32 cid = pipe2client(pipe, j);
 			struct mdp5_client_smp_state *ps =
