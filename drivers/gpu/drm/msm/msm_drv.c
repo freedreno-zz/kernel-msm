@@ -26,9 +26,10 @@
  * MSM driver version:
  * - 1.0.0 - initial interface
  * - 1.1.0 - adds madvise, and support for submits with > 4 cmd buffers
+ * - 1.2.0 - adds explicit fence support for submit ioctl
  */
 #define MSM_VERSION_MAJOR	1
-#define MSM_VERSION_MINOR	1
+#define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
@@ -209,8 +210,6 @@ static int msm_drm_uninit(struct device *dev)
 
 	drm_kms_helper_poll_fini(ddev);
 
-	drm_connector_unregister_all(ddev);
-
 	drm_dev_unregister(ddev);
 
 #ifdef CONFIG_DRM_FBDEV_EMULATION
@@ -229,7 +228,7 @@ static int msm_drm_uninit(struct device *dev)
 	flush_workqueue(priv->atomic_wq);
 	destroy_workqueue(priv->atomic_wq);
 
-	if (kms && kms->funcs)
+	if (kms)
 		kms->funcs->destroy(kms);
 
 	if (gpu) {
@@ -350,9 +349,9 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	int ret;
 
 	ddev = drm_dev_alloc(drv, dev);
-	if (!ddev) {
+	if (IS_ERR(ddev)) {
 		dev_err(dev, "failed to allocate drm_device\n");
-		return -ENOMEM;
+		return PTR_ERR(ddev);
 	}
 
 	platform_set_drvdata(pdev, ddev);
@@ -454,12 +453,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = drm_dev_register(ddev, 0);
 	if (ret)
 		goto fail;
-
-	ret = drm_connector_register_all(ddev);
-	if (ret) {
-		dev_err(dev, "failed to register connectors\n");
-		goto fail;
-	}
 
 	drm_mode_config_reset(ddev);
 
@@ -793,7 +786,6 @@ static struct drm_driver msm_driver = {
 	.open               = msm_open,
 	.preclose           = msm_preclose,
 	.lastclose          = msm_lastclose,
-	.set_busid          = drm_platform_set_busid,
 	.irq_handler        = msm_irq,
 	.irq_preinstall     = msm_irq_preinstall,
 	.irq_postinstall    = msm_irq_postinstall,
