@@ -810,7 +810,9 @@ plane_switching_crtc(struct drm_atomic_state *state,
 static int drm_atomic_plane_check(struct drm_plane *plane,
 		struct drm_plane_state *state)
 {
+	struct drm_mode_config *config = &plane->dev->mode_config;
 	unsigned int fb_width, fb_height;
+	unsigned int min_width, max_width, min_height, max_height;
 	int ret;
 
 	/* either *both* CRTC and FB must be set, or neither */
@@ -867,6 +869,21 @@ static int drm_atomic_plane_check(struct drm_plane *plane,
 				 state->src_x >> 16, ((state->src_x & 0xffff) * 15625) >> 10,
 				 state->src_y >> 16, ((state->src_y & 0xffff) * 15625) >> 10);
 		return -ENOSPC;
+	}
+
+	min_width = config->min_width << 16;
+	max_width = config->max_width << 16;
+	min_height = config->min_height << 16;
+	max_height = config->max_height << 16;
+
+	/* Make sure source dimensions are within bounds. */
+	if (min_width > state->src_w || state->src_w > max_width ||
+	    min_height > state->src_h || state->src_h > max_height) {
+		DRM_DEBUG_ATOMIC("Invalid source size "
+				 "%u.%06ux%u.%06u\n",
+				 state->src_w >> 16, ((state->src_w & 0xffff) * 15625) >> 10,
+				 state->src_h >> 16, ((state->src_h & 0xffff) * 15625) >> 10);
+		return -ERANGE;
 	}
 
 	if (plane_switching_crtc(state->state, plane, state)) {
