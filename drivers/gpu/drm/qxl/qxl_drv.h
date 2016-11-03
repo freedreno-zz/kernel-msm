@@ -31,7 +31,7 @@
  * Definitions taken from spice-protocol, plus kernel driver specific bits.
  */
 
-#include <linux/fence.h>
+#include <linux/dma-fence.h>
 #include <linux/workqueue.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
@@ -137,6 +137,7 @@ struct qxl_crtc {
 	int cur_y;
 	int hot_spot_x;
 	int hot_spot_y;
+	struct qxl_bo *cursor_bo;
 };
 
 struct qxl_output {
@@ -189,7 +190,7 @@ enum {
  * spice-protocol/qxl_dev.h */
 #define QXL_MAX_RES 96
 struct qxl_release {
-	struct fence base;
+	struct dma_fence base;
 
 	int id;
 	int type;
@@ -321,7 +322,6 @@ struct qxl_device {
 	struct qxl_bo *current_release_bo[3];
 	int current_release_bo_offset[3];
 
-	struct workqueue_struct *gc_queue;
 	struct work_struct gc_work;
 
 	struct drm_property *hotplug_mode_update_property;

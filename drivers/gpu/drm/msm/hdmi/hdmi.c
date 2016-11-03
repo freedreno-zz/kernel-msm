@@ -422,23 +422,24 @@ static const struct {
 
 static int msm_hdmi_get_gpio(struct device_node *of_node, const char *name)
 {
-	int gpio = of_get_named_gpio(of_node, name, 0);
+	int gpio;
 
-	/*
-	 * This is complicated mainly because we want to support downstream
-	 * DT files working with the kernel. We first try with the names
-	 * as listed above in the table. We then append "gpio" to it and
-	 * try again. We finally try the DT bindings as they would be in
-	 * upstream dtsi files by stripping off the "qcom,hdmi-tx-" prefix.
-	 * We'll get rid of this when we don't rely on downstream bindings.
-	 */
+	/* try with the gpio names as in the table (downstream bindings) */
+	gpio = of_get_named_gpio(of_node, name, 0);
 	if (gpio < 0) {
 		char name2[32];
-		snprintf(name2, sizeof(name2), "%s-gpio", name);
+
+		/* try with the gpio names as in the upstream bindings */
+		snprintf(name2, sizeof(name2), "%s-gpios", name);
 		gpio = of_get_named_gpio(of_node, name2, 0);
 		if (gpio < 0) {
 			char name3[32];
 
+			/*
+			 * try again after stripping out the "qcom,hdmi-tx"
+			 * prefix. This is mainly to match "hpd-gpios" used
+			 * in the upstream bindings
+			 */
 			if (sscanf(name2, "qcom,hdmi-tx-%s", name3))
 				gpio = of_get_named_gpio(of_node, name3, 0);
 		}

@@ -157,6 +157,12 @@ struct msm_drm_private {
 	struct shrinker shrinker;
 
 	struct msm_vblank_ctrl vblank_ctrl;
+
+	/* task holding struct_mutex.. currently only used in submit path
+	 * to detect and reject faults from copy_from_user() for submit
+	 * ioctl.
+	 */
+	struct task_struct *struct_mutex_task;
 };
 
 struct msm_format {
@@ -211,7 +217,7 @@ void msm_gem_vunmap(struct drm_gem_object *obj);
 int msm_gem_sync_object(struct drm_gem_object *obj,
 		struct msm_fence_context *fctx, bool exclusive);
 void msm_gem_move_to_active(struct drm_gem_object *obj,
-		struct msm_gpu *gpu, bool exclusive, struct fence *fence);
+		struct msm_gpu *gpu, bool exclusive, struct dma_fence *fence);
 void msm_gem_move_to_inactive(struct drm_gem_object *obj);
 int msm_gem_cpu_prep(struct drm_gem_object *obj, uint32_t op, ktime_t *timeout);
 int msm_gem_cpu_fini(struct drm_gem_object *obj);

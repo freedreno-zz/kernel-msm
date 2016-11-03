@@ -257,13 +257,14 @@ static void rcar_du_atomic_complete(struct rcar_du_commit *commit)
 	/* Apply the atomic update. */
 	drm_atomic_helper_commit_modeset_disables(dev, old_state);
 	drm_atomic_helper_commit_modeset_enables(dev, old_state);
-	drm_atomic_helper_commit_planes(dev, old_state, true);
+	drm_atomic_helper_commit_planes(dev, old_state,
+					DRM_PLANE_COMMIT_ACTIVE_ONLY);
 
 	drm_atomic_helper_wait_for_vblanks(dev, old_state);
 
 	drm_atomic_helper_cleanup_planes(dev, old_state);
 
-	drm_atomic_state_free(old_state);
+	drm_atomic_state_put(old_state);
 
 	/* Complete the commit, wake up any waiter. */
 	spin_lock(&rcdu->commit.wait.lock);
@@ -288,6 +289,8 @@ static int rcar_du_atomic_commit(struct drm_device *dev,
 {
 	struct rcar_du_device *rcdu = dev->dev_private;
 	struct rcar_du_commit *commit;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
 	unsigned int i;
 	int ret;
 
@@ -309,10 +312,8 @@ static int rcar_du_atomic_commit(struct drm_device *dev,
 	/* Wait until all affected CRTCs have completed previous commits and
 	 * mark them as pending.
 	 */
-	for (i = 0; i < dev->mode_config.num_crtc; ++i) {
-		if (state->crtcs[i])
-			commit->crtcs |= 1 << drm_crtc_index(state->crtcs[i]);
-	}
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		commit->crtcs |= drm_crtc_mask(crtc);
 
 	spin_lock(&rcdu->commit.wait.lock);
 	ret = wait_event_interruptible_locked(rcdu->commit.wait,
@@ -327,8 +328,9 @@ static int rcar_du_atomic_commit(struct drm_device *dev,
 	}
 
 	/* Swap the state, this is the point of no return. */
-	drm_atomic_helper_swap_state(dev, state);
+	drm_atomic_helper_swap_state(state, true);
 
+	drm_atomic_state_get(state);
 	if (nonblock)
 		schedule_work(&commit->work);
 	else
@@ -525,11 +527,6 @@ static int rcar_du_properties_init(struct rcar_du_device *rcdu)
 		drm_property_create_range(rcdu->ddev, 0, "colorkey",
 					  0, 0x01ffffff);
 	if (rcdu->props.colorkey == NULL)
-		return -ENOMEM;
-
-	rcdu->props.zpos =
-		drm_property_create_range(rcdu->ddev, 0, "zpos", 1, 7);
-	if (rcdu->props.zpos == NULL)
 		return -ENOMEM;
 
 	return 0;

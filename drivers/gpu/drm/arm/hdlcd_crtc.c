@@ -196,30 +196,11 @@ static void hdlcd_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 }
 
-static void hdlcd_crtc_atomic_flush(struct drm_crtc *crtc,
-				    struct drm_crtc_state *state)
-{
-}
-
-static bool hdlcd_crtc_mode_fixup(struct drm_crtc *crtc,
-			const struct drm_display_mode *mode,
-			struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
 static const struct drm_crtc_helper_funcs hdlcd_crtc_helper_funcs = {
-	.mode_fixup	= hdlcd_crtc_mode_fixup,
-	.mode_set	= drm_helper_crtc_mode_set,
-	.mode_set_base	= drm_helper_crtc_mode_set_base,
-	.mode_set_nofb	= hdlcd_crtc_mode_set_nofb,
 	.enable		= hdlcd_crtc_enable,
 	.disable	= hdlcd_crtc_disable,
-	.prepare	= hdlcd_crtc_disable,
-	.commit		= hdlcd_crtc_enable,
 	.atomic_check	= hdlcd_crtc_atomic_check,
 	.atomic_begin	= hdlcd_crtc_atomic_begin,
-	.atomic_flush	= hdlcd_crtc_atomic_flush,
 };
 
 static int hdlcd_plane_atomic_check(struct drm_plane *plane,
@@ -242,14 +223,12 @@ static void hdlcd_plane_atomic_update(struct drm_plane *plane,
 {
 	struct hdlcd_drm_private *hdlcd;
 	struct drm_gem_cma_object *gem;
-	unsigned int depth, bpp;
 	u32 src_w, src_h, dest_w, dest_h;
 	dma_addr_t scanout_start;
 
 	if (!plane->state->fb)
 		return;
 
-	drm_fb_get_bpp_depth(plane->state->fb->pixel_format, &depth, &bpp);
 	src_w = plane->state->src_w >> 16;
 	src_h = plane->state->src_h >> 16;
 	dest_w = plane->state->crtc_w;
@@ -257,7 +236,8 @@ static void hdlcd_plane_atomic_update(struct drm_plane *plane,
 	gem = drm_fb_cma_get_gem_obj(plane->state->fb, 0);
 	scanout_start = gem->paddr + plane->state->fb->offsets[0] +
 		plane->state->crtc_y * plane->state->fb->pitches[0] +
-		plane->state->crtc_x * bpp / 8;
+		plane->state->crtc_x *
+		drm_format_plane_cpp(plane->state->fb->pixel_format, 0);
 
 	hdlcd = plane->dev->dev_private;
 	hdlcd_write(hdlcd, HDLCD_REG_FB_LINE_LENGTH, plane->state->fb->pitches[0]);

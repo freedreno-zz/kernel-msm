@@ -30,7 +30,7 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
-#include <linux/fence.h>
+#include <linux/dma-fence.h>
 #include <linux/wait.h>
 
 struct device;
@@ -143,7 +143,7 @@ struct dma_buf {
 	wait_queue_head_t poll;
 
 	struct dma_buf_poll_cb_t {
-		struct fence_cb cb;
+		struct dma_fence_cb cb;
 		wait_queue_head_t *poll;
 
 		unsigned long active;
@@ -242,6 +242,4 @@ int dma_buf_mmap(struct dma_buf *, struct vm_area_struct *,
 		 unsigned long);
 void *dma_buf_vmap(struct dma_buf *);
 void dma_buf_vunmap(struct dma_buf *, void *vaddr);
-int dma_buf_debugfs_create_file(const char *name,
-				int (*write)(struct seq_file *));
 #endif /* __DMA_BUF_H__ */
