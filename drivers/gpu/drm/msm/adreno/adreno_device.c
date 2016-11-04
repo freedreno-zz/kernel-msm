@@ -86,6 +86,7 @@ static const struct adreno_info gpulist[] = {
 		.pfpfw = "a530_pfp.fw",
 		.gmem = SZ_1M,
 		.init = a5xx_gpu_init,
+		.gpmufw = "a530v3_gpmu.fw2",
 	},
 };
 
