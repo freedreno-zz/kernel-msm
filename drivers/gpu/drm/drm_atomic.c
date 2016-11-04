@@ -955,9 +955,9 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	if (state->fb) {
 		struct drm_framebuffer *fb = state->fb;
 		int i, n = drm_format_num_planes(fb->pixel_format);
+		char *fmt = drm_get_format_name(fb->pixel_format);
 
-		drm_printf(p, "\t\tformat=%s\n",
-				drm_get_format_name(fb->pixel_format));
+		drm_printf(p, "\t\tformat=%s\n", fmt);
 		drm_printf(p, "\t\tsize=%dx%d\n", fb->width, fb->height);
 		drm_printf(p, "\t\tlayers:\n");
 		for (i = 0; i < n; i++) {
@@ -965,6 +965,8 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 			drm_printf(p, "\t\t\toffset[%d]=%u\n", i, fb->offsets[i]);
 			drm_printf(p, "\t\t\tmodifier[%d]=0x%llx\n", i, fb->modifier[i]);
 		}
+
+		kfree(fmt);
 	}
 	drm_printf(p, "\tcrtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
 	drm_printf(p, "\tsrc-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
