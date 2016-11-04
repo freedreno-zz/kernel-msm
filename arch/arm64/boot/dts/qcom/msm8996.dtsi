@@ -133,6 +133,18 @@
 		method = "smc";
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		peripheral_reserved: peripheral_region@8ea00000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x8ea00000 0 0x2b00000>;
+			no-map;
+		};
+	};
+
 	firmware {
 		scm {
 			compatible = "qcom,scm-msm8996";
@@ -548,6 +560,14 @@
 				qcom,gpu-pwrlevel@1 {
 					qcom,gpu-freq = <27000000>;
 				};
+			};
+
+			qcom,zap-shader {
+				compatible = "qcom,zap-shader";
+				memory-region = <&peripheral_reserved>;
+
+				qcom,firmware = "a530_zap";
+				qcom,pas-id = <13>;
 			};
 		};
 
