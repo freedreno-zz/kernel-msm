@@ -87,7 +87,10 @@ EXPORT_SYMBOL(drm_mode_legacy_fb_format);
  */
 char *drm_get_format_name(uint32_t format)
 {
-	char *buf = kmalloc(32, GFP_KERNEL);
+	char *buf = kmalloc(32, GFP_ATOMIC);
+
+	if (!buf)
+		return NULL;
 
 	snprintf(buf, 32,
 		 "%c%c%c%c %s-endian (0x%08x)",
