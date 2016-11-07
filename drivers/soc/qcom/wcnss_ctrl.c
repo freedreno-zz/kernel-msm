@@ -116,16 +116,17 @@ struct wcnss_download_nv_resp {
 
 /**
  * wcnss_ctrl_smd_callback() - handler from SMD responses
- * @channel:	smd channel handle
+ * @c:		smd channel handle
  * @data:	pointer to the incoming data packet
  * @count:	size of the incoming data packet
  *
  * Handles any incoming packets from the remote WCNSS_CTRL service.
  */
-static int wcnss_ctrl_smd_callback(struct qcom_smd_channel *channel,
+static int wcnss_ctrl_smd_callback(void *c,
 				   const void *data,
 				   size_t count)
 {
+	struct qcom_smd_channel *channel = c;
 	struct wcnss_ctrl *wcnss = qcom_smd_get_drvdata(channel);
 	const struct wcnss_download_nv_resp *nvresp;
 	const struct wcnss_version_resp *version;
