@@ -1,0 +1,37 @@
+Qualcomm QUSB2 phy controller
+=============================
+
+QUSB2 controller supports LS/FS/HS usb connectivity on Qualcomm chipsets.
+
+Required properties:
+ - compatible: compatible list, contains "qcom,msm8996-qusb2-phy".
+ - reg: offset and length of the PHY register set.
+ - #phy-cells: must be 0.
+
+ - clocks: a list of phandles and clock-specifier pairs,
+	   one for each entry in clock-names.
+ - clock-names: must be "cfg_ahb" for phy config clock,
+			"ref_clk" for 19.2 MHz ref clk,
+			"ref_clk_src" reference clock source.
+			"iface" for phy interface clock (Optional).
+
+ - vdd-phy-supply: Phandle to a regulator supply to PHY core block.
+ - vdda-pll-supply: Phandle to 1.8V regulator supply to PHY refclk pll block.
+ - vdda-phy-dpdm: Phandle to 3.1V regulator supply to Dp/Dm port signals.
+
+ - resets: a list of phandles and reset controller specifier pairs,
+	   one for each entry in reset-names.
+ - reset-names: must be "phy" for reset of phy block.
+
+Optional properties:
+ - nvmem-cells: a list of phandles to nvmem cells that contain fused
+		tuning parameters for qusb2 phy, one for each entry
+		in nvmem-cell-names.
+ - nvmem-cell-names: must be "tune2_hstx_trim_efuse" for cell containing
+		     HS Tx trim value.
+ - qcom,hstx-trim-bit-offset: bit offset within nvmem cell for
+			      HS Tx trim value.
+ - qcom,hstx-trim-bit-len: bit length of HS Tx trim value within nvmem cell.
+
+ - qcom,tcsr-syscon: Phandle to TCSR syscon register region.
+ - qcom,phy-clk-scheme: Offset to TCSR_PHY_CLK_SCHEME_SEL register.
