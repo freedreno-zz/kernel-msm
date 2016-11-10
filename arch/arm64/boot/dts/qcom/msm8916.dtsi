@@ -14,6 +14,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/qcom,gcc-msm8916.h>
 #include <dt-bindings/reset/qcom,gcc-msm8916.h>
+#include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8916";
@@ -77,7 +79,7 @@
 			no-map;
 		};
 
-		mpss@86800000 {
+		mpss_mem: mpss@86800000 {
 			reg = <0x0 0x86800000 0x0 0x2b00000>;
 			no-map;
 		};
@@ -102,8 +104,13 @@
 			compatible = "arm,cortex-a53", "arm,armv8";
 			reg = <0x0>;
 			next-level-cache = <&L2_0>;
-			enable-method = "psci";
-			cpu-idle-states = <&CPU_SPC>;
+			clocks = <&apcs 0>;
+			cpu-supply = <&pm8916_spmi_s2>;
+			operating-points-v2 = <&cpu_opp_table>;
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <7>;
+			#cooling-cells = <2>;
 		};
 
 		CPU1: cpu@1 {
@@ -113,6 +120,13 @@
 			next-level-cache = <&L2_0>;
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SPC>;
+			clocks = <&apcs 0>;
+			cpu-supply = <&pm8916_spmi_s2>;
+			operating-points-v2 = <&cpu_opp_table>;
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <7>;
+			#cooling-cells = <2>;
 		};
 
 		CPU2: cpu@2 {
@@ -122,6 +136,13 @@
 			next-level-cache = <&L2_0>;
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SPC>;
+			clocks = <&apcs 0>;
+			cpu-supply = <&pm8916_spmi_s2>;
+			operating-points-v2 = <&cpu_opp_table>;
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <7>;
+			#cooling-cells = <2>;
 		};
 
 		CPU3: cpu@3 {
@@ -131,6 +152,13 @@
 			next-level-cache = <&L2_0>;
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SPC>;
+			clocks = <&apcs 0>;
+			cpu-supply = <&pm8916_spmi_s2>;
+			operating-points-v2 = <&cpu_opp_table>;
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <7>;
+			#cooling-cells = <2>;
 		};
 
 		L2_0: l2-cache {
@@ -153,6 +181,21 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
+	};
+
+	/*
+	 * The CPR driver reads the initial voltage settings in efuse
+	 * and populates OPPs.
+	 */
+	cpu_opp_table: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp00 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <1050000>;
+			clock-latency-ns = <200000>;
+		};
 	};
 
 	pmu {
@@ -179,6 +222,13 @@
 					type = "critical";
 				};
 			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device = <&CPU0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 
 		cpu-thermal1 {
@@ -197,6 +247,13 @@
 					temperature = <110000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert1>;
+					cooling-device = <&CPU0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -223,15 +280,6 @@
 			#clock-cells = <0>;
 			clock-frequency = <32768>;
 		};
-	};
-
-	smem {
-		compatible = "qcom,smem";
-
-		memory-region = <&smem_mem>;
-		qcom,rpm-msg-ram = <&rpm_msg_ram>;
-
-		hwlocks = <&tcsr_mutex 3>;
 	};
 
 	firmware {
@@ -304,9 +352,15 @@
 			status = "disabled";
 		};
 
+		a53pll: a53pll@0b016000 {
+			compatible = "qcom,a53-pll";
+			reg = <0x0b016000 0x40>;
+		};
+
 		apcs: syscon@b011000 {
-			compatible = "syscon";
+			compatible = "qcom,a53cc", "syscon";
 			reg = <0x0b011000 0x1000>;
+			#clock-cells = <1>;
 		};
 
 		blsp1_uart2: serial@78b0000 {
@@ -503,6 +557,15 @@
 			reg = <0x07708000 0x10000>;
 			reg-names = "lpass-lpaif";
 		};
+
+                lpass_codec: codec{
+			compatible = "qcom,msm8916-wcd-digital-codec";
+			reg = <0x0771c000 0x400>;
+			clocks = <&gcc GCC_ULTAUDIO_AHBFABRIC_IXFABRIC_CLK>,
+				 <&gcc GCC_CODEC_DIGCODEC_CLK>;
+			clock-names = "ahbix-clk", "mclk";
+			#sound-dai-cells = <1>;
+                };
 
 		sdhc_1: sdhci@07824000 {
 			compatible = "qcom,sdhci-msm-v4";
@@ -801,7 +864,86 @@
 				clock-names = "iface_clk";
 			};
 		};
+
+
+		hexagon@4080000 {
+			compatible = "qcom,q6v5-pil";
+			reg = <0x04080000 0x100>,
+			      <0x04020000 0x040>;
+
+			reg-names = "qdsp6", "rmb";
+
+			interrupts-extended = <&intc 0 24 1>,
+					      <&hexagon_smp2p_in 0 0>,
+					      <&hexagon_smp2p_in 1 0>,
+					      <&hexagon_smp2p_in 2 0>,
+					      <&hexagon_smp2p_in 3 0>;
+			interrupt-names = "wdog", "fatal", "ready",
+					  "handover", "stop-ack";
+
+			clocks = <&gcc GCC_MSS_CFG_AHB_CLK>,
+				 <&gcc GCC_MSS_Q6_BIMC_AXI_CLK>,
+				 <&gcc GCC_BOOT_ROM_AHB_CLK>;
+			clock-names = "iface", "bus", "mem";
+
+			qcom,smem-states = <&hexagon_smp2p_out 0>;
+			qcom,smem-state-names = "stop";
+
+			resets = <&scm 0>;
+			reset-names = "mss_restart";
+
+			mx-supply = <&pm8916_l3>;
+			pll-supply = <&pm8916_l7>;
+
+			qcom,halt-regs = <&tcsr 0x18000 0x19000 0x1a000>;
+
+			status = "disabled";
+
+			mba {
+				memory-region = <&mba_mem>;
+			};
+
+			mpss {
+				memory-region = <&mpss_mem>;
+			};
+		};
+
+		uqfprom: eeprom@58000 {
+			compatible = "qcom,qfprom-msm8916";
+			reg = <0x58000 0x7000>;
+		};
+
+		cpr@b018000 {
+			compatible = "qcom,cpr";
+			reg = <0xb018000 0x1000>;
+			interrupts = <0 15 1>, <0 16 1>, <0 17 1>;
+			vdd-mx-supply = <&pm8916_l3>;
+			acc-syscon = <&tcsr>;
+			eeprom = <&uqfprom>;
+
+			qcom,cpr-ref-clk = <19200>;
+			qcom,cpr-timer-delay-us = <5000>;
+			qcom,cpr-timer-cons-up = <0>;
+			qcom,cpr-timer-cons-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+			qcom,cpr-idle-clocks = <15>;
+			qcom,cpr-gcnt-us = <1>;
+			qcom,vdd-apc-step-up-limit = <1>;
+			qcom,vdd-apc-step-down-limit = <1>;
+			qcom,cpr-cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		};
 	};
+
+	smem {
+		compatible = "qcom,smem";
+
+		memory-region = <&smem_mem>;
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
 
 	smd {
 		compatible = "qcom,smd";
@@ -816,7 +958,8 @@
 				qcom,smd-channels = "rpm_requests";
 
 				rpmcc: qcom,rpmcc {
-					compatible = "qcom,rpmcc-msm8916", "qcom,rpmcc";
+					//compatible = "qcom,rpmcc-msm8916", "qcom,rpmcc";
+					compatible = "qcom,rpmcc-msm8916";
 					#clock-cells = <1>;
 				};
 
@@ -847,6 +990,14 @@
 					pm8916_l18: l18 {};
 				};
 			};
+		};
+
+		hexagon {
+			interrupts = <0 25 IRQ_TYPE_EDGE_RISING>;
+
+			qcom,smd-edge = <0>;
+			qcom,ipc = <&apcs 8 12>;
+			qcom,remote-pid = <1>;
 		};
 	};
 
@@ -932,5 +1083,5 @@
 		};
 	};
 };
-
 #include "msm8916-pins.dtsi"
+#include "msm8916-coresight.dtsi"
