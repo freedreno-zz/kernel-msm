@@ -32,7 +32,7 @@ struct a5xx_gpu {
 	uint64_t pfp_iova;
 
 	struct drm_gem_object *gpmu_bo;
-	uint32_t gpmu_iova;
+	uint64_t gpmu_iova;
 	uint32_t gpmu_dwords;
 
 	uint32_t lm_leakage;
