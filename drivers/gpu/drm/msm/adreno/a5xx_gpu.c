@@ -228,7 +228,7 @@ static int a5xx_me_init(struct msm_gpu *gpu)
 }
 
 static struct drm_gem_object *a5xx_ucode_load_bo(struct msm_gpu *gpu,
-		const struct firmware *fw, u32 *iova)
+		const struct firmware *fw, u64 *iova)
 {
 	struct drm_device *drm = gpu->dev;
 	struct drm_gem_object *bo;
@@ -493,6 +493,9 @@ static void a5xx_recover(struct msm_gpu *gpu)
 	if (hang_debug)
 		a5xx_dump(gpu);
 
+	gpu_write(gpu, REG_A5XX_RBBM_SW_RESET_CMD, 1);
+	gpu_read(gpu, REG_A5XX_RBBM_SW_RESET_CMD);
+	gpu_write(gpu, REG_A5XX_RBBM_SW_RESET_CMD, 0);
 	adreno_recover(gpu);
 }
 

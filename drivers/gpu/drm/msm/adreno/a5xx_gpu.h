@@ -26,10 +26,10 @@ struct a5xx_gpu {
 	struct platform_device *pdev;
 
 	struct drm_gem_object *pm4_bo;
-	uint32_t pm4_iova;
+	uint64_t pm4_iova;
 
 	struct drm_gem_object *pfp_bo;
-	uint32_t pfp_iova;
+	uint64_t pfp_iova;
 };
 
 #define to_a5xx_gpu(x) container_of(x, struct a5xx_gpu, base)
