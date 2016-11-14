@@ -29,6 +29,7 @@
 #include "virtgpu_drv.h"
 #include <drm/virtgpu_drm.h>
 #include "ttm/ttm_execbuf_util.h"
+#include <linux/sync_file.h>
 
 static void convert_to_hw_box(struct virtio_gpu_box *dst,
 			      const struct drm_virtgpu_3d_box *src)
@@ -102,7 +103,7 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 	struct virtio_gpu_device *vgdev = dev->dev_private;
 	struct virtio_gpu_fpriv *vfpriv = drm_file->driver_priv;
 	struct drm_gem_object *gobj;
-	struct virtio_gpu_fence *fence;
+	struct virtio_gpu_fence *out_fence;
 	struct virtio_gpu_object *qobj;
 	int ret;
 	uint32_t *bo_handles = NULL;
@@ -111,10 +112,28 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 	struct ttm_validate_buffer *buflist = NULL;
 	int i;
 	struct ww_acquire_ctx ticket;
+	struct dma_fence *in_fence = NULL;
+	struct sync_file *sync_file;
+	int32_t out_fence_fd = -1;
 	void *buf;
 
 	if (vgdev->has_virgl_3d == false)
 		return -ENOSYS;
+
+	if (exbuf->flags & VIRTGPU_EXECBUF_FENCE_FD_IN) {
+		in_fence = sync_file_get_fence(exbuf->fence_fd);
+		if (!in_fence)
+			return -EINVAL;
+	}
+
+	if (exbuf->flags & VIRTGPU_EXECBUF_FENCE_FD_OUT) {
+		out_fence_fd = get_unused_fd_flags(O_CLOEXEC);
+		if (out_fence_fd < 0) {
+			ret = out_fence_fd;
+			goto out_fd;
+		}
+	}
+	exbuf->fence_fd = out_fence_fd;
 
 	INIT_LIST_HEAD(&validate_list);
 	if (exbuf->num_bo_handles) {
@@ -164,15 +183,33 @@ static int virtio_gpu_execbuffer_ioctl(struct drm_device *dev, void *data,
 		ret = PTR_ERR(buf);
 		goto out_unresv;
 	}
-	virtio_gpu_cmd_submit(vgdev, buf, exbuf->size,
-			      vfpriv->ctx_id, &fence);
 
-	ttm_eu_fence_buffer_objects(&ticket, &validate_list, &fence->f);
+	if (in_fence) {
+		dma_fence_wait(in_fence, true);
+		dma_fence_put(in_fence);
+	}
+
+	virtio_gpu_cmd_submit(vgdev, buf, exbuf->size,
+			      vfpriv->ctx_id, &out_fence);
+
+	if (out_fence_fd != -1) {
+		sync_file = sync_file_create(dma_fence_get(&out_fence->f));
+		if (!sync_file) {
+			ret = -ENOMEM;
+			goto out_unresv;
+		}
+
+		fd_install(out_fence_fd, sync_file->file);
+		//XXX: check put_user() return
+		put_user(out_fence_fd, &exbuf->fence_fd);
+	}
+
+	ttm_eu_fence_buffer_objects(&ticket, &validate_list, &out_fence->f);
 
 	/* fence the command bo */
 	virtio_gpu_unref_list(&validate_list);
 	drm_free_large(buflist);
-	dma_fence_put(&fence->f);
+	dma_fence_put(&out_fence->f);
 	return 0;
 
 out_unresv:
@@ -180,6 +217,10 @@ out_unresv:
 out_free:
 	virtio_gpu_unref_list(&validate_list);
 	drm_free_large(buflist);
+out_fd:
+	if (exbuf->flags & VIRTGPU_EXECBUF_FENCE_FD_IN)
+		dma_fence_put(in_fence);
+
 	return ret;
 }
 

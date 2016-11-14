@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Intel Corporation
+ * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -8,9 +8,8 @@
  * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,27 +18,23 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- *
  */
+#include "priv.h"
+#include "gf100.h"
 
-#ifndef _I915_GEM_DMABUF_H_
-#define _I915_GEM_DMABUF_H_
+/* GM20B's FB is similar to GM200, but without the ability to allocate VRAM */
+static const struct nvkm_fb_func
+gm20b_fb = {
+	.dtor = gf100_fb_dtor,
+	.oneinit = gf100_fb_oneinit,
+	.init = gm200_fb_init,
+	.init_page = gm200_fb_init_page,
+	.intr = gf100_fb_intr,
+	.memtype_valid = gf100_fb_memtype_valid,
+};
 
-#include <linux/dma-buf.h>
-
-static inline struct reservation_object *
-i915_gem_object_get_dmabuf_resv(struct drm_i915_gem_object *obj)
+int
+gm20b_fb_new(struct nvkm_device *device, int index, struct nvkm_fb **pfb)
 {
-	struct dma_buf *dma_buf;
-
-	if (obj->base.dma_buf)
-		dma_buf = obj->base.dma_buf;
-	else if (obj->base.import_attach)
-		dma_buf = obj->base.import_attach->dmabuf;
-	else
-		return NULL;
-
-	return dma_buf->resv;
+	return gf100_fb_new_(&gm20b_fb, device, index, pfb);
 }
-
-#endif

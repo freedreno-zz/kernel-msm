@@ -165,6 +165,32 @@ static void drm_crtc_crc_fini(struct drm_crtc *crtc)
 #endif
 }
 
+static const char *drm_crtc_fence_get_driver_name(struct dma_fence *fence)
+{
+	struct drm_crtc *crtc = fence_to_crtc(fence);
+
+	return crtc->dev->driver->name;
+}
+
+static const char *drm_crtc_fence_get_timeline_name(struct dma_fence *fence)
+{
+	struct drm_crtc *crtc = fence_to_crtc(fence);
+
+	return crtc->timeline_name;
+}
+
+static bool drm_crtc_fence_enable_signaling(struct dma_fence *fence)
+{
+	return true;
+}
+
+const struct dma_fence_ops drm_crtc_fence_ops = {
+	.get_driver_name = drm_crtc_fence_get_driver_name,
+	.get_timeline_name = drm_crtc_fence_get_timeline_name,
+	.enable_signaling = drm_crtc_fence_enable_signaling,
+	.wait = dma_fence_default_wait,
+};
+
 /**
  * drm_crtc_init_with_planes - Initialise a new CRTC object with
  *    specified primary and cursor planes.
@@ -222,6 +248,11 @@ int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 		return -ENOMEM;
 	}
 
+	crtc->fence_context = dma_fence_context_alloc(1);
+	spin_lock_init(&crtc->fence_lock);
+	snprintf(crtc->timeline_name, sizeof(crtc->timeline_name),
+		 "CRTC:%d-%s", crtc->base.id, crtc->name);
+
 	crtc->base.properties = &crtc->properties;
 
 	list_add_tail(&crtc->head, &config->crtc_list);
@@ -243,6 +274,8 @@ int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 	if (drm_core_check_feature(dev, DRIVER_ATOMIC)) {
 		drm_object_attach_property(&crtc->base, config->prop_active, 0);
 		drm_object_attach_property(&crtc->base, config->prop_mode_id, 0);
+		drm_object_attach_property(&crtc->base,
+					   config->prop_out_fence_ptr, 0);
 	}
 
 	return 0;
@@ -396,6 +429,18 @@ static int drm_mode_create_standard_properties(struct drm_device *dev)
 	if (!prop)
 		return -ENOMEM;
 	dev->mode_config.prop_fb_id = prop;
+
+	prop = drm_property_create_signed_range(dev, DRM_MODE_PROP_ATOMIC,
+			"IN_FENCE_FD", -1, INT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.prop_in_fence_fd = prop;
+
+	prop = drm_property_create_range(dev, DRM_MODE_PROP_ATOMIC,
+			"OUT_FENCE_PTR", 0, U64_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.prop_out_fence_ptr = prop;
 
 	prop = drm_property_create_object(dev, DRM_MODE_PROP_ATOMIC,
 			"CRTC_ID", DRM_MODE_OBJECT_CRTC);
@@ -827,9 +872,10 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 			ret = drm_plane_check_pixel_format(crtc->primary,
 							   fb->pixel_format);
 			if (ret) {
-				char *format_name = drm_get_format_name(fb->pixel_format);
-				DRM_DEBUG_KMS("Invalid pixel format %s\n", format_name);
-				kfree(format_name);
+				struct drm_format_name_buf format_name;
+				DRM_DEBUG_KMS("Invalid pixel format %s\n",
+				              drm_get_format_name(fb->pixel_format,
+				                                  &format_name));
 				goto out;
 			}
 		}
