@@ -889,6 +889,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_master *master;
 	int is_secure;
+	int ret;
 
 	if (!dev)
 		return;
